@@ -114,12 +114,12 @@ namespace bb
       c.description = u8"기본 AI 수준 목표: 바이오닉 + 메카닉(상대에 따라 비중 조절), 기본 정찰, 집결 후 공격, 기본 집중 공격";
       c.buildOrder = { {BuildItem::Barracks, 11}, {BuildItem::Refinery, 12},
                        {BuildItem::Barracks, 16}, {BuildItem::Academy, 19},
-                       {BuildItem::Factory, 22}, {BuildItem::Barracks, 24} };
+                       {BuildItem::Factory, 22}, {BuildItem::Barracks, 24}, {BuildItem::EngineeringBay, 30} };
       c.workersPerMineralPatch = 2.0;
       c.maxWorkers = 26;
       c.maxBarracks = 3;
       c.extraBarracksMineralBank = 0;
-      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells };
+      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells, ResearchItem::InfantryWeapons1 };
       c.supplyLookaheadFrames = 700;
       c.supplyFixedMargin = 4;
       c.maxConcurrentDepots = 1;
@@ -168,7 +168,8 @@ namespace bb
       c.maxWorkers = 34;
       c.maxBarracks = 6;
       c.extraBarracksMineralBank = 400;
-      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells, ResearchItem::InfantryWeapons1 };
+      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells,
+                     ResearchItem::InfantryWeapons1, ResearchItem::InfantryArmor1 };
       c.supplyLookaheadFrames = 850;
       c.supplyFixedMargin = 4;
       c.maxConcurrentDepots = 2;

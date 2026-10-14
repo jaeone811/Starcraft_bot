@@ -19,6 +19,7 @@ namespace bb
     constexpr int kLocalRadius = 12 * kTile;     // fight evaluation radius around the wave
     constexpr int kTargetSearchRadius = 8 * kTile;
     constexpr int kReinforcementBatch = 4;
+    constexpr int kJoinNearHomeTiles = 25;            // small reinforcement groups join only while the wave is this close to the rally point
     constexpr int kProgressCheckFrames = 24 * 10;
     constexpr int kMaxNoProgressChecks = 3;
     constexpr int kRallyRadiusTiles = 5;              // smallest "at the rally point" radius
@@ -262,6 +263,7 @@ namespace bb
       else ++firebats;
     }
     waveStartSize_ = static_cast<int>(wave_.size());
+    waveCommitted_ = waveStartSize_;
     waveLost_ = waveValueLost_ = waveKilled_ = waveValueKilled_ = 0;
     target_ = target.position;
     targetReason_ = target.reason;
@@ -452,14 +454,21 @@ namespace bb
       else
         ctx_.commander->attackMove(r, rally);
     }
-    if (static_cast<int>(ready.size()) >= kReinforcementBatch)
+    // Small groups only join while the wave is still near home. Once it is out on the
+    // map, a few units walking after it get caught alone on the way, so they wait
+    // until they are a full wave themselves (or the wave comes back and merges).
+    const int ownWaveSize = static_cast<int>(ready.size());
+    const bool waveNearHome = groupCenter(waveUnits).getApproxDistance(rally) <= kJoinNearHomeTiles * kTile;
+    if (ownWaveSize >= kReinforcementBatch && (waveNearHome || ownWaveSize >= ctx_.strategy->attackSize()))
     {
       for (Unit r : ready)
       {
         wave_.insert(r->getID());
         waveUnits.push_back(r);
       }
-      ctx_.log.info("Combat", concat(ready.size(), " reinforcements join the wave"));
+      waveCommitted_ += ownWaveSize;
+      ctx_.log.info("Combat", concat(ownWaveSize, " reinforcements join the wave",
+                                     waveNearHome ? "" : " (as a group of their own)"));
     }
 
     const Position center = groupCenter(waveUnits);
@@ -471,10 +480,12 @@ namespace bb
     const double localOwn = strengthOf(localOwnUnits);
     const double localEnemy = enemyStrengthOf(localEnemies);
 
+    // Survivors are compared with every unit sent (start + reinforcements), so a wave
+    // that keeps being refilled still pulls back once it has lost most of them.
     if (shouldRetreat(localOwn, localEnemy, ctx_.config.retreatStrengthRatio, static_cast<int>(waveUnits.size()),
-                      waveStartSize_, ctx_.config.retreatArmyFraction))
+                      waveCommitted_, ctx_.config.retreatArmyFraction))
     {
-      ctx_.log.info("Combat", concat("retreating: wave ", waveUnits.size(), "/", waveStartSize_, " units, local strength ",
+      ctx_.log.info("Combat", concat("retreating: wave ", waveUnits.size(), "/", waveCommitted_, " units, local strength ",
                                      static_cast<int>(localOwn), " vs enemy ", static_cast<int>(localEnemy)));
       endWave("retreat", State::Retreat);
       return;

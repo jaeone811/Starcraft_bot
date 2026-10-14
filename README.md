@@ -91,7 +91,7 @@ map = maps/(2)Boxer.scm
 ```
 실행: BWAPI 설치 폴더의 `Chaoslauncher\Chaoslauncher.exe`를 **관리자 권한**으로 실행 → `BWAPI 4.4.0 Injector [RELEASE]` 체크 (창 모드는 `W-MODE`) → Start.
 `auto_menu = OFF`이면 Single Player → Expansion → Play Custom에서 Terran으로 직접 게임을 만든다.
-게임이 시작되면 화면 왼쪽 위에 `BeginnerBot 0.2.0 - difficulty 3 (Normal)` 문구가 나온다.
+게임이 시작되면 화면 왼쪽 위에 `BeginnerBot 0.3.0 - difficulty 3 (Normal)` 문구가 나온다.
 
 ## 6. 난이도 / 종족 / 맵 설정
 

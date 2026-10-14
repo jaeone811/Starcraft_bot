@@ -71,6 +71,7 @@ namespace bb
     BWAPI::Position target_;
     std::string targetReason_;
     int waveStartSize_ = 0;
+    int waveCommitted_ = 0;   // start size + every reinforcement group that joined
     int waveLost_ = 0;
     int waveValueLost_ = 0;
     int waveKilled_ = 0;
