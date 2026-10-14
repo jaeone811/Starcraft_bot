@@ -31,6 +31,8 @@ namespace bb
     bool useTechAt(BWAPI::Unit u, BWAPI::TechType tech, BWAPI::Position p, int cooldown = 72);
     bool setRally(BWAPI::Unit building, BWAPI::Position p, int cooldown = 240);
     bool stop(BWAPI::Unit u, int cooldown = 24);
+    bool siege(BWAPI::Unit tank, int cooldown = 48);
+    bool unsiege(BWAPI::Unit tank, int cooldown = 48);
 
     void forget(BWAPI::Unit u);
     // True if the last call was dropped as a duplicate (not sent, not a failure).

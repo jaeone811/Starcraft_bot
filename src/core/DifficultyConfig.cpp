@@ -37,6 +37,7 @@ namespace bb
       c.enemyInfoUsage = 0;
       c.medicRatio = 0.15;
       c.firebatRatioVsMelee = 0.0;
+      c.tankRatio = 0.0;
       c.attackArmySize = 20;
       c.earliestAttackFrame = minutes(9);
       c.attackStrengthRatio = 0.0;
@@ -63,11 +64,12 @@ namespace bb
       c.description = u8"안정적인 운영, 기본 정찰/공격, 최적화되지 않은 조합과 타이밍";
       c.buildOrder = { {BuildItem::Barracks, 11}, {BuildItem::Refinery, 14},
                        {BuildItem::Barracks, 18}, {BuildItem::Academy, 22},
-                       {BuildItem::Barracks, 30} };
+                       {BuildItem::Barracks, 30}, {BuildItem::Factory, 32} };
       c.workersPerMineralPatch = 1.75;
       c.maxWorkers = 22;
       c.maxBarracks = 3;
       c.extraBarracksMineralBank = 0;
+      c.research = { ResearchItem::SiegeMode };
       c.supplyLookaheadFrames = 0;
       c.supplyFixedMargin = 4;
       c.maxConcurrentDepots = 1;
@@ -81,6 +83,7 @@ namespace bb
       c.enemyInfoUsage = 1;
       c.medicRatio = 0.2;
       c.firebatRatioVsMelee = 0.1;
+      c.tankRatio = 0.1;
       c.attackArmySize = 16;
       c.earliestAttackFrame = minutes(8);
       c.attackStrengthRatio = 0.0;
@@ -104,15 +107,15 @@ namespace bb
       c.level = 3;
       c.name = "Normal";
       c.koreanName = u8"기본";
-      c.description = u8"기본 AI 수준 목표: 표준 빌드, 기본 정찰, 집결 후 공격, 기본 집중 공격";
+      c.description = u8"기본 AI 수준 목표: 바이오닉 + 시즈 탱크, 기본 정찰, 집결 후 공격, 기본 집중 공격";
       c.buildOrder = { {BuildItem::Barracks, 11}, {BuildItem::Refinery, 12},
                        {BuildItem::Barracks, 16}, {BuildItem::Academy, 19},
-                       {BuildItem::Barracks, 24} };
+                       {BuildItem::Factory, 22}, {BuildItem::Barracks, 24} };
       c.workersPerMineralPatch = 2.0;
       c.maxWorkers = 26;
       c.maxBarracks = 3;
       c.extraBarracksMineralBank = 0;
-      c.research = { ResearchItem::StimPacks };
+      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells };
       c.supplyLookaheadFrames = 700;
       c.supplyFixedMargin = 4;
       c.maxConcurrentDepots = 1;
@@ -126,6 +129,7 @@ namespace bb
       c.enemyInfoUsage = 1;
       c.medicRatio = 0.25;
       c.firebatRatioVsMelee = 0.25;
+      c.tankRatio = 0.15;
       c.attackArmySize = 12;
       c.earliestAttackFrame = minutes(6);
       c.attackStrengthRatio = 0.0;
@@ -152,13 +156,13 @@ namespace bb
       c.description = u8"높은 가동률, 보급 예측, 정찰 정보 기반 조합/공격 시점, 효율적인 집중 공격과 후퇴";
       c.buildOrder = { {BuildItem::Barracks, 11}, {BuildItem::Refinery, 12},
                        {BuildItem::Barracks, 15}, {BuildItem::Academy, 17},
-                       {BuildItem::Barracks, 20}, {BuildItem::EngineeringBay, 26},
+                       {BuildItem::Factory, 19}, {BuildItem::Barracks, 20}, {BuildItem::EngineeringBay, 26},
                        {BuildItem::Barracks, 30} };
       c.workersPerMineralPatch = 2.2;
       c.maxWorkers = 34;
       c.maxBarracks = 6;
       c.extraBarracksMineralBank = 400;
-      c.research = { ResearchItem::StimPacks, ResearchItem::U238Shells, ResearchItem::InfantryWeapons1 };
+      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells, ResearchItem::InfantryWeapons1 };
       c.supplyLookaheadFrames = 850;
       c.supplyFixedMargin = 4;
       c.maxConcurrentDepots = 2;
@@ -172,6 +176,7 @@ namespace bb
       c.enemyInfoUsage = 2;
       c.medicRatio = 0.25;
       c.firebatRatioVsMelee = 0.35;
+      c.tankRatio = 0.2;
       c.attackArmySize = 12;
       c.earliestAttackFrame = minutes(5);
       c.attackStrengthRatio = 1.3;
@@ -198,7 +203,7 @@ namespace bb
       c.description = u8"구현된 전략 내 최대 효율: 앞마당 확장, 업그레이드, 위협 우선순위 집중 공격, 손실 기반 재판단";
       c.buildOrder = { {BuildItem::Barracks, 11}, {BuildItem::Refinery, 12},
                        {BuildItem::Barracks, 15}, {BuildItem::Academy, 16},
-                       {BuildItem::Barracks, 19}, {BuildItem::EngineeringBay, 24},
+                       {BuildItem::Factory, 18}, {BuildItem::Barracks, 19}, {BuildItem::EngineeringBay, 24},
                        {BuildItem::Barracks, 28} };
       c.workersPerMineralPatch = 2.5;
       c.maxWorkers = 50;
@@ -206,7 +211,7 @@ namespace bb
       c.extraBarracksMineralBank = 350;
       c.expand = true;
       c.expandAtWorkers = 20;
-      c.research = { ResearchItem::StimPacks, ResearchItem::U238Shells,
+      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells,
                      ResearchItem::InfantryWeapons1, ResearchItem::InfantryArmor1 };
       c.supplyLookaheadFrames = 950;
       c.supplyFixedMargin = 4;
@@ -221,6 +226,7 @@ namespace bb
       c.enemyInfoUsage = 2;
       c.medicRatio = 0.3;
       c.firebatRatioVsMelee = 0.4;
+      c.tankRatio = 0.25;
       c.attackArmySize = 10;
       c.earliestAttackFrame = minutes(4) + seconds(30);
       c.attackStrengthRatio = 1.2;
@@ -249,6 +255,7 @@ namespace bb
     case BuildItem::Academy: return "Academy";
     case BuildItem::EngineeringBay: return "EngineeringBay";
     case BuildItem::CommandCenter: return "CommandCenter";
+    case BuildItem::Factory: return "Factory";
     }
     return "?";
   }
@@ -261,6 +268,7 @@ namespace bb
     case ResearchItem::U238Shells: return "U238Shells";
     case ResearchItem::InfantryWeapons1: return "InfantryWeapons1";
     case ResearchItem::InfantryArmor1: return "InfantryArmor1";
+    case ResearchItem::SiegeMode: return "SiegeMode";
     }
     return "?";
   }
@@ -296,7 +304,7 @@ namespace bb
     ss << "\n  scouting: atSupply=" << c.scoutAtSupply << " atFrame=" << c.scoutAtFrame
        << " inferByElimination=" << c.inferEnemyStartByElimination << " observeFrames=" << c.scoutObserveFrames
        << " rescout=" << c.rescoutAfterDeath << " infoUsage=" << c.enemyInfoUsage;
-    ss << "\n  composition: medicRatio=" << c.medicRatio << " firebatVsMelee=" << c.firebatRatioVsMelee;
+    ss << "\n  composition: medicRatio=" << c.medicRatio << " firebatVsMelee=" << c.firebatRatioVsMelee << " tankRatio=" << c.tankRatio;
     ss << "\n  attack: size=" << c.attackArmySize << " earliestFrame=" << c.earliestAttackFrame
        << " strengthRatio=" << c.attackStrengthRatio << " regroupRadius=" << c.regroupRadiusTiles
        << " recallToDefend=" << c.recallArmyToDefend;

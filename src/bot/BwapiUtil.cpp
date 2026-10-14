@@ -16,18 +16,24 @@ namespace bb
     case BuildItem::Academy: return UnitTypes::Terran_Academy;
     case BuildItem::EngineeringBay: return UnitTypes::Terran_Engineering_Bay;
     case BuildItem::CommandCenter: return UnitTypes::Terran_Command_Center;
+    case BuildItem::Factory: return UnitTypes::Terran_Factory;
     }
     return UnitTypes::None;
   }
 
   bool isResearchItemTech(ResearchItem item)
   {
-    return item == ResearchItem::StimPacks;
+    return item == ResearchItem::StimPacks || item == ResearchItem::SiegeMode;
   }
 
   TechType toTechType(ResearchItem item)
   {
-    return item == ResearchItem::StimPacks ? TechTypes::Stim_Packs : TechTypes::None;
+    switch (item)
+    {
+    case ResearchItem::StimPacks: return TechTypes::Stim_Packs;
+    case ResearchItem::SiegeMode: return TechTypes::Tank_Siege_Mode;
+    default: return TechTypes::None;
+    }
   }
 
   UpgradeType toUpgradeType(ResearchItem item)
@@ -71,7 +77,13 @@ namespace bb
 
   bool isOurArmyType(UnitType type)
   {
-    return type == UnitTypes::Terran_Marine || type == UnitTypes::Terran_Firebat || type == UnitTypes::Terran_Medic;
+    return type == UnitTypes::Terran_Marine || type == UnitTypes::Terran_Firebat || type == UnitTypes::Terran_Medic ||
+           isSiegeTank(type);
+  }
+
+  bool isSiegeTank(UnitType type)
+  {
+    return type == UnitTypes::Terran_Siege_Tank_Tank_Mode || type == UnitTypes::Terran_Siege_Tank_Siege_Mode;
   }
 
   bool isMeleeType(UnitType type)

@@ -75,6 +75,10 @@ namespace bb
 
   Infantry chooseInfantry(int marines, int medics, int firebats, double medicRatio, double firebatShare, bool academyReady);
 
+  // True when the Factory should add a Siege Tank: tanks stay at `tankRatio` per
+  // infantry unit, and the first tank comes once a few infantry units exist.
+  bool wantTank(int tanks, int infantry, double tankRatio);
+
   // ---------------------------------------------------------------- attack / retreat
   struct AttackInputs
   {

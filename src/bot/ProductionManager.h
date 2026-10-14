@@ -45,5 +45,7 @@ namespace bb
     bool loggedFirstArmy_ = false;
     int comsatRetryFrame_ = 0;
     bool loggedNoExpansion_ = false;
+    bool loggedFirstTank_ = false;
+    int machineShopRetryFrame_ = 0;
   };
 }

@@ -21,6 +21,7 @@ TEST_CASE("build items map to the expected Terran buildings")
   CHECK(toUnitType(BuildItem::Academy) == UnitTypes::Terran_Academy);
   CHECK(toUnitType(BuildItem::EngineeringBay) == UnitTypes::Terran_Engineering_Bay);
   CHECK(toUnitType(BuildItem::CommandCenter) == UnitTypes::Terran_Command_Center);
+  CHECK(toUnitType(BuildItem::Factory) == UnitTypes::Terran_Factory);
   CHECK(toUnitType(BuildItem::Refinery).isRefinery());
   CHECK(toUnitType(BuildItem::CommandCenter).isResourceDepot());
 }
@@ -60,6 +61,22 @@ TEST_CASE("tech tree assumptions")
   CHECK(researchBuilding(ResearchItem::InfantryArmor1) == UnitTypes::Terran_Engineering_Bay);
   CHECK(toTechType(ResearchItem::StimPacks) == TechTypes::Stim_Packs);
   CHECK(toUpgradeType(ResearchItem::U238Shells) == UpgradeTypes::U_238_Shells);
+  // Tanks: Factory (needs Barracks) + Machine Shop; Siege Mode is researched at the Machine Shop.
+  CHECK(UnitTypes::Terran_Factory.requiredUnits().count(UnitTypes::Terran_Barracks) == 1);
+  CHECK(UnitTypes::Terran_Machine_Shop.isAddon());
+  CHECK(UnitTypes::Terran_Machine_Shop.whatBuilds().first == UnitTypes::Terran_Factory);
+  CHECK(UnitTypes::Terran_Siege_Tank_Tank_Mode.whatBuilds().first == UnitTypes::Terran_Factory);
+  CHECK(UnitTypes::Terran_Siege_Tank_Tank_Mode.requiredUnits().count(UnitTypes::Terran_Machine_Shop) == 1);
+  CHECK(researchBuilding(ResearchItem::SiegeMode) == UnitTypes::Terran_Machine_Shop);
+  CHECK(toTechType(ResearchItem::SiegeMode) == TechTypes::Tank_Siege_Mode);
+  // CombatManager uses a 12-tile siege range and keeps tanks off air targets.
+  CHECK_EQ(UnitTypes::Terran_Siege_Tank_Siege_Mode.groundWeapon().maxRange(), 12 * 32);
+  CHECK(UnitTypes::Terran_Siege_Tank_Tank_Mode.airWeapon() == WeaponTypes::None);
+  CHECK(UnitTypes::Terran_Firebat.airWeapon() == WeaponTypes::None);
+  CHECK(UnitTypes::Terran_Marine.airWeapon() != WeaponTypes::None);
+  CHECK(isOurArmyType(UnitTypes::Terran_Siege_Tank_Siege_Mode));
+  CHECK(canAttackGround(UnitTypes::Terran_Siege_Tank_Tank_Mode));
+  CHECK_EQ(UnitTypes::Terran_Siege_Tank_Tank_Mode.gasPrice(), 100);
   // Scanner Sweep needs no research (BWAPI reports whatResearches() == None); it only costs energy.
   CHECK(TechTypes::Scanner_Sweep.whatResearches() == UnitTypes::None);
   CHECK_EQ(TechTypes::Scanner_Sweep.energyCost(), 50);

@@ -328,6 +328,55 @@ namespace bb
     int firebats = self->allUnitCount(UnitTypes::Terran_Firebat);
     const double firebatShare = ctx_.strategy->firebatShare();
 
+    // Factories: a Machine Shop first, then Siege Tanks at the difficulty's ratio.
+    int tanks = self->allUnitCount(UnitTypes::Terran_Siege_Tank_Tank_Mode) +
+                self->allUnitCount(UnitTypes::Terran_Siege_Tank_Siege_Mode);
+    for (Unit factory : self->getUnits())
+    {
+      if (factory->getType() != UnitTypes::Terran_Factory || !factory->isCompleted())
+        continue;
+      ctx_.commander->setRally(factory, ctx_.map->rallyPoint(), 24 * 60);
+      if (!idleProducer(factory) || ctx_.config.tankRatio <= 0.0)
+        continue;
+      if (!factory->getAddon())
+      {
+        const UnitType shop = UnitTypes::Terran_Machine_Shop;
+        if (ctx_.frame < machineShopRetryFrame_ || !budget.tryReserve({ shop.mineralPrice(), shop.gasPrice(), 0 }))
+          continue;
+        if (ctx_.commander->buildAddon(factory, shop))
+        {
+          ctx_.log.info("Production", "building Machine Shop");
+          lastPlan_ += "machine-shop ";
+        }
+        else if (!ctx_.commander->lastWasSuppressed())
+        {
+          machineShopRetryFrame_ = ctx_.frame + 24 * 120;
+          ctx_.log.warn("Production", concat("Machine Shop could not be started (", Broodwar->getLastError().c_str(),
+                                             "); retrying in 2 minutes"));
+        }
+        continue;
+      }
+      if (!factory->getAddon()->isCompleted() || !wantTank(tanks, marines + firebats + medics, ctx_.config.tankRatio))
+        continue;
+      const UnitType tank = UnitTypes::Terran_Siege_Tank_Tank_Mode;
+      if (!budget.tryReserve(costOf(tank)))
+      {
+        lastPlan_ += "(saving:tank) ";
+        continue;
+      }
+      if (ctx_.commander->train(factory, tank))
+      {
+        ++tanks;
+        ++ctx_.metrics.armyTrained;
+        lastPlan_ += "tank ";
+        if (!loggedFirstTank_)
+        {
+          loggedFirstTank_ = true;
+          ctx_.log.info("Production", "first Siege Tank started");
+        }
+      }
+    }
+
     for (Unit rax : self->getUnits())
     {
       if (rax->getType() != UnitTypes::Terran_Barracks || !rax->isCompleted())

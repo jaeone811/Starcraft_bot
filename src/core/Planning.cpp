@@ -84,6 +84,14 @@ namespace bb
     return Infantry::Marine;
   }
 
+  bool wantTank(int tanks, int infantry, double tankRatio)
+  {
+    if (tankRatio <= 0.0 || infantry < 4)
+      return false;
+    const int wanted = std::max(1, static_cast<int>(infantry * tankRatio));
+    return tanks < wanted;
+  }
+
   // ---------------------------------------------------------------- attack / retreat
   bool shouldAttack(const AttackInputs& in, const AttackParams& p)
   {

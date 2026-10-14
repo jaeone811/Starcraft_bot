@@ -24,6 +24,7 @@ namespace bb
     constexpr int kRallyRadiusTiles = 5;              // smallest "at the rally point" radius
     constexpr int kMaxRegroupFrames = 24 * 8;         // a regroup that takes longer is given up
     constexpr int kRegroupCooldownFrames = 24 * 6;    // advance at least this long before regrouping again
+    constexpr int kSiegeRange = 12 * kTile;           // Siege Mode range (checked in bwapi_tests)
 
     bool isMedic(Unit u) { return u->getType() == UnitTypes::Terran_Medic; }
 
@@ -34,6 +35,15 @@ namespace bb
     {
       const int d = u->getDistance(rally);
       return d <= radius || (d <= radius + 4 * kTile && !u->isMoving());
+    }
+
+    // A sieged tank has to unsiege before it can move; true while that is the case.
+    bool packUp(Commander& commander, Unit u)
+    {
+      if (u->getType() != UnitTypes::Terran_Siege_Tank_Siege_Mode)
+        return false;
+      commander.unsiege(u);
+      return true;
     }
 
     int valueOf(UnitType t) { return t.mineralPrice() + t.gasPrice(); }
@@ -188,6 +198,8 @@ namespace bb
         ++nearRally;
         continue;
       }
+      if (packUp(*ctx_.commander, u))
+        continue;
       if (isMedic(u))
         ctx_.commander->move(u, rally);
       else
@@ -236,12 +248,13 @@ namespace bb
   void CombatManager::startWave(const AttackTarget& target)
   {
     wave_.clear();
-    int marines = 0, medics = 0, firebats = 0;
+    int marines = 0, medics = 0, firebats = 0, tanks = 0;
     for (Unit u : army_)
     {
       wave_.insert(u->getID());
       if (u->getType() == UnitTypes::Terran_Marine) ++marines;
       else if (u->getType() == UnitTypes::Terran_Medic) ++medics;
+      else if (isSiegeTank(u->getType())) ++tanks;
       else ++firebats;
     }
     waveStartSize_ = static_cast<int>(wave_.size());
@@ -260,7 +273,7 @@ namespace bb
     if (ctx_.metrics.firstAttackFrame < 0)
       ctx_.metrics.firstAttackFrame = ctx_.frame;
     ctx_.log.info("Combat", concat("attack wave ", ctx_.metrics.attackWaves, ": ", waveStartSize_, " units (", marines, " marines, ",
-                                   medics, " medics, ", firebats, " firebats) -> ", target_.x, ",", target_.y, " [", targetReason_,
+                                   medics, " medics, ", firebats, " firebats, ", tanks, " tanks) -> ", target_.x, ",", target_.y, " [", targetReason_,
                                    "] ownStrength=", static_cast<int>(strengthOf(army_)),
                                    " knownEnemyStrength=", static_cast<int>(ctx_.info->knownEnemyArmyStrength()),
                                    " requiredSize=", ctx_.strategy->attackSize()));
@@ -305,16 +318,38 @@ namespace bb
   void CombatManager::fight(Unit u, Position advanceTo, double localOwn, double localEnemy)
   {
     const UnitType type = u->getType();
-    const bool isFirebat = type == UnitTypes::Terran_Firebat;
+    const bool hitsAir = type.airWeapon() != WeaponTypes::None;
+    const bool sieged = type == UnitTypes::Terran_Siege_Tank_Siege_Mode;
 
-    // Visible, targetable enemies around this unit.
-    std::vector<Unit> enemies = ctx_.info->visibleEnemiesNear(u->getPosition(), kTargetSearchRadius);
+    // Siege Tanks siege up when something that shoots back (or a cannon) comes within
+    // range, and pack up again once nothing is left nearby so the wave can move on.
+    if (isSiegeTank(type) && Broodwar->self()->hasResearched(TechTypes::Tank_Siege_Mode))
+    {
+      int nearestThreat = std::numeric_limits<int>::max();
+      for (Unit e : ctx_.info->visibleEnemiesNear(u->getPosition(), kSiegeRange + 2 * kTile))
+        if (e->isDetected() && !e->isFlying() && canAttackGround(e->getType()))
+          nearestThreat = std::min(nearestThreat, u->getDistance(e));
+      if (!sieged && nearestThreat <= kSiegeRange - kTile)
+      {
+        ctx_.commander->siege(u);
+        return;
+      }
+      if (sieged && nearestThreat > kSiegeRange + kTile)
+      {
+        ctx_.commander->unsiege(u);
+        return;
+      }
+    }
+
+    // Visible, targetable enemies around this unit (a sieged tank: only what it can hit).
+    std::vector<Unit> enemies = ctx_.info->visibleEnemiesNear(u->getPosition(), sieged ? kSiegeRange : kTargetSearchRadius);
     enemies.erase(std::remove_if(enemies.begin(), enemies.end(), [&](Unit e) {
-                    return !e->isDetected() || (isFirebat && e->isFlying());
+                    return !e->isDetected() || (e->isFlying() && !hitsAir) || (sieged && !u->isInWeaponRange(e));
                   }), enemies.end());
 
     // Stim before a fight we intend to take.
-    if (ctx_.config.useStim && Broodwar->self()->hasResearched(TechTypes::Stim_Packs) && u->getStimTimer() == 0 &&
+    const bool canStim = type == UnitTypes::Terran_Marine || type == UnitTypes::Terran_Firebat;
+    if (canStim && ctx_.config.useStim && Broodwar->self()->hasResearched(TechTypes::Stim_Packs) && u->getStimTimer() == 0 &&
         u->getHitPoints() >= 25 && localEnemy > 0.0 && localOwn >= localEnemy * 0.7)
     {
       for (Unit e : enemies)
@@ -354,7 +389,7 @@ namespace bb
     }
 
     // Default: attack-move. Do not interrupt an ongoing attack or repeat the same order.
-    if (u->isAttackFrame() || u->getOrder() == Orders::AttackUnit)
+    if (sieged || u->isAttackFrame() || u->getOrder() == Orders::AttackUnit)
       return;
     if (u->getDistance(advanceTo) < 2 * kTile)
       return;
@@ -388,6 +423,8 @@ namespace bb
       }
       if (settledNear(r, rally, rallyRadius))
         ready.push_back(r);
+      else if (packUp(*ctx_.commander, r))
+        continue;
       else if (isMedic(r))
         ctx_.commander->move(r, rally);
       else
@@ -512,7 +549,7 @@ namespace bb
     const Position rally = ctx_.map->rallyPoint();
     const int rallyRadius = groupRadiusTiles(kRallyRadiusTiles, static_cast<int>(army_.size())) * kTile;
     for (Unit u : army_)
-      if (!settledNear(u, rally, rallyRadius))
+      if (!settledNear(u, rally, rallyRadius) && !packUp(*ctx_.commander, u))
         ctx_.commander->move(u, rally);
     const Position center = groupCenter(army_);
     if (army_.empty() || center.getApproxDistance(rally) < 6 * kTile || ctx_.frame - stateFrame_ > 24 * 25)

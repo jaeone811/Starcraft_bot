@@ -22,7 +22,8 @@ namespace bb
   // Center of a building of `type` placed with its top-left at `t`.
   BWAPI::Position buildingCenter(BWAPI::TilePosition t, BWAPI::UnitType type);
 
-  bool isOurArmyType(BWAPI::UnitType type);  // Marine / Firebat / Medic
+  bool isOurArmyType(BWAPI::UnitType type);  // Marine / Firebat / Medic / Siege Tank
+  bool isSiegeTank(BWAPI::UnitType type);    // either mode
   bool isMeleeType(BWAPI::UnitType type);    // enemy units firebats are good against
 
   // Damage per frame against ground units (special cases for Bunker, Carrier, Reaver).

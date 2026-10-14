@@ -50,6 +50,7 @@ TEST_CASE("higher difficulty never plays worse on the tuned axes")
     CHECK(hi.supplyMarginIncreaseOnBlock >= lo.supplyMarginIncreaseOnBlock);
     CHECK(hi.maxConcurrentDepots >= lo.maxConcurrentDepots);
     CHECK(hi.research.size() >= lo.research.size());
+    CHECK(hi.tankRatio >= lo.tankRatio);
   }
 }
 
@@ -76,6 +77,11 @@ TEST_CASE("build orders are sorted by supply and every level keeps fallbacks")
     // Medics need an Academy, which needs a Refinery for its gas units.
     if (c.medicRatio > 0.0)
       CHECK(std::any_of(c.buildOrder.begin(), c.buildOrder.end(), [](const BuildStep& s) { return s.item == BuildItem::Academy; }));
+    // Tanks and Siege Mode need a Factory; a Factory without tanks would be wasted.
+    const bool hasFactory = std::any_of(c.buildOrder.begin(), c.buildOrder.end(), [](const BuildStep& s) { return s.item == BuildItem::Factory; });
+    const bool siege = std::find(c.research.begin(), c.research.end(), ResearchItem::SiegeMode) != c.research.end();
+    CHECK_EQ(hasFactory, c.tankRatio > 0.0);
+    CHECK_EQ(siege, c.tankRatio > 0.0);
   }
 }
 
@@ -222,6 +228,16 @@ TEST_CASE("supply: forecast grows with production capacity")
   CHECK(big > small);
   CHECK(small >= 4);                                 // never below the fixed margin
   CHECK_EQ(desiredSupplyMargin(one, 0, 3, 0), 6);
+}
+
+TEST_CASE("siege tanks follow the tank ratio")
+{
+  CHECK(!wantTank(0, 20, 0.0));   // level without tanks
+  CHECK(!wantTank(0, 3, 0.15));   // too early: no infantry yet
+  CHECK(wantTank(0, 4, 0.15));    // first tank
+  CHECK(!wantTank(1, 6, 0.15));
+  CHECK(wantTank(2, 20, 0.15));   // 20 * 0.15 = 3
+  CHECK(!wantTank(3, 20, 0.15));
 }
 
 TEST_CASE("group radius grows with the army but never below the minimum")

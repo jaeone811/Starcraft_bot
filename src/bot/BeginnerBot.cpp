@@ -232,6 +232,9 @@ namespace bb
       " gas=", workers_->countRole(WorkerRole::Gas), " build=", workers_->countRole(WorkerRole::Build),
       " scout=", workers_->countRole(WorkerRole::Scout), ")",
       " barracks=", self->completedUnitCount(UnitTypes::Terran_Barracks),
+      " factories=", self->completedUnitCount(UnitTypes::Terran_Factory),
+      " tanks=", self->completedUnitCount(UnitTypes::Terran_Siege_Tank_Tank_Mode) +
+                   self->completedUnitCount(UnitTypes::Terran_Siege_Tank_Siege_Mode),
       " army=", combat_->armySize(), " combat=", combat_->stateName(), " wave=", combat_->waveSize(),
       " attackSize=", strategy_->attackSize(), " buildTasks=", buildings_->taskCount(),
       " knownEnemyBuildings=", info_->enemyBuildings().size(), " knownEnemyUnits=", info_->enemyUnits().size(),

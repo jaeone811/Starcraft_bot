@@ -149,6 +149,16 @@ namespace bb
     return issue(u, { CommandKind::Stop, -1, 0, 0, 0 }, cooldown, "stop", [&] { return u->stop(); });
   }
 
+  bool Commander::siege(Unit tank, int cooldown)
+  {
+    return issue(tank, { CommandKind::Siege, -1, 0, 0, 0 }, cooldown, "siege", [&] { return tank->siege(); });
+  }
+
+  bool Commander::unsiege(Unit tank, int cooldown)
+  {
+    return issue(tank, { CommandKind::Unsiege, -1, 0, 0, 0 }, cooldown, "unsiege", [&] { return tank->unsiege(); });
+  }
+
   void Commander::forget(Unit u)
   {
     if (u)

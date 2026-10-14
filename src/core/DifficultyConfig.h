@@ -18,7 +18,8 @@ namespace bb
     Refinery,
     Academy,
     EngineeringBay,
-    CommandCenter
+    CommandCenter,
+    Factory
   };
 
   // Research/upgrades the planner can ask for.
@@ -27,7 +28,8 @@ namespace bb
     StimPacks,
     U238Shells,
     InfantryWeapons1,
-    InfantryArmor1
+    InfantryArmor1,
+    SiegeMode
   };
 
   const char* toString(BuildItem item);
@@ -79,6 +81,7 @@ namespace bb
     // ---- Composition --------------------------------------------------------
     double medicRatio = 0.0;             // medics per marine
     double firebatRatioVsMelee = 0.0;    // share of firebats when enemy melee units were seen (needs enemyInfoUsage >= 1)
+    double tankRatio = 0.0;              // siege tanks per infantry unit (needs a Factory in the build order)
 
     // ---- Attack ---------------------------------------------------------------
     int attackArmySize = 12;
