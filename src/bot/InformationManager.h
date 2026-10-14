@@ -51,6 +51,9 @@ namespace bb
     double knownEnemyArmyStrength() const; // remembered non-worker combat units + static defense
     int knownEnemyCombatUnits() const;
     EnemyMix enemyMix() const;             // remembered enemy army by counter group
+    // An enemy that attacks while hidden (Dark Templar, Lurker, cloaked Ghost/Wraith)
+    // has been seen this game: we need detection.
+    bool hiddenAttackerSeen() const { return hiddenAttackerFrame_ >= 0; }
 
     // Visible enemy units within `radius` pixels of `p` (only units we can currently see).
     std::vector<BWAPI::Unit> visibleEnemiesNear(BWAPI::Position p, int radius) const;
@@ -64,5 +67,6 @@ namespace bb
     std::map<std::pair<int, int>, StartStatus> starts_;
     BWAPI::Race enemyRace_ = BWAPI::Races::Unknown;
     bool loggedInference_ = false;
+    int hiddenAttackerFrame_ = -1;
   };
 }

@@ -83,7 +83,19 @@ namespace bb
   {
     for (Player enemy : Broodwar->enemies())
       for (Unit u : enemy->getUnits())
+      {
         onUnitSeen(u);
+        // BWAPI reports hidden enemy units next to ours with isDetected() == false
+        // (the level 3 games scanned Lurkers this way).
+        const UnitType type = u->getType();
+        const bool hidden = type.hasPermanentCloak() || type == UnitTypes::Zerg_Lurker || u->isCloaked() || u->isBurrowed();
+        if (hiddenAttackerFrame_ < 0 && u->exists() && hidden && !type.isWorker() && canAttackGround(type))
+        {
+          hiddenAttackerFrame_ = ctx_.frame;
+          ctx_.log.info("Info", concat("hidden attacker seen: ", type.c_str(), " at ", u->getTilePosition().x, ",",
+                                       u->getTilePosition().y, (u->isDetected() ? "" : " (not detected)")));
+        }
+      }
 
     // Buildings: if we can see the spot and the building is not there, it is gone.
     for (auto it = buildings_.begin(); it != buildings_.end();)

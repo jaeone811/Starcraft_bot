@@ -86,6 +86,13 @@ TEST_CASE("tech tree assumptions")
   CHECK(!UnitTypes::Terran_Barracks.canBuildAddon());
   CHECK_EQ(UnitTypes::Terran_Machine_Shop.tileWidth(), 2);
   CHECK_EQ(UnitTypes::Terran_Factory.tileWidth(), 4);
+  // Detection: Dark Templar are always cloaked; turrets need an Engineering Bay and see 11 tiles.
+  CHECK(UnitTypes::Protoss_Dark_Templar.hasPermanentCloak());
+  CHECK(canAttackGround(UnitTypes::Protoss_Dark_Templar));
+  CHECK(canAttackGround(UnitTypes::Zerg_Lurker));
+  CHECK(UnitTypes::Terran_Missile_Turret.isDetector());
+  CHECK(UnitTypes::Terran_Missile_Turret.requiredUnits().count(UnitTypes::Terran_Engineering_Bay) == 1);
+  CHECK_EQ(UnitTypes::Terran_Missile_Turret.sightRange(), 11 * 32);
   // Other mech: Vultures need only a Factory (and no gas), Goliaths an Armory and hit air.
   CHECK(UnitTypes::Terran_Vulture.whatBuilds().first == UnitTypes::Terran_Factory);
   CHECK(UnitTypes::Terran_Vulture.requiredUnits().count(UnitTypes::Terran_Machine_Shop) == 0);

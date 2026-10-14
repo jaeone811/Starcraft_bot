@@ -26,6 +26,7 @@ namespace bb
   private:
     void planSupply(Budget& budget);
     void ensureCommandCenter(Budget& budget);
+    void buildDetection(Budget& budget);
     void trainWorkers(Budget& budget);
     void followBuildOrder(Budget& budget);
     void macroBuildings(Budget& budget);

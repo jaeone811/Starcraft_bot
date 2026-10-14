@@ -224,6 +224,16 @@ namespace bb
     TilePosition anchor = ctx_.map->mainTile();
     if (!ctx_.workers->depots().empty())
       anchor = ctx_.workers->depots().front()->getTilePosition();
+    // A requested spot (e.g. a Missile Turret by a Command Center) is tried first,
+    // only close to it; otherwise the usual search around the main.
+    if (task.desired.isValid() && task.desired != TilePositions::None && task.placementAttempts == 0)
+      for (bool spaced : { true, false })
+      {
+        TilePosition tile = Broodwar->getBuildLocation(type, task.desired, 8);
+        if (tile.isValid() && tile != TilePositions::None && !overlapsOtherTask(task, tile) && !recentlyBlocked(tile) &&
+            (!spaced || keepsExitsOpen(task, tile)))
+          return tile;
+      }
     for (bool spaced : { true, false })
       for (int i = 0; i < (spaced ? n : 9); ++i)
       {

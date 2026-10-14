@@ -96,6 +96,7 @@ namespace bb
     const bool armyFirst = ctx_.strategy->baseUnderThreat() && ctx_.config.armyFirstWhenThreatened;
     planSupply(budget);
     ensureCommandCenter(budget);
+    buildDetection(budget);
     if (armyFirst)
       trainArmy(budget);
     trainWorkers(budget);
@@ -178,6 +179,59 @@ namespace bb
     if (stalledSinceFrame_ < 0)
       stalledSinceFrame_ = ctx_.frame;
     return ctx_.frame - stalledSinceFrame_ >= kSupplyStallFrames;
+  }
+
+  void ProductionManager::buildDetection(Budget& budget)
+  {
+    // Every level: hidden attackers can only be fought with detection, and without it
+    // the whole army dies for nothing (difficulty 2 lost 19 units to Dark Templar and
+    // killed none). Comsat scans stay a difficulty choice; Missile Turrets are the
+    // answer that does not depend on it, so every level builds them once needed.
+    if (!ctx_.info->hiddenAttackerSeen())
+      return;
+    Player self = Broodwar->self();
+    const UnitType ebay = UnitTypes::Terran_Engineering_Bay;
+    const UnitType turret = UnitTypes::Terran_Missile_Turret;
+    if (planned(ebay) == 0)
+    {
+      if (ctx_.buildings->onCooldown(ebay))
+        return;
+      if (budget.tryReserve(costOf(ebay)))
+      {
+        ctx_.log.info("Production", "hidden attackers: Engineering Bay for Missile Turrets");
+        ctx_.buildings->request(ebay);
+        lastPlan_ += "ebay(detection) ";
+      }
+      else
+        lastPlan_ += "(saving:ebay) ";
+      return;
+    }
+    if (self->completedUnitCount(ebay) == 0 || ctx_.buildings->notStarted(turret) > 0 || ctx_.buildings->onCooldown(turret))
+      return;
+
+    // One turret by every Command Center (workers and production) and one at the
+    // rally point (the army). A turret detects 11 tiles around it.
+    std::vector<TilePosition> spots;
+    for (Unit depot : ctx_.workers->depots())
+      spots.push_back(depot->getTilePosition());
+    spots.push_back(TilePosition(ctx_.map->rallyPoint()));
+    for (TilePosition spot : spots)
+    {
+      bool covered = false;
+      for (Unit u : self->getUnits())
+        covered = covered || (u->getType() == turret && u->getDistance(Position(spot)) < 7 * 32);
+      if (covered)
+        continue;
+      if (budget.tryReserve(costOf(turret)))
+      {
+        ctx_.log.info("Production", concat("hidden attackers: Missile Turret near ", spot.x, ",", spot.y));
+        ctx_.buildings->request(turret, spot);
+        lastPlan_ += "turret ";
+      }
+      else
+        lastPlan_ += "(saving:turret) ";
+      return;
+    }
   }
 
   void ProductionManager::followBuildOrder(Budget& budget)
