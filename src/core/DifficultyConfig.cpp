@@ -37,7 +37,9 @@ namespace bb
       c.enemyInfoUsage = 0;
       c.medicRatio = 0.15;
       c.firebatRatioVsMelee = 0.0;
-      c.tankRatio = 0.0;
+      c.mechShare = 0.0;
+      c.maxMechShare = 0.0;
+      c.maxFactories = 0;
       c.attackArmySize = 20;
       c.earliestAttackFrame = minutes(9);
       c.attackStrengthRatio = 0.0;
@@ -83,7 +85,9 @@ namespace bb
       c.enemyInfoUsage = 1;
       c.medicRatio = 0.2;
       c.firebatRatioVsMelee = 0.1;
-      c.tankRatio = 0.1;
+      c.mechShare = 0.15;
+      c.maxMechShare = 0.15;
+      c.maxFactories = 1;
       c.attackArmySize = 16;
       c.earliestAttackFrame = minutes(8);
       c.attackStrengthRatio = 0.0;
@@ -107,7 +111,7 @@ namespace bb
       c.level = 3;
       c.name = "Normal";
       c.koreanName = u8"기본";
-      c.description = u8"기본 AI 수준 목표: 바이오닉 + 시즈 탱크, 기본 정찰, 집결 후 공격, 기본 집중 공격";
+      c.description = u8"기본 AI 수준 목표: 바이오닉 + 메카닉(상대에 따라 비중 조절), 기본 정찰, 집결 후 공격, 기본 집중 공격";
       c.buildOrder = { {BuildItem::Barracks, 11}, {BuildItem::Refinery, 12},
                        {BuildItem::Barracks, 16}, {BuildItem::Academy, 19},
                        {BuildItem::Factory, 22}, {BuildItem::Barracks, 24} };
@@ -129,7 +133,9 @@ namespace bb
       c.enemyInfoUsage = 1;
       c.medicRatio = 0.25;
       c.firebatRatioVsMelee = 0.25;
-      c.tankRatio = 0.15;
+      c.mechShare = 0.25;
+      c.maxMechShare = 0.5;
+      c.maxFactories = 2;
       c.attackArmySize = 12;
       c.earliestAttackFrame = minutes(6);
       c.attackStrengthRatio = 0.0;
@@ -176,7 +182,9 @@ namespace bb
       c.enemyInfoUsage = 2;
       c.medicRatio = 0.25;
       c.firebatRatioVsMelee = 0.35;
-      c.tankRatio = 0.2;
+      c.mechShare = 0.3;
+      c.maxMechShare = 0.7;
+      c.maxFactories = 3;
       c.attackArmySize = 12;
       c.earliestAttackFrame = minutes(5);
       c.attackStrengthRatio = 1.3;
@@ -226,7 +234,9 @@ namespace bb
       c.enemyInfoUsage = 2;
       c.medicRatio = 0.3;
       c.firebatRatioVsMelee = 0.4;
-      c.tankRatio = 0.25;
+      c.mechShare = 0.3;
+      c.maxMechShare = 0.8;
+      c.maxFactories = 4;
       c.attackArmySize = 10;
       c.earliestAttackFrame = minutes(4) + seconds(30);
       c.attackStrengthRatio = 1.2;
@@ -304,7 +314,7 @@ namespace bb
     ss << "\n  scouting: atSupply=" << c.scoutAtSupply << " atFrame=" << c.scoutAtFrame
        << " inferByElimination=" << c.inferEnemyStartByElimination << " observeFrames=" << c.scoutObserveFrames
        << " rescout=" << c.rescoutAfterDeath << " infoUsage=" << c.enemyInfoUsage;
-    ss << "\n  composition: medicRatio=" << c.medicRatio << " firebatVsMelee=" << c.firebatRatioVsMelee << " tankRatio=" << c.tankRatio;
+    ss << "\n  composition: medicRatio=" << c.medicRatio << " firebatVsMelee=" << c.firebatRatioVsMelee << " mechShare=" << c.mechShare << "-" << c.maxMechShare << " maxFactories=" << c.maxFactories;
     ss << "\n  attack: size=" << c.attackArmySize << " earliestFrame=" << c.earliestAttackFrame
        << " strengthRatio=" << c.attackStrengthRatio << " regroupRadius=" << c.regroupRadiusTiles
        << " recallToDefend=" << c.recallArmyToDefend;

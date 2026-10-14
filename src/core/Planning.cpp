@@ -84,12 +84,44 @@ namespace bb
     return Infantry::Marine;
   }
 
-  bool wantTank(int tanks, int infantry, double tankRatio)
+  double targetMechShare(const EnemyMix& enemy, double baseShare, double maxShare, bool adapt)
   {
-    if (tankRatio <= 0.0 || infantry < 4)
-      return false;
-    const int wanted = std::max(1, static_cast<int>(infantry * tankRatio));
-    return tanks < wanted;
+    const int total = enemy.total();
+    if (!adapt || maxShare <= baseShare || total < 4)
+      return baseShare;
+    // Mech answers melee, heavy ground and (with goliaths) air; infantry is better
+    // against light ranged units, so those pull the share back to the base.
+    const double score = (enemy.melee + enemy.heavy + 0.6 * enemy.air - 0.5 * enemy.light) / total;
+    return baseShare + (maxShare - baseShare) * std::clamp(score, 0.0, 1.0);
+  }
+
+  FactoryUnit chooseFactoryUnit(int vultures, int tanks, int goliaths, const EnemyMix& enemy,
+                                bool hasMachineShop, bool armoryReady)
+  {
+    const int total = std::max(1, enemy.total());
+    const int built = vultures + tanks + goliaths;
+    // Air: goliaths up to 80% of the factory units, in proportion to the air seen.
+    if (armoryReady && enemy.air > 0)
+    {
+      const double goliathShare = std::clamp(1.5 * enemy.air / total, 0.2, 0.8);
+      if (goliaths < goliathShare * (built + 1))
+        return FactoryUnit::Goliath;
+    }
+    if (!hasMachineShop)
+      return armoryReady && enemy.air > 0 ? FactoryUnit::Goliath : FactoryUnit::Vulture;
+    // Vultures beat melee units; otherwise they are a small cheap share next to tanks.
+    const double vultureShare = 0.2 + 0.4 * static_cast<double>(enemy.melee) / total;
+    if (vultures < vultureShare * (built + 1) && tanks > 0)
+      return FactoryUnit::Vulture;
+    return FactoryUnit::SiegeTank;
+  }
+
+  int factoriesWanted(double mechShare, double maxMechShare, int maxFactories)
+  {
+    if (mechShare <= 0.0 || maxFactories <= 0)
+      return 0;
+    const double top = std::max(mechShare, maxMechShare);
+    return std::clamp(static_cast<int>(std::lround(maxFactories * mechShare / top)), 1, maxFactories);
   }
 
   // ---------------------------------------------------------------- attack / retreat

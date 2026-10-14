@@ -257,6 +257,36 @@ namespace bb
         lastPlan_ += "extra-barracks ";
       }
     }
+
+    // More Factories as the mech share grows (the build order gives the first one).
+    // Only from money that is there now, so this never delays the army.
+    const UnitType factory = UnitTypes::Terran_Factory;
+    const int wantedFactories = factoriesWanted(ctx_.strategy->mechShare(), ctx_.config.maxMechShare, ctx_.config.maxFactories);
+    if (Broodwar->self()->completedUnitCount(factory) >= 1 && planned(factory) < wantedFactories &&
+        ctx_.buildings->notStarted(factory) == 0 && !ctx_.buildings->onCooldown(factory) &&
+        budget.canAfford({ factory.mineralPrice(), factory.gasPrice(), 0 }))
+    {
+      budget.tryReserve({ factory.mineralPrice(), factory.gasPrice(), 0 });
+      ctx_.log.info("Production", concat("mech share ", static_cast<int>(ctx_.strategy->mechShare() * 100),
+                                         "%: adding Factory #", planned(factory) + 1));
+      ctx_.buildings->request(factory);
+      lastPlan_ += "factory ";
+    }
+
+    // Enemy air units: an Armory unlocks Goliaths.
+    const UnitType armory = UnitTypes::Terran_Armory;
+    if (ctx_.config.mechShare > 0.0 && ctx_.info->enemyMix().air >= 2 && planned(armory) == 0 &&
+        Broodwar->self()->completedUnitCount(factory) >= 1 && !ctx_.buildings->onCooldown(armory))
+    {
+      if (budget.tryReserve({ armory.mineralPrice(), armory.gasPrice(), 0 }))
+      {
+        ctx_.log.info("Production", concat("enemy air units seen (", ctx_.info->enemyMix().air, "): adding an Armory for Goliaths"));
+        ctx_.buildings->request(armory);
+        lastPlan_ += "armory ";
+      }
+      else
+        lastPlan_ += "(saving:armory) ";
+    }
   }
 
   void ProductionManager::doResearch(Budget& budget)
@@ -321,61 +351,101 @@ namespace bb
 
   void ProductionManager::trainArmy(Budget& budget)
   {
+    // Whichever side is behind the target mech share spends first (and, with strict
+    // priority, saves up first); Factories stop once mech is clearly above the target.
+    Player self = Broodwar->self();
+    int mech = 0, infantry = 0;
+    for (UnitType t : { UnitTypes::Terran_Vulture, UnitTypes::Terran_Siege_Tank_Tank_Mode,
+                        UnitTypes::Terran_Siege_Tank_Siege_Mode, UnitTypes::Terran_Goliath })
+      mech += self->allUnitCount(t);
+    for (UnitType t : { UnitTypes::Terran_Marine, UnitTypes::Terran_Medic, UnitTypes::Terran_Firebat })
+      infantry += self->allUnitCount(t);
+    const double share = mech + infantry > 0 ? static_cast<double>(mech) / (mech + infantry) : 0.0;
+    const double target = ctx_.strategy->mechShare();
+    if (target > 0.0 && share < target)
+    {
+      trainFactories(budget, true);
+      trainInfantry(budget);
+    }
+    else
+    {
+      trainInfantry(budget);
+      trainFactories(budget, target > 0.0 && share < target + 0.1);
+    }
+  }
+
+  void ProductionManager::trainFactories(Budget& budget, bool trainUnits)
+  {
+    Player self = Broodwar->self();
+    int vultures = self->allUnitCount(UnitTypes::Terran_Vulture);
+    int tanks = self->allUnitCount(UnitTypes::Terran_Siege_Tank_Tank_Mode) +
+                self->allUnitCount(UnitTypes::Terran_Siege_Tank_Siege_Mode);
+    int goliaths = self->allUnitCount(UnitTypes::Terran_Goliath);
+    const bool armoryReady = self->completedUnitCount(UnitTypes::Terran_Armory) > 0;
+    const EnemyMix enemy = ctx_.info->enemyMix();
+    for (Unit factory : self->getUnits())
+    {
+      if (factory->getType() != UnitTypes::Terran_Factory || !factory->isCompleted())
+        continue;
+      ctx_.commander->setRally(factory, ctx_.map->rallyPoint(), 24 * 60);
+      if (!idleProducer(factory) || ctx_.config.mechShare <= 0.0)
+        continue;
+      // Every Factory gets a Machine Shop (tanks and Siege Mode need it).
+      // While a blocked add-on waits for its retry, the Factory builds Vultures / Goliaths.
+      if (!factory->getAddon() && ctx_.frame >= machineShopRetryFrame_)
+      {
+        const UnitType shop = UnitTypes::Terran_Machine_Shop;
+        if (!budget.tryReserve({ shop.mineralPrice(), shop.gasPrice(), 0 }))
+          continue;
+        if (ctx_.commander->buildAddon(factory, shop))
+        {
+          ctx_.log.info("Production", "building Machine Shop");
+          lastPlan_ += "machine-shop ";
+          continue;
+        }
+        if (ctx_.commander->lastWasSuppressed())
+          continue;
+        machineShopRetryFrame_ = ctx_.frame + 24 * 120;
+        ctx_.log.warn("Production", concat("Machine Shop could not be started (", Broodwar->getLastError().c_str(),
+                                           "); retrying in 2 minutes"));
+      }
+      if (!trainUnits)
+        continue;
+      const bool shopReady = factory->getAddon() && factory->getAddon()->isCompleted();
+      const FactoryUnit choice = chooseFactoryUnit(vultures, tanks, goliaths, enemy, shopReady, armoryReady);
+      UnitType type = choice == FactoryUnit::Goliath ? UnitTypes::Terran_Goliath
+                    : choice == FactoryUnit::Vulture ? UnitTypes::Terran_Vulture : UnitTypes::Terran_Siege_Tank_Tank_Mode;
+      // Short on gas: the Vulture (minerals only) keeps the Factory busy.
+      if (type != UnitTypes::Terran_Vulture && budget.gas() < type.gasPrice())
+        type = UnitTypes::Terran_Vulture;
+      if (!budget.tryReserve(costOf(type)))
+      {
+        lastPlan_ += "(saving:mech) ";
+        continue;
+      }
+      if (ctx_.commander->train(factory, type))
+      {
+        ++ctx_.metrics.armyTrained;
+        if (type == UnitTypes::Terran_Vulture) ++vultures;
+        else if (type == UnitTypes::Terran_Goliath) ++goliaths;
+        else ++tanks;
+        lastPlan_ += type == UnitTypes::Terran_Vulture ? "vulture " : type == UnitTypes::Terran_Goliath ? "goliath " : "tank ";
+        if (!loggedFirstMech_)
+        {
+          loggedFirstMech_ = true;
+          ctx_.log.info("Production", concat("first mech unit started: ", type.c_str()));
+        }
+      }
+    }
+  }
+  void ProductionManager::trainInfantry(Budget& budget)
+  {
     Player self = Broodwar->self();
     const bool academy = self->completedUnitCount(UnitTypes::Terran_Academy) > 0;
     int marines = self->allUnitCount(UnitTypes::Terran_Marine);
     int medics = self->allUnitCount(UnitTypes::Terran_Medic);
     int firebats = self->allUnitCount(UnitTypes::Terran_Firebat);
     const double firebatShare = ctx_.strategy->firebatShare();
-
-    // Factories: a Machine Shop first, then Siege Tanks at the difficulty's ratio.
-    int tanks = self->allUnitCount(UnitTypes::Terran_Siege_Tank_Tank_Mode) +
-                self->allUnitCount(UnitTypes::Terran_Siege_Tank_Siege_Mode);
-    for (Unit factory : self->getUnits())
-    {
-      if (factory->getType() != UnitTypes::Terran_Factory || !factory->isCompleted())
-        continue;
-      ctx_.commander->setRally(factory, ctx_.map->rallyPoint(), 24 * 60);
-      if (!idleProducer(factory) || ctx_.config.tankRatio <= 0.0)
-        continue;
-      if (!factory->getAddon())
-      {
-        const UnitType shop = UnitTypes::Terran_Machine_Shop;
-        if (ctx_.frame < machineShopRetryFrame_ || !budget.tryReserve({ shop.mineralPrice(), shop.gasPrice(), 0 }))
-          continue;
-        if (ctx_.commander->buildAddon(factory, shop))
-        {
-          ctx_.log.info("Production", "building Machine Shop");
-          lastPlan_ += "machine-shop ";
-        }
-        else if (!ctx_.commander->lastWasSuppressed())
-        {
-          machineShopRetryFrame_ = ctx_.frame + 24 * 120;
-          ctx_.log.warn("Production", concat("Machine Shop could not be started (", Broodwar->getLastError().c_str(),
-                                             "); retrying in 2 minutes"));
-        }
-        continue;
-      }
-      if (!factory->getAddon()->isCompleted() || !wantTank(tanks, marines + firebats + medics, ctx_.config.tankRatio))
-        continue;
-      const UnitType tank = UnitTypes::Terran_Siege_Tank_Tank_Mode;
-      if (!budget.tryReserve(costOf(tank)))
-      {
-        lastPlan_ += "(saving:tank) ";
-        continue;
-      }
-      if (ctx_.commander->train(factory, tank))
-      {
-        ++tanks;
-        ++ctx_.metrics.armyTrained;
-        lastPlan_ += "tank ";
-        if (!loggedFirstTank_)
-        {
-          loggedFirstTank_ = true;
-          ctx_.log.info("Production", "first Siege Tank started");
-        }
-      }
-    }
 
     for (Unit rax : self->getUnits())
     {

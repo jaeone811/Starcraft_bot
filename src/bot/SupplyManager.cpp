@@ -67,7 +67,7 @@ namespace bb
         producers.push_back({ UnitTypes::Terran_SCV.buildTime(), UnitTypes::Terran_SCV.supplyRequired() });
       else if (u->getType() == UnitTypes::Terran_Barracks)
         producers.push_back({ UnitTypes::Terran_Marine.buildTime(), UnitTypes::Terran_Marine.supplyRequired() });
-      else if (u->getType() == UnitTypes::Terran_Factory && u->getAddon())
+      else if (u->getType() == UnitTypes::Terran_Factory)
         producers.push_back({ UnitTypes::Terran_Siege_Tank_Tank_Mode.buildTime(), UnitTypes::Terran_Siege_Tank_Tank_Mode.supplyRequired() });
     }
     return needSupplyDepot(s, producers, ctx_.config.supplyLookaheadFrames, ctx_.config.supplyFixedMargin,

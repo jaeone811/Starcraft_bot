@@ -6,6 +6,7 @@
 #include "Planning.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 using namespace BWAPI;
@@ -19,13 +20,30 @@ namespace bb
   }
 
   StrategyManager::StrategyManager(BotContext& ctx)
-    : ctx_(ctx), attackSize_(ctx.config.attackArmySize), strengthRatio_(ctx.config.attackStrengthRatio)
+    : ctx_(ctx), attackSize_(ctx.config.attackArmySize), strengthRatio_(ctx.config.attackStrengthRatio),
+      mechShare_(ctx.config.mechShare)
   {
+  }
+
+  void StrategyManager::updateArmyMix()
+  {
+    // Re-evaluated every few seconds from the enemy units we have seen; logged when it moves.
+    if (ctx_.frame - lastMixFrame_ < 24 * 5)
+      return;
+    lastMixFrame_ = ctx_.frame;
+    const EnemyMix mix = ctx_.info->enemyMix();
+    const double share = targetMechShare(mix, ctx_.config.mechShare, ctx_.config.maxMechShare, ctx_.config.enemyInfoUsage >= 1);
+    if (std::abs(share - mechShare_) >= 0.05)
+      ctx_.log.info("Strategy", concat("army mix: mech share ", static_cast<int>(mechShare_ * 100), "% -> ",
+                                       static_cast<int>(share * 100), "% (enemy seen: melee ", mix.melee, ", heavy ", mix.heavy,
+                                       ", light ", mix.light, ", air ", mix.air, ")"));
+    mechShare_ = share;
   }
 
   void StrategyManager::update()
   {
     detectThreats();
+    updateArmyMix();
     for (auto it = unreachableUntil_.begin(); it != unreachableUntil_.end();)
     {
       if (ctx_.frame >= it->second)

@@ -16,7 +16,8 @@
 | 최대 배럭 / 자원 쌓이면 추가 배럭 | 2 / - | 3 / - | 3 / - | 6 / 400 | 8 / 350 | `ProductionManager::macroBuildings` |
 | 앞마당 확장 (`expand`) | - | - | - | - | 일꾼 20 | `ProductionManager::macroBuildings` |
 | 연구 (`research`) | - | 시즈 모드 | 스팀팩, 시즈 모드, U-238 | + 공1 | + 방1 | `ProductionManager::doResearch` |
-| 시즈 탱크 (`tankRatio`, 보병 1기당) | 0 (순수 바이오닉) | 0.1 | 0.15 | 0.2 | 0.25 | `Planning::wantTank`, `ProductionManager::trainArmy` (머신샵 후 생산), `CombatManager::fight` (적 12타일 안 시즈, 없으면 해제) |
+| 메카닉 비중 기본 → 최대 (`mechShare` → `maxMechShare`, 병력 수 기준) | 0 (순수 바이오닉) | 15% (고정) | 25% → 50% | 30% → 70% | 30% → 80% | `Planning::targetMechShare`, `StrategyManager::updateArmyMix` |
+| 최대 팩토리 (`maxFactories`) | 0 | 1 | 2 | 3 | 4 | `Planning::factoriesWanted`, `ProductionManager::macroBuildings` |
 | 보급 예측 (`supplyLookaheadFrames`) / 고정 여유 | 고정 2 | 고정 4 | 700f | 850f | 950f | `SupplyManager`, `Planning::needSupplyDepot` |
 | 동시 디포 / 막힌 뒤 여유 증가 | 1 / 0 | 1 / 0 | 1 / +1 | 2 / +2 | 3 / +2 | `SupplyManager::update` |
 | 우선순위 저축 (`strictPriority`) | X (탐욕) | X | O | O | O | `Planning::Budget` |
@@ -37,6 +38,15 @@
 | 공격 실패 시 병력 수 증가 / 전력비 증가 | 0 / 0 | +2 / 0 | +2 / 0 | +4 / +0.15 | +4 / +0.2 | `StrategyManager::onWaveEnd` |
 
 (`f` = 프레임. Fastest 속도에서 약 24프레임 = 게임 1초.)
+
+### 메카닉 (바이오닉과 혼합, 상대에 따라 비중 조절)
+
+- 본 적 있는 적 병력을 근접(질럿·저글링·울트라·다템) / 중장갑 지상(드라군·아칸·리버·탱크·럴커·골리앗) / 경보병(마린·히드라 등) / 공중으로 나눈다 (`addToEnemyMix`).
+- 메카닉 비중 = 기본값 + (최대 − 기본) × clamp((근접 + 중장갑 + 0.6×공중 − 0.5×경보병) / 전체, 0, 1). 적을 4기 이상 봤고 `enemyInfoUsage >= 1`일 때만 적응하며, 5초마다 다시 계산하고 바뀌면 `army mix:` 로그를 남긴다.
+- 현재 메카닉 비중이 목표보다 낮으면 팩토리가 먼저 예산을 쓰고(엄격 우선순위면 먼저 저축), 목표 +10%를 넘으면 팩토리 생산을 멈춘다.
+- 팩토리 유닛: 공중을 봤고 아머리가 있으면 골리앗(공중 비율 × 1.5, 20~80%), 머신샵이 있으면 탱크 위주에 벌처 20% + 근접 비율 × 40%, 머신샵이 없거나 가스가 부족하면 벌처.
+- 적 공중 유닛을 2기 이상 보면 아머리를 짓는다. 팩토리는 비중에 맞춰 추가하되, 지금 있는 돈으로만 짓는다(병력 생산을 늦추지 않음).
+- 탱크: 12타일 안에 지상 위협이 보이면 시즈, 3초 동안 없으면 해제. 변신 중에는 명령을 보내지 않는다.
 
 ## 단계별 의도
 

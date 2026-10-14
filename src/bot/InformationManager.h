@@ -5,6 +5,7 @@
 // and they are gone (or, for mobile units, after a while).
 
 #include "BotContext.h"
+#include "Planning.h"
 
 #include <BWAPI.h>
 
@@ -49,6 +50,7 @@ namespace bb
     int recentMeleeUnits() const;          // remembered melee units (zealots, lings, ...)
     double knownEnemyArmyStrength() const; // remembered non-worker combat units + static defense
     int knownEnemyCombatUnits() const;
+    EnemyMix enemyMix() const;             // remembered enemy army by counter group
 
     // Visible enemy units within `radius` pixels of `p` (only units we can currently see).
     std::vector<BWAPI::Unit> visibleEnemiesNear(BWAPI::Position p, int radius) const;

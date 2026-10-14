@@ -252,13 +252,13 @@ namespace bb
   void CombatManager::startWave(const AttackTarget& target)
   {
     wave_.clear();
-    int marines = 0, medics = 0, firebats = 0, tanks = 0;
+    int marines = 0, medics = 0, firebats = 0, mech = 0;
     for (Unit u : army_)
     {
       wave_.insert(u->getID());
       if (u->getType() == UnitTypes::Terran_Marine) ++marines;
       else if (u->getType() == UnitTypes::Terran_Medic) ++medics;
-      else if (isSiegeTank(u->getType())) ++tanks;
+      else if (isMechType(u->getType())) ++mech;
       else ++firebats;
     }
     waveStartSize_ = static_cast<int>(wave_.size());
@@ -279,7 +279,7 @@ namespace bb
     if (ctx_.metrics.firstAttackFrame < 0)
       ctx_.metrics.firstAttackFrame = ctx_.frame;
     ctx_.log.info("Combat", concat("attack wave ", ctx_.metrics.attackWaves, ": ", waveStartSize_, " units (", marines, " marines, ",
-                                   medics, " medics, ", firebats, " firebats, ", tanks, " tanks) -> ", target_.x, ",", target_.y, " [", targetReason_,
+                                   medics, " medics, ", firebats, " firebats, ", mech, " mech) -> ", target_.x, ",", target_.y, " [", targetReason_,
                                    "] ownStrength=", static_cast<int>(strengthOf(army_)),
                                    " knownEnemyStrength=", static_cast<int>(ctx_.info->knownEnemyArmyStrength()),
                                    " requiredSize=", ctx_.strategy->attackSize()));

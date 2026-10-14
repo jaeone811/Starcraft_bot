@@ -48,8 +48,12 @@ namespace bb
     // Whether firebats should be mixed in (enemy melee units were seen).
     double firebatShare() const;
 
+    // Share of the army Factories should build, adapted to the enemy army seen.
+    double mechShare() const { return mechShare_; }
+
   private:
     void detectThreats();
+    void updateArmyMix();
 
     BotContext& ctx_;
     int attackSize_;
@@ -57,5 +61,7 @@ namespace bb
     std::map<std::pair<int, int>, int> unreachableUntil_; // tile -> frame
     std::vector<BWAPI::Unit> threats_;
     BWAPI::Position threatCenter_;
+    double mechShare_;
+    int lastMixFrame_ = -10000;
   };
 }

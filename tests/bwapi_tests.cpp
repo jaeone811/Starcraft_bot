@@ -77,6 +77,27 @@ TEST_CASE("tech tree assumptions")
   CHECK(isOurArmyType(UnitTypes::Terran_Siege_Tank_Siege_Mode));
   CHECK(canAttackGround(UnitTypes::Terran_Siege_Tank_Tank_Mode));
   CHECK_EQ(UnitTypes::Terran_Siege_Tank_Tank_Mode.gasPrice(), 100);
+  // Other mech: Vultures need only a Factory (and no gas), Goliaths an Armory and hit air.
+  CHECK(UnitTypes::Terran_Vulture.whatBuilds().first == UnitTypes::Terran_Factory);
+  CHECK(UnitTypes::Terran_Vulture.requiredUnits().count(UnitTypes::Terran_Machine_Shop) == 0);
+  CHECK_EQ(UnitTypes::Terran_Vulture.gasPrice(), 0);
+  CHECK(UnitTypes::Terran_Vulture.airWeapon() == WeaponTypes::None);
+  CHECK(UnitTypes::Terran_Goliath.requiredUnits().count(UnitTypes::Terran_Armory) == 1);
+  CHECK(UnitTypes::Terran_Goliath.airWeapon() != WeaponTypes::None);
+  CHECK(UnitTypes::Terran_Armory.requiredUnits().count(UnitTypes::Terran_Factory) == 1);
+  CHECK(isMechType(UnitTypes::Terran_Goliath) && isOurArmyType(UnitTypes::Terran_Vulture));
+  // Enemy groups used by the mech share.
+  EnemyMix mix;
+  addToEnemyMix(mix, UnitTypes::Protoss_Zealot);
+  addToEnemyMix(mix, UnitTypes::Protoss_Dragoon);
+  addToEnemyMix(mix, UnitTypes::Zerg_Hydralisk);
+  addToEnemyMix(mix, UnitTypes::Protoss_Carrier);
+  addToEnemyMix(mix, UnitTypes::Zerg_Overlord);   // not a fighter
+  addToEnemyMix(mix, UnitTypes::Protoss_Probe);   // workers do not count
+  CHECK_EQ(mix.melee, 1);
+  CHECK_EQ(mix.heavy, 1);
+  CHECK_EQ(mix.light, 1);
+  CHECK_EQ(mix.air, 1);
   // Scanner Sweep needs no research (BWAPI reports whatResearches() == None); it only costs energy.
   CHECK(TechTypes::Scanner_Sweep.whatResearches() == UnitTypes::None);
   CHECK_EQ(TechTypes::Scanner_Sweep.energyCost(), 50);

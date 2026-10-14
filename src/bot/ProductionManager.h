@@ -33,6 +33,8 @@ namespace bb
     void doResearch(Budget& budget);
     void buildComsat(Budget& budget);
     void trainArmy(Budget& budget);
+    void trainInfantry(Budget& budget);
+    void trainFactories(Budget& budget, bool trainUnits);
     void measureIdle(int elapsedFrames);
 
     int planned(BWAPI::UnitType type) const;
@@ -45,7 +47,7 @@ namespace bb
     bool loggedFirstArmy_ = false;
     int comsatRetryFrame_ = 0;
     bool loggedNoExpansion_ = false;
-    bool loggedFirstTank_ = false;
+    bool loggedFirstMech_ = false;
     int machineShopRetryFrame_ = 0;
   };
 }

@@ -205,6 +205,14 @@ namespace bb
     return combineStrength(s);
   }
 
+  EnemyMix InformationManager::enemyMix() const
+  {
+    EnemyMix mix;
+    for (const auto& [id, r] : units_)
+      addToEnemyMix(mix, r.type);
+    return mix;
+  }
+
   int InformationManager::knownEnemyCombatUnits() const
   {
     int n = 0;

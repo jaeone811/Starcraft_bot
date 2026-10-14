@@ -75,9 +75,28 @@ namespace bb
 
   Infantry chooseInfantry(int marines, int medics, int firebats, double medicRatio, double firebatShare, bool academyReady);
 
-  // True when the Factory should add a Siege Tank: tanks stay at `tankRatio` per
-  // infantry unit, and the first tank comes once a few infantry units exist.
-  bool wantTank(int tanks, int infantry, double tankRatio);
+  // Enemy combat units we have seen (remembered), grouped by what counters them.
+  struct EnemyMix
+  {
+    int melee = 0;   // zealots, zerglings, ultralisks, dark templar: vultures and tanks
+    int heavy = 0;   // dragoons, archons, reavers, tanks, lurkers, goliaths: siege tanks
+    int light = 0;   // marines, hydralisks, firebats, ...: infantry trades well
+    int air = 0;     // flyers that fight: goliaths (and marines)
+    int total() const { return melee + heavy + light + air; }
+  };
+
+  // Share of our army (by unit count) that Factories should build. Without
+  // adaptation, or before enough enemies were seen, it is `baseShare`; otherwise it
+  // moves towards `maxShare` the more the enemy army is melee, heavy or air.
+  double targetMechShare(const EnemyMix& enemy, double baseShare, double maxShare, bool adapt);
+
+  // What an idle Factory should build next.
+  enum class FactoryUnit { Vulture, SiegeTank, Goliath };
+  FactoryUnit chooseFactoryUnit(int vultures, int tanks, int goliaths, const EnemyMix& enemy,
+                                bool hasMachineShop, bool armoryReady);
+
+  // Factories wanted for the current mech share (at least one once mech is used).
+  int factoriesWanted(double mechShare, double maxMechShare, int maxFactories);
 
   // ---------------------------------------------------------------- attack / retreat
   struct AttackInputs

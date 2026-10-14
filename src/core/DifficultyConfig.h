@@ -81,7 +81,9 @@ namespace bb
     // ---- Composition --------------------------------------------------------
     double medicRatio = 0.0;             // medics per marine
     double firebatRatioVsMelee = 0.0;    // share of firebats when enemy melee units were seen (needs enemyInfoUsage >= 1)
-    double tankRatio = 0.0;              // siege tanks per infantry unit (needs a Factory in the build order)
+    double mechShare = 0.0;              // share of the army built at Factories (vultures, tanks, goliaths); needs a Factory in the build order
+    double maxMechShare = 0.0;           // with enemyInfoUsage >= 1 the share grows up to this against armies mech handles well
+    int maxFactories = 0;                // Factories are added as the mech share grows
 
     // ---- Attack ---------------------------------------------------------------
     int attackArmySize = 12;

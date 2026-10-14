@@ -50,7 +50,9 @@ TEST_CASE("higher difficulty never plays worse on the tuned axes")
     CHECK(hi.supplyMarginIncreaseOnBlock >= lo.supplyMarginIncreaseOnBlock);
     CHECK(hi.maxConcurrentDepots >= lo.maxConcurrentDepots);
     CHECK(hi.research.size() >= lo.research.size());
-    CHECK(hi.tankRatio >= lo.tankRatio);
+    CHECK(hi.mechShare >= lo.mechShare);
+    CHECK(hi.maxMechShare >= lo.maxMechShare);
+    CHECK(hi.maxFactories >= lo.maxFactories);
   }
 }
 
@@ -77,11 +79,13 @@ TEST_CASE("build orders are sorted by supply and every level keeps fallbacks")
     // Medics need an Academy, which needs a Refinery for its gas units.
     if (c.medicRatio > 0.0)
       CHECK(std::any_of(c.buildOrder.begin(), c.buildOrder.end(), [](const BuildStep& s) { return s.item == BuildItem::Academy; }));
-    // Tanks and Siege Mode need a Factory; a Factory without tanks would be wasted.
+    // Mech needs a Factory and Siege Mode; a Factory without mech units would be wasted.
     const bool hasFactory = std::any_of(c.buildOrder.begin(), c.buildOrder.end(), [](const BuildStep& s) { return s.item == BuildItem::Factory; });
     const bool siege = std::find(c.research.begin(), c.research.end(), ResearchItem::SiegeMode) != c.research.end();
-    CHECK_EQ(hasFactory, c.tankRatio > 0.0);
-    CHECK_EQ(siege, c.tankRatio > 0.0);
+    CHECK_EQ(hasFactory, c.mechShare > 0.0);
+    CHECK_EQ(siege, c.mechShare > 0.0);
+    CHECK_EQ(c.maxFactories > 0, c.mechShare > 0.0);
+    CHECK(c.maxMechShare >= c.mechShare);
   }
 }
 
@@ -230,14 +234,49 @@ TEST_CASE("supply: forecast grows with production capacity")
   CHECK_EQ(desiredSupplyMargin(one, 0, 3, 0), 6);
 }
 
-TEST_CASE("siege tanks follow the tank ratio")
+TEST_CASE("mech share adapts to the enemy army")
 {
-  CHECK(!wantTank(0, 20, 0.0));   // level without tanks
-  CHECK(!wantTank(0, 3, 0.15));   // too early: no infantry yet
-  CHECK(wantTank(0, 4, 0.15));    // first tank
-  CHECK(!wantTank(1, 6, 0.15));
-  CHECK(wantTank(2, 20, 0.15));   // 20 * 0.15 = 3
-  CHECK(!wantTank(3, 20, 0.15));
+  EnemyMix none;
+  CHECK_EQ(targetMechShare(none, 0.25, 0.5, true), 0.25);          // nothing seen yet
+  EnemyMix gateway;                                                 // zealots + dragoons
+  gateway.melee = 6;
+  gateway.heavy = 6;
+  CHECK_EQ(targetMechShare(gateway, 0.25, 0.5, true), 0.5);        // all mech-friendly: maximum
+  CHECK_EQ(targetMechShare(gateway, 0.25, 0.5, false), 0.25);      // no adaptation at this level
+  EnemyMix hydras;
+  hydras.light = 10;
+  CHECK_EQ(targetMechShare(hydras, 0.25, 0.5, true), 0.25);        // infantry is fine: stay at the base
+  EnemyMix mixed;
+  mixed.heavy = 4;
+  mixed.light = 4;
+  const double m = targetMechShare(mixed, 0.25, 0.5, true);
+  CHECK(m > 0.25 && m < 0.5);
+}
+
+TEST_CASE("factory unit choice")
+{
+  EnemyMix none;
+  CHECK(chooseFactoryUnit(0, 0, 0, none, true, false) == FactoryUnit::SiegeTank);   // first unit: a tank
+  CHECK(chooseFactoryUnit(0, 0, 0, none, false, false) == FactoryUnit::Vulture);    // no Machine Shop yet
+  CHECK(chooseFactoryUnit(0, 4, 0, none, true, false) == FactoryUnit::Vulture);     // a few vultures next to tanks
+  CHECK(chooseFactoryUnit(2, 4, 0, none, true, false) == FactoryUnit::SiegeTank);
+  EnemyMix melee;
+  melee.melee = 10;
+  CHECK(chooseFactoryUnit(2, 4, 0, melee, true, false) == FactoryUnit::Vulture);    // vultures against zealots/lings
+  EnemyMix air;
+  air.air = 5;
+  air.heavy = 5;
+  CHECK(chooseFactoryUnit(0, 4, 0, air, true, true) == FactoryUnit::Goliath);       // air seen and Armory ready
+  CHECK(chooseFactoryUnit(0, 4, 0, air, true, false) != FactoryUnit::Goliath);      // no Armory: no goliaths
+}
+
+TEST_CASE("factories follow the mech share")
+{
+  CHECK_EQ(factoriesWanted(0.0, 0.0, 0), 0);
+  CHECK_EQ(factoriesWanted(0.15, 0.15, 1), 1);
+  CHECK_EQ(factoriesWanted(0.25, 0.5, 2), 1);
+  CHECK_EQ(factoriesWanted(0.5, 0.5, 2), 2);
+  CHECK_EQ(factoriesWanted(0.8, 0.8, 4), 4);
 }
 
 TEST_CASE("group radius grows with the army but never below the minimum")

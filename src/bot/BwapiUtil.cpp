@@ -78,7 +78,34 @@ namespace bb
   bool isOurArmyType(UnitType type)
   {
     return type == UnitTypes::Terran_Marine || type == UnitTypes::Terran_Firebat || type == UnitTypes::Terran_Medic ||
-           isSiegeTank(type);
+           isMechType(type);
+  }
+
+  bool isMechType(UnitType type)
+  {
+    return isSiegeTank(type) || type == UnitTypes::Terran_Vulture || type == UnitTypes::Terran_Goliath;
+  }
+
+  void addToEnemyMix(EnemyMix& mix, UnitType type)
+  {
+    if (type.isWorker() || type.isBuilding())
+      return;
+    const bool fightsAir = type.airWeapon() != WeaponTypes::None;
+    if (type.isFlyer())
+    {
+      if (canAttackGround(type) || fightsAir)
+        ++mix.air; // overlords, observers and shuttles do not count
+      return;
+    }
+    if (!canAttackGround(type))
+      return;
+    if (isMeleeType(type))
+      ++mix.melee;
+    else if (type == UnitTypes::Protoss_Dragoon || type == UnitTypes::Protoss_Archon || type == UnitTypes::Protoss_Reaver ||
+             type == UnitTypes::Zerg_Lurker || isSiegeTank(type) || type == UnitTypes::Terran_Goliath)
+      ++mix.heavy;
+    else
+      ++mix.light;
   }
 
   bool isSiegeTank(UnitType type)
