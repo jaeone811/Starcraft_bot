@@ -45,6 +45,7 @@ if(BWAPI_DIR)
     src/bot/Commander.cpp
     src/bot/InformationManager.cpp
     src/bot/MapInfo.cpp
+    src/bot/PlatformPaths.cpp
     src/bot/ProductionManager.cpp
     src/bot/ScoutManager.cpp
     src/bot/StrategyManager.cpp
@@ -54,7 +55,7 @@ if(BWAPI_DIR)
   # Everything except the DLL entry points, so tests can link the bot code too.
   add_library(bb_bot STATIC ${BOT_SOURCES})
   target_include_directories(bb_bot PUBLIC src/bot)
-  target_link_libraries(bb_bot PUBLIC bb_core bwapilib)
+  target_link_libraries(bb_bot PUBLIC bb_core bwapilib ${CMAKE_DL_LIBS})
   set_target_properties(bb_bot PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
   add_library(BeginnerBot SHARED src/bot/Dll.cpp)

@@ -56,6 +56,7 @@ namespace bb
     int nextAttackAllowedFrame_ = 0;
     int lastScanFrame_ = -10000;
     int lastThreatFrame_ = -10000;
+    int readySinceFrame_ = -1;  // first frame the attack conditions held in Gather
     bool regrouping_ = false;
     bool loggedNoTarget_ = false;
 

@@ -1,0 +1,76 @@
+# 검증 기록과 절차
+
+## 1. 지금까지 실제로 확인된 것
+
+| 항목 | 방법 | 결과 |
+|---|---|---|
+| BWAPI 버전 | 공식 저장소 `bwapi/bwapi` 태그 `v4.4.0`(2019-03-07, 최신 릴리스)의 `starcraftver.h` | `BWAPI_VER "4.4.0"`, `STARCRAFT_VER "1.16.1"` |
+| 지원 게임 버전 | 공식 README Quick Start | StarCraft: Brood War **1.16.1** 필요. Remastered 지원 문구 없음 |
+| BWAPILIB 소스 빌드 | Linux g++ 13.3 / CMake 3.28 | 빌드 성공 (`svnrev.h`는 CMake가 생성) |
+| 봇 전체 소스 컴파일·링크 | Linux g++ (`-Wall -Wextra`) | 경고/오류 없음 |
+| 단위 테스트 (`core_tests`) | 난이도 프리셋, INI, 설정 검증, 명령 중복 방지, 보급/예산/공격/후퇴/타겟 규칙 | 통과 |
+| BWAPI 데이터 가정 (`bwapi_tests`) | 실제 BWAPILIB 유닛/무기/테크 테이블과 비교 | 통과 (테스트로 오류 2건 발견 후 수정: 질럿/파이어뱃 다단히트는 `maxGroundHits()`, 인터셉터 쿨다운 1프레임 문제) |
+| 모듈 로드 (`module_load_test`) | 빌드된 모듈을 `dlopen`/`LoadLibrary`로 열고 `gameInit`/`newAIModule` 호출 | Linux 통과. Windows 결과는 CI 로그 참고 |
+| 설정 도구 | 공식 `bwapi.ini` 사본에 `--apply-bwapi-ini` 실행 | 지정한 키 4~6개만 변경, 백업 파일 생성 확인 |
+| Windows 32비트 MSVC 빌드 | GitHub Actions `windows-latest`, `-A Win32`, Release | `.github/workflows/build.yml` — 결과는 Actions 탭에서 확인 |
+
+## 2. 검증되지 않은 것 (실제 게임 필요)
+
+이 저장소를 만든 환경은 Linux 클라우드 컨테이너였고 StarCraft가 없었다. 따라서 아래는 **전부 미검증**이다.
+
+- 실제 StarCraft 1.16.1 + BWAPI 4.4.0에서 DLL 로드, `onStart`/`onFrame` 동작
+- 일꾼 생산·채취, 건물 배치(특히 `getBuildLocation` 결과가 입구/자원줄을 막는지), 건설 재시도
+- 마린 생산, 집결, 공격, 후퇴, 막힌 경로 처리
+- 컴셋 스캔 (BWAPI가 클로킹 유닛을 `isDetected()==false`로 노출하는지 확인 필요)
+- 난이도별 실력 차이, 3단계와 기본 탑재 AI의 동등성
+
+## 3. 1차 실전 테스트 절차 (한 맵, 한 전략)
+
+처음에는 조건을 하나로 고정한다.
+
+- 맵: 2인용 맵 하나 (예: `maps/(2)Boxer.scm` 또는 가지고 있는 2인 맵)
+- 봇: Terran, 난이도 3
+- 상대: 기본 탑재 컴퓨터 AI, Protoss
+- `bwapi.ini`: `auto_menu = SINGLE_PLAYER`, `enemy_count = 1`, `game_type = MELEE`
+- `BeginnerBot.ini`: `local_speed = 0` (최고 속도), `level = info`
+
+로그(`bwapi-data/write/BeginnerBot/BeginnerBot_*.log`)에서 확인할 줄:
+
+| 확인 항목 | 로그에서 찾을 문자열 |
+|---|---|
+| 난이도 적용 | `APPLIED difficulty=3 (Normal / 기본)` |
+| 일꾼 생산/채취 | `Snapshot` 줄의 `workers=` 증가, `gathered=` 증가, `min=` 대부분 |
+| 가스 채취 | `Snapshot`의 `workers=… (min=… gas=3 …)`, `gathered=광물/가스` 의 가스 값 증가 |
+| 보급 관리 | `[Build] task #… queued: Terran_Supply_Depot`, `supply blocked` 횟수 |
+| 병력 생산 | `first combat unit started`, `Snapshot`의 `army=` |
+| 공격 | `attack wave 1: … -> x,y [enemy main …]` |
+| 후퇴/적응 | `retreating:`, `wave ended (…) -> FAILED`, `adapting after failed wave` |
+| 막힘/반복 | `no progress towards`, `received the same … 8 times in a row` |
+| 예외 | `ERROR` 줄, 마지막 `metrics:` 의 `exceptions=` |
+
+## 4. 난이도 비교 (반복 대전)
+
+각 경기 종료 시 `bwapi-data/write/BeginnerBot/results.csv`에 한 줄이 추가된다.
+요약: `python tools/summarize_results.py <results.csv 경로>`
+
+권장 매트릭스 (각 칸 최소 10경기):
+
+| 난이도 | (2)맵 A vs Protoss | (2)맵 A vs Zerg | (2)맵 A vs Terran | (4)맵 B vs Protoss |
+|---|---|---|---|---|
+| 1 | | | | |
+| 2 | | | | |
+| 3 | | | | |
+| 4 | | | | |
+| 5 | | | | |
+
+판단 기준:
+- 1~2단계: 승률이 낮더라도 `max_workers`, `gathered_minerals`, `army_trained`가 정상이고 `exceptions=0`, `unit_stuck_events`가 거의 0이어야 함 (쉬운 것이지 고장난 것이 아님).
+- 3단계: 기본 AI 상대 승률과 평균 경기 시간을 기록. 승률이 극단적(예: 90%↑ 또는 10%↓)이면 3단계 전략을 조정.
+- 4~5단계: 같은 조건에서 3단계보다 승률·`gathered_minerals`·`idle_production_frames`(낮을수록 좋음)가 나아야 함.
+- 차이가 없으면 수치만 키우지 말고 판단 로직을 개선 (docs/DIFFICULTY.md 끝 참고).
+
+## 5. 결과 기록 양식
+
+| 날짜 | 맵 | 상대 | 난이도 | 경기 수 | 승률 | 평균 시간 | 비고 |
+|---|---|---|---|---|---|---|---|
+| (미실시) | | | | | | | 실제 게임 테스트 전 |

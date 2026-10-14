@@ -6,6 +6,7 @@
 #include "Commander.h"
 #include "InformationManager.h"
 #include "MapInfo.h"
+#include "PlatformPaths.h"
 #include "ProductionManager.h"
 #include "ScoutManager.h"
 #include "StrategyManager.h"
@@ -17,6 +18,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 using namespace BWAPI;
 
@@ -82,7 +84,18 @@ namespace bb
 
   void BeginnerBot::onStart()
   {
-    ctx_.settings = loadBotSettings(defaultSettingsPaths());
+    // Paths in the settings are relative to the StarCraft folder; do not rely on the
+    // process working directory alone.
+    const std::filesystem::path root = starcraftRoot();
+    std::vector<std::string> settingsPaths;
+    for (const auto& p : defaultSettingsPaths())
+      settingsPaths.push_back((root / p).string());
+    const std::filesystem::path moduleDir = moduleDirectory();
+    if (!moduleDir.empty())
+      settingsPaths.push_back((moduleDir / "BeginnerBot.ini").string());
+    ctx_.settings = loadBotSettings(settingsPaths);
+    if (std::filesystem::path(ctx_.settings.logDirectory).is_relative())
+      ctx_.settings.logDirectory = (root / ctx_.settings.logDirectory).string();
     ctx_.config = makeDifficultyConfig(ctx_.settings.difficulty);
     ctx_.log.setLevel(parseLogLevel(ctx_.settings.logLevel));
     const bool logOpen = ctx_.log.open(ctx_.settings.logDirectory, "BeginnerBot_" + timestampForFileName() + ".log");
@@ -91,6 +104,7 @@ namespace bb
     {
       ctx_.log.info("Bot", concat("BeginnerBot ", kBotVersion, " compiled against BWAPI ", BWAPI_VER,
                                   " (StarCraft ", STARCRAFT_VER, ")"));
+      ctx_.log.info("Bot", concat("StarCraft folder: ", root.string(), "  module folder: ", moduleDir.string()));
       ctx_.log.info("Bot", concat("settings: ", ctx_.settings.loadedFrom.empty() ? std::string("<defaults>") : ctx_.settings.loadedFrom));
       for (const auto& w : ctx_.settings.warnings)
         ctx_.log.warn("Settings", w);

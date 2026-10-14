@@ -194,10 +194,16 @@ namespace bb
     p.requiredRatio = ctx_.strategy->attackStrengthRatio();
     p.maxSize = ctx_.config.maxAttackSize;
     if (!shouldAttack(in, p))
+    {
+      readySinceFrame_ = -1;
       return;
+    }
+    if (readySinceFrame_ < 0)
+      readySinceFrame_ = ctx_.frame;
 
-    // Move out together: wait (a bounded time) until most of the army is at the rally point.
-    if (nearRally < static_cast<int>(army_.size() * 0.7) && ctx_.frame - stateFrame_ < 24 * 45)
+    // Move out together: wait (at most 45 s after the army became ready) until most
+    // of it stands at the rally point.
+    if (nearRally < static_cast<int>(army_.size() * 0.7) && ctx_.frame - readySinceFrame_ < 24 * 45)
       return;
 
     auto target = ctx_.strategy->chooseAttackTarget(rally);
@@ -209,6 +215,7 @@ namespace bb
       return;
     }
     loggedNoTarget_ = false;
+    readySinceFrame_ = -1;
     startWave(*target);
   }
 

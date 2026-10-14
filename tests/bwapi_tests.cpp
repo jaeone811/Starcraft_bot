@@ -4,6 +4,9 @@
 #include "TestFramework.h"
 
 #include "BwapiUtil.h"
+#include "PlatformPaths.h"
+
+#include <filesystem>
 
 #include <BWAPI.h>
 
@@ -87,6 +90,19 @@ TEST_CASE("building geometry helper")
   const Position c = buildingCenter(TilePosition(10, 20), UnitTypes::Terran_Command_Center); // 4x3 tiles
   CHECK_EQ(c.x, 10 * 32 + 64);
   CHECK_EQ(c.y, 20 * 32 + 48);
+}
+
+TEST_CASE("StarCraft folder detection")
+{
+  namespace fs = std::filesystem;
+  CHECK(!moduleDirectory().empty()); // the test executable itself
+  const fs::path old = fs::current_path();
+  const fs::path tmp = fs::temp_directory_path() / "beginnerbot_root_test";
+  fs::create_directories(tmp / "bwapi-data");
+  fs::current_path(tmp);
+  CHECK(fs::equivalent(starcraftRoot(), tmp));
+  fs::current_path(old);
+  fs::remove_all(tmp);
 }
 
 int main()
