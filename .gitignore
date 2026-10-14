@@ -1,0 +1,8 @@
+build/
+build-*/
+deps/
+package/
+out/
+.vs/
+*.user
+CMakeUserPresets.json

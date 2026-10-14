@@ -1,0 +1,95 @@
+// Checks the bot's assumptions about Brood War data against the real BWAPI 4.4.0
+// type tables (BWAPILIB). No game is needed: these are static type properties.
+
+#include "TestFramework.h"
+
+#include "BwapiUtil.h"
+
+#include <BWAPI.h>
+
+using namespace BWAPI;
+using namespace bb;
+
+TEST_CASE("build items map to the expected Terran buildings")
+{
+  CHECK(toUnitType(BuildItem::SupplyDepot) == UnitTypes::Terran_Supply_Depot);
+  CHECK(toUnitType(BuildItem::Barracks) == UnitTypes::Terran_Barracks);
+  CHECK(toUnitType(BuildItem::Refinery) == UnitTypes::Terran_Refinery);
+  CHECK(toUnitType(BuildItem::Academy) == UnitTypes::Terran_Academy);
+  CHECK(toUnitType(BuildItem::EngineeringBay) == UnitTypes::Terran_Engineering_Bay);
+  CHECK(toUnitType(BuildItem::CommandCenter) == UnitTypes::Terran_Command_Center);
+  CHECK(toUnitType(BuildItem::Refinery).isRefinery());
+  CHECK(toUnitType(BuildItem::CommandCenter).isResourceDepot());
+}
+
+TEST_CASE("supply numbers use BWAPI's doubled units")
+{
+  CHECK_EQ(UnitTypes::Terran_Marine.supplyRequired(), 2);
+  CHECK_EQ(UnitTypes::Terran_SCV.supplyRequired(), 2);
+  CHECK_EQ(UnitTypes::Terran_Supply_Depot.supplyProvided(), 16);
+  CHECK_EQ(UnitTypes::Terran_Command_Center.supplyProvided(), 20);
+}
+
+TEST_CASE("costs used by the budget")
+{
+  CHECK_EQ(UnitTypes::Terran_Marine.mineralPrice(), 50);
+  CHECK_EQ(UnitTypes::Terran_Marine.gasPrice(), 0);
+  CHECK_EQ(UnitTypes::Terran_Medic.gasPrice(), 25);
+  CHECK_EQ(UnitTypes::Terran_Firebat.gasPrice(), 25);
+  CHECK_EQ(UnitTypes::Terran_Supply_Depot.mineralPrice(), 100);
+  CHECK_EQ(UnitTypes::Terran_Barracks.mineralPrice(), 150);
+  CHECK_EQ(UnitTypes::Terran_Command_Center.mineralPrice(), 400);
+  CHECK(UnitTypes::Terran_SCV.buildTime() > 0);
+  CHECK(UnitTypes::Terran_Marine.buildTime() > 0);
+}
+
+TEST_CASE("tech tree assumptions")
+{
+  // Medics and Firebats need an Academy; the production code checks requiredUnits().
+  CHECK(UnitTypes::Terran_Medic.requiredUnits().count(UnitTypes::Terran_Academy) == 1);
+  CHECK(UnitTypes::Terran_Firebat.requiredUnits().count(UnitTypes::Terran_Academy) == 1);
+  CHECK(UnitTypes::Terran_Academy.requiredUnits().count(UnitTypes::Terran_Barracks) == 1);
+  CHECK(UnitTypes::Terran_Comsat_Station.isAddon());
+  CHECK(UnitTypes::Terran_Comsat_Station.whatBuilds().first == UnitTypes::Terran_Command_Center);
+  CHECK(researchBuilding(ResearchItem::StimPacks) == UnitTypes::Terran_Academy);
+  CHECK(researchBuilding(ResearchItem::U238Shells) == UnitTypes::Terran_Academy);
+  CHECK(researchBuilding(ResearchItem::InfantryWeapons1) == UnitTypes::Terran_Engineering_Bay);
+  CHECK(researchBuilding(ResearchItem::InfantryArmor1) == UnitTypes::Terran_Engineering_Bay);
+  CHECK(toTechType(ResearchItem::StimPacks) == TechTypes::Stim_Packs);
+  CHECK(toUpgradeType(ResearchItem::U238Shells) == UpgradeTypes::U_238_Shells);
+  // Scanner Sweep needs no research (BWAPI reports whatResearches() == None); it only costs energy.
+  CHECK(TechTypes::Scanner_Sweep.whatResearches() == UnitTypes::None);
+  CHECK_EQ(TechTypes::Scanner_Sweep.energyCost(), 50);
+}
+
+TEST_CASE("combat value helpers")
+{
+  CHECK(groundDamagePerFrame(UnitTypes::Terran_Marine) > 0.0);
+  CHECK(groundDamagePerFrame(UnitTypes::Protoss_Zealot) > groundDamagePerFrame(UnitTypes::Terran_Marine));
+  CHECK(!canAttackGround(UnitTypes::Terran_Medic));
+  CHECK(typeStrength(UnitTypes::Terran_Medic) > 0.0);   // healing still counts
+  CHECK(canAttackGround(UnitTypes::Protoss_Photon_Cannon));
+  CHECK(canAttackGround(UnitTypes::Zerg_Sunken_Colony));
+  CHECK(canAttackGround(UnitTypes::Terran_Bunker));      // special-cased: assumed loaded
+  CHECK(canAttackGround(UnitTypes::Protoss_Carrier));    // special-cased: interceptors
+  CHECK(groundDamagePerFrame(UnitTypes::Protoss_Carrier) < 5.0); // not 8 x "1 frame cooldown"
+  CHECK(canAttackGround(UnitTypes::Protoss_Reaver));     // BWAPI lists no ground weapon; special-cased
+  CHECK(!canAttackGround(UnitTypes::Zerg_Overlord));
+  CHECK(isMeleeType(UnitTypes::Zerg_Zergling));
+  CHECK(!isMeleeType(UnitTypes::Zerg_Hydralisk));
+  CHECK(isOurArmyType(UnitTypes::Terran_Medic));
+  CHECK(!isOurArmyType(UnitTypes::Terran_SCV));
+  CHECK(typeStrength(UnitTypes::Protoss_Dragoon) > typeStrength(UnitTypes::Terran_Marine));
+}
+
+TEST_CASE("building geometry helper")
+{
+  const Position c = buildingCenter(TilePosition(10, 20), UnitTypes::Terran_Command_Center); // 4x3 tiles
+  CHECK_EQ(c.x, 10 * 32 + 64);
+  CHECK_EQ(c.y, 20 * 32 + 48);
+}
+
+int main()
+{
+  return bbtest::runAll();
+}

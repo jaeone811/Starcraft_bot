@@ -1,0 +1,70 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows-msvc-win32:
+    # The real target: a 32-bit MSVC DLL for StarCraft 1.16.1 + BWAPI 4.4.0.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch BWAPI 4.4.0 (official repository, release tag)
+        shell: bash
+        run: git clone --depth 1 --branch v4.4.0 https://github.com/bwapi/bwapi.git deps/bwapi
+
+      - name: Configure (Win32)
+        run: cmake -S . -B build -A Win32 -DBWAPI_DIR=deps/bwapi/bwapi
+
+      - name: Build (Release)
+        run: cmake --build build --config Release --parallel
+
+      - name: Unit tests and module load test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Inspect DLL (machine type, exports, dependencies)
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $dumpbin = & $vswhere -latest -products * -find "VC\Tools\MSVC\**\bin\Hostx64\x86\dumpbin.exe" | Select-Object -First 1
+          if (-not $dumpbin) { throw "dumpbin not found" }
+          & $dumpbin /headers build\Release\BeginnerBot.dll | Select-String "machine"
+          & $dumpbin /exports build\Release\BeginnerBot.dll
+          & $dumpbin /dependents build\Release\BeginnerBot.dll
+          $exports = & $dumpbin /exports build\Release\BeginnerBot.dll | Out-String
+          if ($exports -notmatch "newAIModule" -or $exports -notmatch "gameInit") { throw "missing BWAPI exports" }
+          $headers = & $dumpbin /headers build\Release\BeginnerBot.dll | Out-String
+          if ($headers -notmatch "14C machine \(x86\)") { throw "DLL is not 32-bit x86" }
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package/bwapi-data/AI, package/tools | Out-Null
+          Copy-Item build/Release/BeginnerBot.dll package/bwapi-data/AI/
+          Copy-Item config/BeginnerBot.ini package/bwapi-data/AI/
+          Copy-Item build/Release/BeginnerBotConfig.exe package/tools/
+          Copy-Item scripts/install_to_starcraft.bat package/
+          if (Test-Path README.md) { Copy-Item README.md package/ }
+          if (Test-Path docs) { Copy-Item docs package/docs -Recurse }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BeginnerBot-win32
+          path: package
+
+  linux-gcc:
+    # Compile/link check of the same sources plus the unit tests.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch BWAPI 4.4.0
+        run: git clone --depth 1 --branch v4.4.0 https://github.com/bwapi/bwapi.git deps/bwapi
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBWAPI_DIR=deps/bwapi/bwapi
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
