@@ -365,6 +365,19 @@ TEST_CASE("attack decision")
   in.armySize = 30;
   in.frame = 0;
   CHECK(shouldAttack(in, p));                        // maxed army always moves out
+
+  // No suicide attacks, even without the strength estimate (difficulty 1).
+  in.armySize = 20;
+  in.frame = 1000;
+  in.useStrengthEstimate = false;
+  in.ownStrength = 6145;
+  in.knownEnemyStrength = 42007;                     // difficulty 1 game: 20 marines vs cannons and army
+  CHECK(!shouldAttack(in, p));
+  in.knownEnemyStrength = 3 * 6145;
+  CHECK(shouldAttack(in, p));
+  in.armySize = 30;
+  in.knownEnemyStrength = 42007;
+  CHECK(shouldAttack(in, p));                        // a maxed army still goes
 }
 
 TEST_CASE("retreat decision")

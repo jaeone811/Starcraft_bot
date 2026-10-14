@@ -161,12 +161,13 @@ namespace bb
 
   bool ProductionManager::supplyStalled()
   {
-    // Supply can still grow while workers are below their target or anything is in
-    // production. Otherwise it has stopped for good once that lasts a few seconds.
+    // Supply can still grow while workers are below their target, anything is in
+    // production or a building is on its way (a released Barracks will train soon).
+    // Otherwise it has stopped for good once that lasts a few seconds.
     Player self = Broodwar->self();
     const int target = workerTarget(ctx_.workers->mineralPatchesAtBases(), ctx_.workers->gasRefineries(),
                                     ctx_.config.workersPerMineralPatch, ctx_.config.maxWorkers);
-    bool canGrow = self->allUnitCount(UnitTypes::Terran_SCV) < target;
+    bool canGrow = self->allUnitCount(UnitTypes::Terran_SCV) < target || ctx_.buildings->taskCount() > 0;
     for (Unit u : self->getUnits())
       canGrow = canGrow || (u->isCompleted() && !u->getTrainingQueue().empty());
     if (canGrow)

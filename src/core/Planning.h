@@ -125,6 +125,9 @@ namespace bb
     int maxSize = 40;
   };
 
+  // Known enemy strength this many times our own: no attack at any difficulty.
+  constexpr double kHopelessStrengthRatio = 3.0;
+
   bool shouldAttack(const AttackInputs& in, const AttackParams& p);
 
   bool shouldRetreat(double localOwnStrength, double localEnemyStrength, double retreatRatio,

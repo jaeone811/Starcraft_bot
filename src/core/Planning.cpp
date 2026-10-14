@@ -143,6 +143,11 @@ namespace bb
       return false;
     if (in.armySize < p.requiredSize)
       return false;
+    // Every level: do not walk into an enemy we know is overwhelmingly stronger.
+    // That would be a suicide attack, not an easy opponent; the army grows instead
+    // (and still goes once it is maxed out, above).
+    if (in.knownEnemyStrength > in.ownStrength * kHopelessStrengthRatio)
+      return false;
     if (in.useStrengthEstimate && p.requiredRatio > 0.0 && in.knownEnemyStrength > 0.0)
       return in.ownStrength >= in.knownEnemyStrength * p.requiredRatio;
     return true;
