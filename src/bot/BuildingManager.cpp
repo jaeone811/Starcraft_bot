@@ -25,6 +25,48 @@ namespace bb
       return a.x - margin < b.x + tb.tileWidth() && b.x - margin < a.x + ta.tileWidth() &&
              a.y - margin < b.y + tb.tileHeight() && b.y - margin < a.y + ta.tileHeight();
     }
+
+    // Buildings whose units walk out of their sides.
+    bool producesGroundUnits(UnitType t)
+    {
+      return t == UnitTypes::Terran_Barracks || t == UnitTypes::Terran_Factory;
+    }
+
+    // Tile rectangle of a building, with the add-on columns on its right side.
+    struct TileRect { int x, y, w, h; };
+    TileRect footprint(TilePosition t, UnitType type)
+    {
+      return { t.x, t.y, type.tileWidth() + (type.canBuildAddon() ? 2 : 0), type.tileHeight() };
+    }
+
+    bool rectsOverlap(const TileRect& a, const TileRect& b, int margin)
+    {
+      return a.x - margin < b.x + b.w && b.x - margin < a.x + a.w && a.y - margin < b.y + b.h && b.y - margin < a.y + a.h;
+    }
+
+    // Every tile of the one-tile ring around `r` lies inside the map, is fully
+    // walkable and holds no building or resource. A unit that comes out next to the
+    // building can then walk around it to any side.
+    bool ringOpen(const TileRect& r)
+    {
+      for (int x = r.x - 1; x <= r.x + r.w; ++x)
+        for (int y = r.y - 1; y <= r.y + r.h; ++y)
+        {
+          if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)
+            continue;
+          const TilePosition t(x, y);
+          if (!t.isValid())
+            return false;
+          for (int i = 0; i < 4; ++i)
+            for (int j = 0; j < 4; ++j)
+              if (!Broodwar->isWalkable(x * 4 + i, y * 4 + j))
+                return false;
+          for (Unit u : Broodwar->getUnitsOnTile(t))
+            if ((u->getType().isBuilding() && !u->isFlying()) || u->getType().isResourceContainer())
+              return false;
+        }
+      return true;
+    }
   }
 
   bool BuildingManager::onCooldown(UnitType type) const
@@ -120,6 +162,25 @@ namespace bb
     return false;
   }
 
+  bool BuildingManager::keepsExitsOpen(const Task& task, TilePosition tile) const
+  {
+    // A Barracks or Factory (with its add-on) keeps a free one-tile ring, and nothing
+    // else is built in the ring of one. Without it a Factory built next to the map
+    // edge on Boxer let its first tank out into a pocket it never left.
+    const TileRect r = footprint(tile, task.type);
+    if (producesGroundUnits(task.type) && !ringOpen(r))
+      return false;
+    for (Unit u : Broodwar->self()->getUnits())
+      if (producesGroundUnits(u->getType()) && !u->isLifted() && rectsOverlap(r, footprint(u->getTilePosition(), u->getType()), 1))
+        return false;
+    for (const auto& other : tasks_)
+      if (other.id != task.id && other.state != State::UnderConstruction && other.tile.isValid() &&
+          other.tile != TilePositions::None && (producesGroundUnits(other.type) || producesGroundUnits(task.type)) &&
+          rectsOverlap(r, footprint(other.tile, other.type), 1))
+        return false;
+    return true;
+  }
+
   TilePosition BuildingManager::findLocation(const Task& task) const
   {
     const UnitType type = task.type;
@@ -144,20 +205,29 @@ namespace bb
     }
 
     // Everything else goes around the main base. Each failed attempt shifts the
-    // search anchor so a blocked area is not tried forever.
-    static const TilePosition offsets[] = { {0, 0}, {6, 0}, {-6, 0}, {0, 6}, {0, -6}, {8, 8}, {-8, -8}, {8, -8}, {-8, 8} };
+    // search anchor so a blocked area is not tried forever. The first pass also
+    // wants free exits around production buildings (keepsExitsOpen); when no such
+    // spot is found, the second pass takes any legal one rather than not building.
+    static const TilePosition offsets[] = { {0, 0}, {6, 0}, {-6, 0}, {0, 6}, {0, -6}, {8, 8}, {-8, -8}, {8, -8}, {-8, 8},
+                                            {12, 0}, {-12, 0}, {0, 12}, {0, -12}, {12, 12}, {-12, -12}, {12, -12}, {-12, 12} };
     const int n = static_cast<int>(sizeof(offsets) / sizeof(offsets[0]));
     TilePosition anchor = ctx_.map->mainTile();
     if (!ctx_.workers->depots().empty())
       anchor = ctx_.workers->depots().front()->getTilePosition();
-    for (int i = 0; i < n; ++i)
-    {
-      TilePosition desired = anchor + offsets[(task.placementAttempts + i) % n];
-      desired.makeValid();
-      TilePosition tile = Broodwar->getBuildLocation(type, desired, 40);
-      if (tile.isValid() && tile != TilePositions::None && !overlapsOtherTask(task, tile) && !recentlyBlocked(tile))
+    for (bool spaced : { true, false })
+      for (int i = 0; i < (spaced ? n : 9); ++i)
+      {
+        TilePosition desired = anchor + offsets[(task.placementAttempts + i) % (spaced ? n : 9)];
+        desired.makeValid();
+        TilePosition tile = Broodwar->getBuildLocation(type, desired, 40);
+        if (!tile.isValid() || tile == TilePositions::None || overlapsOtherTask(task, tile) || recentlyBlocked(tile))
+          continue;
+        if (spaced && !keepsExitsOpen(task, tile))
+          continue;
+        if (!spaced)
+          ctx_.log.info("Build", concat("no spot with free exits for ", type.c_str(), ": using ", tile.x, ",", tile.y));
         return tile;
-    }
+      }
     return TilePositions::None;
   }
 

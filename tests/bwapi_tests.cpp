@@ -81,6 +81,11 @@ TEST_CASE("tech tree assumptions")
   CHECK_EQ(UnitTypes::Terran_Siege_Tank_Tank_Mode.buildTime(), 750);
   CHECK_EQ(UnitTypes::Terran_Vulture.buildTime(), 450);
   CHECK_EQ(UnitTypes::Terran_Marine.buildTime(), 360);
+  // BuildingManager keeps a ring free around Barracks / Factory plus a 2-tile add-on column.
+  CHECK(UnitTypes::Terran_Factory.canBuildAddon());
+  CHECK(!UnitTypes::Terran_Barracks.canBuildAddon());
+  CHECK_EQ(UnitTypes::Terran_Machine_Shop.tileWidth(), 2);
+  CHECK_EQ(UnitTypes::Terran_Factory.tileWidth(), 4);
   // Other mech: Vultures need only a Factory (and no gas), Goliaths an Armory and hit air.
   CHECK(UnitTypes::Terran_Vulture.whatBuilds().first == UnitTypes::Terran_Factory);
   CHECK(UnitTypes::Terran_Vulture.requiredUnits().count(UnitTypes::Terran_Machine_Shop) == 0);

@@ -45,7 +45,8 @@ namespace bb
     {
       ++ctx_.metrics.unitStuckEvents;
       ctx_.log.warn("Command", concat(u->getType().c_str(), "#", id, " received the same ", what,
-                                      " command 8 times in a row (possible stuck unit)"));
+                                      " command 8 times in a row (possible stuck unit) at tile ", u->getTilePosition().x, ",",
+                                      u->getTilePosition().y, " order=", u->getOrder().c_str(), u->isStuck() ? " isStuck" : ""));
     }
     return ok;
   }
