@@ -273,6 +273,7 @@ namespace bb
     regrouping_ = false;
     nextRegroupAllowedFrame_ = 0;
     regroups_ = 0;
+    sieges_ = 0;
     state_ = State::Attack;
     stateFrame_ = ctx_.frame;
     ++ctx_.metrics.attackWaves;
@@ -292,7 +293,7 @@ namespace bb
     state_ = next;
     stateFrame_ = ctx_.frame;
     regrouping_ = false;
-    ctx_.log.info("Combat", concat("wave over: ", reason, " -> ", stateName(), " (regrouped ", regroups_, " times)"));
+    ctx_.log.info("Combat", concat("wave over: ", reason, " -> ", stateName(), " (regrouped ", regroups_, " times, sieged ", sieges_, " times)"));
   }
 
   bool CombatManager::pickNewTarget(Position from)
@@ -338,7 +339,8 @@ namespace bb
     {
       if (lastThreat != ctx_.frame)
         return TankMode::Mobile;
-      ctx_.commander->siege(tank);
+      if (ctx_.commander->siege(tank))
+        ++sieges_;
       return TankMode::Switching;
     }
     if (threat)

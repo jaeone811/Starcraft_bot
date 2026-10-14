@@ -80,6 +80,7 @@ namespace bb
     int bestLeadDistance_ = 0;
     int noProgressChecks_ = 0;
     int regroups_ = 0;
+    int sieges_ = 0;
     std::map<int, int> tankThreatFrame_; // tank id -> last frame a threat was in siege range
   };
 }

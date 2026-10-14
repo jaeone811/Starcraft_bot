@@ -62,6 +62,7 @@ namespace bb
     std::vector<BWAPI::Unit> threats_;
     BWAPI::Position threatCenter_;
     double mechShare_;
+    double loggedMechShare_;
     int lastMixFrame_ = -10000;
   };
 }

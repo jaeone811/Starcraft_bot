@@ -16,12 +16,13 @@ namespace bb
   namespace
   {
     constexpr int kThreatRadius = 12 * 32;
+    constexpr double kMechShareDropPerUpdate = 0.05; // per 5 s re-evaluation
     std::pair<int, int> tileKey(Position p) { return { p.x / 32, p.y / 32 }; }
   }
 
   StrategyManager::StrategyManager(BotContext& ctx)
     : ctx_(ctx), attackSize_(ctx.config.attackArmySize), strengthRatio_(ctx.config.attackStrengthRatio),
-      mechShare_(ctx.config.mechShare)
+      mechShare_(ctx.config.mechShare), loggedMechShare_(ctx.config.mechShare)
   {
   }
 
@@ -32,12 +33,17 @@ namespace bb
       return;
     lastMixFrame_ = ctx_.frame;
     const EnemyMix mix = ctx_.info->enemyMix();
-    const double share = targetMechShare(mix, ctx_.config.mechShare, ctx_.config.maxMechShare, ctx_.config.enemyInfoUsage >= 1);
-    if (std::abs(share - mechShare_) >= 0.05)
-      ctx_.log.info("Strategy", concat("army mix: mech share ", static_cast<int>(mechShare_ * 100), "% -> ",
-                                       static_cast<int>(share * 100), "% (enemy seen: melee ", mix.melee, ", heavy ", mix.heavy,
+    const double target = targetMechShare(mix, ctx_.config.mechShare, ctx_.config.maxMechShare, ctx_.config.enemyInfoUsage >= 1);
+    // Up at once, down slowly: the remembered enemy count drops whenever units die or
+    // are forgotten, and the production plan should not flip with every skirmish.
+    mechShare_ = target >= mechShare_ ? target : std::max(target, mechShare_ - kMechShareDropPerUpdate);
+    if (std::abs(mechShare_ - loggedMechShare_) >= 0.1)
+    {
+      ctx_.log.info("Strategy", concat("army mix: mech share ", static_cast<int>(loggedMechShare_ * 100), "% -> ",
+                                       static_cast<int>(mechShare_ * 100), "% (enemy seen: melee ", mix.melee, ", heavy ", mix.heavy,
                                        ", light ", mix.light, ", air ", mix.air, ")"));
-    mechShare_ = share;
+      loggedMechShare_ = mechShare_;
+    }
   }
 
   void StrategyManager::update()

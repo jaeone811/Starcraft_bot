@@ -81,7 +81,7 @@ namespace bb
     buildComsat(budget);
     if (!armyFirst)
       trainArmy(budget);
-    measureIdle(elapsedFrames);
+    measureIdle(elapsedFrames, budget);
   }
 
   void ProductionManager::planSupply(Budget& budget)
@@ -405,9 +405,10 @@ namespace bb
         }
         if (ctx_.commander->lastWasSuppressed())
           continue;
-        machineShopRetryFrame_ = ctx_.frame + 24 * 120;
+        // Usually a unit standing on the add-on spot; it moves soon.
+        machineShopRetryFrame_ = ctx_.frame + 24 * 30;
         ctx_.log.warn("Production", concat("Machine Shop could not be started (", Broodwar->getLastError().c_str(),
-                                           "); retrying in 2 minutes"));
+                                           "); retrying in 30 seconds"));
       }
       if (!trainUnits)
         continue;
@@ -479,11 +480,12 @@ namespace bb
     }
   }
 
-  void ProductionManager::measureIdle(int elapsedFrames)
+  void ProductionManager::measureIdle(int elapsedFrames, const Budget& budget)
   {
+    // Idle only counts when money was left after this round's spending and saving:
+    // a Barracks waiting because everything is spent or saved for is not wasted.
     Player self = Broodwar->self();
-    const bool couldAffordMarine = self->minerals() >= 50 && self->supplyTotal() - self->supplyUsed() >= 2;
-    if (!couldAffordMarine)
+    if (!budget.canAfford(costOf(UnitTypes::Terran_Marine)))
       return;
     for (Unit u : self->getUnits())
       if ((u->getType() == UnitTypes::Terran_Barracks) && idleProducer(u))

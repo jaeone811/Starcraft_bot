@@ -80,9 +80,17 @@ namespace bb
 
   int BuildingManager::pendingSupply() const
   {
+    // A Command Center takes three times as long as a depot: its supply only counts
+    // once it will finish before a depot started now would.
+    const int depotTime = UnitTypes::Terran_Supply_Depot.buildTime();
     int sum = 0;
     for (const auto& t : tasks_)
+    {
+      if (t.type.isResourceDepot() &&
+          !(t.state == State::UnderConstruction && isValid(t.building) && t.building->getRemainingBuildTime() <= depotTime))
+        continue;
       sum += t.type.supplyProvided();
+    }
     return sum;
   }
 

@@ -35,7 +35,7 @@ namespace bb
     void trainArmy(Budget& budget);
     void trainInfantry(Budget& budget);
     void trainFactories(Budget& budget, bool trainUnits);
-    void measureIdle(int elapsedFrames);
+    void measureIdle(int elapsedFrames, const Budget& budget);
 
     int planned(BWAPI::UnitType type) const;
     bool requirementsMet(BWAPI::UnitType type) const;
