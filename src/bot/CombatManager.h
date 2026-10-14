@@ -12,6 +12,7 @@
 
 #include <BWAPI.h>
 
+#include <map>
 #include <set>
 #include <vector>
 
@@ -32,6 +33,10 @@ namespace bb
 
   private:
     enum class State { Gather, Attack, Retreat, Defend };
+    enum class TankMode { Mobile, Sieged, Switching };
+
+    // Siege / unsiege decision for one tank; Mobile means it may take move orders.
+    TankMode updateSiege(BWAPI::Unit tank);
 
     void collectArmy();
     void useScans();
@@ -72,6 +77,9 @@ namespace bb
     int waveValueKilled_ = 0;
     int lastProgressCheckFrame_ = 0;
     int bestDistanceToTarget_ = 0;
+    int bestLeadDistance_ = 0;
     int noProgressChecks_ = 0;
+    int regroups_ = 0;
+    std::map<int, int> tankThreatFrame_; // tank id -> last frame a threat was in siege range
   };
 }

@@ -22,9 +22,11 @@ namespace bb
     constexpr int kProgressCheckFrames = 24 * 10;
     constexpr int kMaxNoProgressChecks = 3;
     constexpr int kRallyRadiusTiles = 5;              // smallest "at the rally point" radius
-    constexpr int kMaxRegroupFrames = 24 * 8;         // a regroup that takes longer is given up
-    constexpr int kRegroupCooldownFrames = 24 * 6;    // advance at least this long before regrouping again
+    constexpr int kMaxRegroupFrames = 24 * 6;         // a regroup that takes longer is given up
+    constexpr int kRegroupCooldownFrames = 24 * 15;   // advance at least this long before regrouping again
     constexpr int kSiegeRange = 12 * kTile;           // Siege Mode range (checked in bwapi_tests)
+    constexpr int kUnsiegeDelayFrames = 24 * 3;       // stay sieged this long after the last threat in range
+    constexpr int kRegroupNearTargetTiles = 20;       // regroup only when the lead is this close to the target
 
     bool isMedic(Unit u) { return u->getType() == UnitTypes::Terran_Medic; }
 
@@ -37,9 +39,12 @@ namespace bb
       return d <= radius || (d <= radius + 4 * kTile && !u->isMoving());
     }
 
-    // A sieged tank has to unsiege before it can move; true while that is the case.
+    // A sieged (or switching) tank cannot move; true while that is the case.
     bool packUp(Commander& commander, Unit u)
     {
+      const Order order = u->getOrder();
+      if (order == Orders::Sieging || order == Orders::Unsieging)
+        return true;
       if (u->getType() != UnitTypes::Terran_Siege_Tank_Siege_Mode)
         return false;
       commander.unsiege(u);
@@ -105,6 +110,7 @@ namespace bb
   {
     if (!unit)
       return;
+    tankThreatFrame_.erase(unit->getID());
     if (wave_.erase(unit->getID()))
     {
       ++waveLost_;
@@ -193,13 +199,11 @@ namespace bb
     int nearRally = 0;
     for (Unit u : army_)
     {
-      if (settledNear(u, rally, rallyRadius))
+      if ((isSiegeTank(u->getType()) && updateSiege(u) != TankMode::Mobile) || settledNear(u, rally, rallyRadius))
       {
         ++nearRally;
         continue;
       }
-      if (packUp(*ctx_.commander, u))
-        continue;
       if (isMedic(u))
         ctx_.commander->move(u, rally);
       else
@@ -263,10 +267,12 @@ namespace bb
     targetReason_ = target.reason;
     const Position center = groupCenter(army_);
     bestDistanceToTarget_ = center.getApproxDistance(target_);
+    bestLeadDistance_ = std::numeric_limits<int>::max();
     lastProgressCheckFrame_ = ctx_.frame;
     noProgressChecks_ = 0;
     regrouping_ = false;
     nextRegroupAllowedFrame_ = 0;
+    regroups_ = 0;
     state_ = State::Attack;
     stateFrame_ = ctx_.frame;
     ++ctx_.metrics.attackWaves;
@@ -286,7 +292,7 @@ namespace bb
     state_ = next;
     stateFrame_ = ctx_.frame;
     regrouping_ = false;
-    ctx_.log.info("Combat", concat("wave over: ", reason, " -> ", stateName()));
+    ctx_.log.info("Combat", concat("wave over: ", reason, " -> ", stateName(), " (regrouped ", regroups_, " times)"));
   }
 
   bool CombatManager::pickNewTarget(Position from)
@@ -303,10 +309,42 @@ namespace bb
     target_ = t->position;
     targetReason_ = t->reason;
     bestDistanceToTarget_ = from.getApproxDistance(target_);
+    bestLeadDistance_ = std::numeric_limits<int>::max();
     noProgressChecks_ = 0;
     lastProgressCheckFrame_ = ctx_.frame;
     ctx_.log.info("Combat", concat("new target ", target_.x, ",", target_.y, " [", targetReason_, "]"));
     return true;
+  }
+
+  CombatManager::TankMode CombatManager::updateSiege(Unit tank)
+  {
+    // Siege when something that shoots at ground units is within siege range; pack
+    // up only after nothing has been in range for a few seconds, so a tank does not
+    // unsiege in the middle of a fight that briefly moved out of sight.
+    if (!Broodwar->self()->hasResearched(TechTypes::Tank_Siege_Mode))
+      return TankMode::Mobile;
+    const Order order = tank->getOrder();
+    if (order == Orders::Sieging || order == Orders::Unsieging)
+      return TankMode::Switching; // a second order while switching only fails
+    int& lastThreat = tankThreatFrame_.try_emplace(tank->getID(), -kUnsiegeDelayFrames - 1).first->second;
+    for (Unit e : ctx_.info->visibleEnemiesNear(tank->getPosition(), kSiegeRange + kTile))
+      if (e->isDetected() && !e->isFlying() && canAttackGround(e->getType()) && tank->getDistance(e) <= kSiegeRange)
+      {
+        lastThreat = ctx_.frame;
+        break;
+      }
+    const bool threat = ctx_.frame - lastThreat <= kUnsiegeDelayFrames;
+    if (tank->getType() == UnitTypes::Terran_Siege_Tank_Tank_Mode)
+    {
+      if (lastThreat != ctx_.frame)
+        return TankMode::Mobile;
+      ctx_.commander->siege(tank);
+      return TankMode::Switching;
+    }
+    if (threat)
+      return TankMode::Sieged;
+    ctx_.commander->unsiege(tank);
+    return TankMode::Switching;
   }
 
   void CombatManager::moveMedic(Unit medic, Position center)
@@ -320,26 +358,8 @@ namespace bb
     const UnitType type = u->getType();
     const bool hitsAir = type.airWeapon() != WeaponTypes::None;
     const bool sieged = type == UnitTypes::Terran_Siege_Tank_Siege_Mode;
-
-    // Siege Tanks siege up when something that shoots back (or a cannon) comes within
-    // range, and pack up again once nothing is left nearby so the wave can move on.
-    if (isSiegeTank(type) && Broodwar->self()->hasResearched(TechTypes::Tank_Siege_Mode))
-    {
-      int nearestThreat = std::numeric_limits<int>::max();
-      for (Unit e : ctx_.info->visibleEnemiesNear(u->getPosition(), kSiegeRange + 2 * kTile))
-        if (e->isDetected() && !e->isFlying() && canAttackGround(e->getType()))
-          nearestThreat = std::min(nearestThreat, u->getDistance(e));
-      if (!sieged && nearestThreat <= kSiegeRange - kTile)
-      {
-        ctx_.commander->siege(u);
-        return;
-      }
-      if (sieged && nearestThreat > kSiegeRange + kTile)
-      {
-        ctx_.commander->unsiege(u);
-        return;
-      }
-    }
+    if (isSiegeTank(type) && updateSiege(u) == TankMode::Switching)
+      return;
 
     // Visible, targetable enemies around this unit (a sieged tank: only what it can hit).
     std::vector<Unit> enemies = ctx_.info->visibleEnemiesNear(u->getPosition(), sieged ? kSiegeRange : kTargetSearchRadius);
@@ -421,10 +441,10 @@ namespace bb
         fight(r, ctx_.strategy->threatCenter(), 0.0, 0.0);
         continue;
       }
+      if (isSiegeTank(r->getType()) && updateSiege(r) != TankMode::Mobile)
+        continue;
       if (settledNear(r, rally, rallyRadius))
         ready.push_back(r);
-      else if (packUp(*ctx_.commander, r))
-        continue;
       else if (isMedic(r))
         ctx_.commander->move(r, rally);
       else
@@ -458,39 +478,52 @@ namespace bb
       return;
     }
 
+    // The shooter closest to the target leads. Fights and the target itself are often
+    // at the lead while the center is still far behind, so both are looked at.
+    Unit lead = nullptr;
+    int leadDistance = std::numeric_limits<int>::max();
+    for (Unit u : waveUnits)
+      if (!isMedic(u) && u->getDistance(target_) < leadDistance)
+      {
+        lead = u;
+        leadDistance = u->getDistance(target_);
+      }
+    const bool leadEngaged = lead && !ctx_.info->visibleEnemiesNear(lead->getPosition(), kTargetSearchRadius).empty();
+    const bool engaged = !localEnemies.empty() || leadEngaged;
+
     // Reached the target and nothing is fighting us: choose the next target.
-    if (center.getApproxDistance(target_) < 6 * kTile && localEnemies.empty())
+    if ((center.getApproxDistance(target_) < 6 * kTile && localEnemies.empty()) || (leadDistance < 3 * kTile && !leadEngaged))
     {
       if (!pickNewTarget(center))
       {
         endWave("no more targets known", State::Gather);
         return;
       }
+      leadDistance = lead ? lead->getDistance(target_) : leadDistance;
     }
 
     // No progress for a while (and no fight): the target is probably unreachable.
-    // Standing still to regroup is intended and does not count.
+    // Progress of either the center or the lead counts; regrouping does not count.
     if (ctx_.frame - lastProgressCheckFrame_ >= kProgressCheckFrames)
     {
       lastProgressCheckFrame_ = ctx_.frame;
       const int d = center.getApproxDistance(target_);
       if (!regrouping_)
       {
-        if (localEnemies.empty() && d > bestDistanceToTarget_ - 2 * kTile)
+        const bool progressed = d <= bestDistanceToTarget_ - 2 * kTile || leadDistance <= bestLeadDistance_ - 2 * kTile;
+        if (!engaged && !progressed)
           ++noProgressChecks_;
         else
           noProgressChecks_ = 0;
       }
       bestDistanceToTarget_ = std::min(bestDistanceToTarget_, d);
+      bestLeadDistance_ = std::min(bestLeadDistance_, leadDistance);
       if (noProgressChecks_ >= kMaxNoProgressChecks)
       {
         ++ctx_.metrics.stuckEvents;
-        int front = std::numeric_limits<int>::max();
-        for (Unit u : waveUnits)
-          front = std::min(front, u->getDistance(target_));
         ctx_.log.warn("Combat", concat("no progress towards ", target_.x, ",", target_.y, " for ",
                                        kMaxNoProgressChecks * kProgressCheckFrames / 24, "s (center ", center.x, ",", center.y,
-                                       " is ", d / kTile, " tiles away, front ", front / kTile, " tiles, wave ", waveUnits.size(), ")"));
+                                       " is ", d / kTile, " tiles away, lead ", leadDistance / kTile, " tiles, wave ", waveUnits.size(), ")"));
         ctx_.strategy->markUnreachable(target_, 24 * 180);
         if (!pickNewTarget(center))
         {
@@ -500,9 +533,9 @@ namespace bb
       }
     }
 
-    // Cohesion: stop and regroup when the wave is strung out (outside of fights).
-    // A long column in a narrow passage may never meet the cohesion test, so a
-    // regroup has a time limit and the wave then advances for a while.
+    // Cohesion: when the lead gets close to the target and the wave is strung out,
+    // the lead waits for the rest. Not on the way across the map and never while
+    // anyone is fighting; a regroup has a time limit and a cooldown.
     int shooters = 0;
     for (Unit u : waveUnits)
       if (!isMedic(u))
@@ -513,20 +546,21 @@ namespace bb
       if (!isMedic(u) && u->getDistance(center) <= cohesionRadius)
         ++together;
     const double fraction = shooters > 0 ? static_cast<double>(together) / shooters : 1.0;
-    if (!regrouping_ && fraction < 0.6 && localEnemies.empty() && ctx_.frame >= nextRegroupAllowedFrame_)
+    if (!regrouping_ && fraction < 0.5 && !engaged && leadDistance <= kRegroupNearTargetTiles * kTile &&
+        ctx_.frame >= nextRegroupAllowedFrame_)
     {
       regrouping_ = true;
       regroupStartFrame_ = ctx_.frame;
+      ++regroups_;
       ctx_.log.debug("Combat", concat("regrouping (", together, "/", shooters, " together)"));
     }
-    else if (regrouping_ && (fraction >= 0.85 || !localEnemies.empty() || ctx_.frame - regroupStartFrame_ >= kMaxRegroupFrames))
+    else if (regrouping_ && (fraction >= 0.75 || engaged || ctx_.frame - regroupStartFrame_ >= kMaxRegroupFrames))
     {
-      if (fraction < 0.85 && localEnemies.empty())
+      if (fraction < 0.75 && !engaged)
         ctx_.log.debug("Combat", concat("regroup time limit (", together, "/", shooters, " together); advancing"));
       regrouping_ = false;
       nextRegroupAllowedFrame_ = ctx_.frame + kRegroupCooldownFrames;
     }
-
     // While regrouping the leading units wait and the rest catch up. Pulling the
     // front back to the center would undo the progress made through a narrow path.
     const int centerToTarget = center.getApproxDistance(target_);

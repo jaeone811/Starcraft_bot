@@ -6,6 +6,11 @@ using namespace BWAPI;
 
 namespace bb
 {
+  namespace
+  {
+    constexpr int kLoggedCommandFailures = 30;
+  }
+
   template <typename Send>
   bool Commander::issue(Unit u, const CommandKey& key, int cooldown, const char* what, Send send)
   {
@@ -23,9 +28,13 @@ namespace bb
     const int inARow = ctx_.history.record(id, key, ctx_.frame);
     if (!ok)
     {
+      // The first failures are logged at info so a real game shows which commands fail.
       ++ctx_.metrics.commandFailures;
-      ctx_.log.debug("Command", concat(what, " failed for ", u->getType().c_str(), "#", id, ": ",
-                                       Broodwar->getLastError().c_str()));
+      const std::string text = concat(what, " failed for ", u->getType().c_str(), "#", id, ": ", Broodwar->getLastError().c_str());
+      if (ctx_.metrics.commandFailures <= kLoggedCommandFailures)
+        ctx_.log.info("Command", text);
+      else
+        ctx_.log.debug("Command", text);
     }
     // The same order over and over usually means the unit cannot do it (blocked path,
     // unreachable target). Report it once per streak so it shows up in validation.

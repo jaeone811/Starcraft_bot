@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(BeginnerBot VERSION 0.1.0 LANGUAGES CXX)
+project(BeginnerBot VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -56,6 +56,8 @@ if(BWAPI_DIR)
   add_library(bb_bot STATIC ${BOT_SOURCES})
   target_include_directories(bb_bot PUBLIC src/bot)
   target_link_libraries(bb_bot PUBLIC bb_core bwapilib ${CMAKE_DL_LIBS})
+  # The bot reports this version in game and in its log (single source: project() above).
+  target_compile_definitions(bb_bot PRIVATE BEGINNERBOT_VERSION="${PROJECT_VERSION}")
   set_target_properties(bb_bot PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
   add_library(BeginnerBot SHARED src/bot/Dll.cpp)

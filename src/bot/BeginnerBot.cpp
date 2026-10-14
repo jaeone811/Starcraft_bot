@@ -26,7 +26,10 @@ namespace bb
 {
   namespace
   {
-    const char* kBotVersion = "0.1.0";
+#ifndef BEGINNERBOT_VERSION
+#define BEGINNERBOT_VERSION "dev"
+#endif
+    const char* kBotVersion = BEGINNERBOT_VERSION; // from project(VERSION) in CMakeLists.txt
 
     // Update intervals in frames. Commands take effect after the network latency
     // (2+ frames), so running every frame would only produce duplicate orders.

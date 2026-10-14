@@ -15,6 +15,7 @@ namespace bb
   namespace
   {
     constexpr int kMaxExtraMarginUi = 6;
+    constexpr int kSameBlockFrames = 24 * 20;
   }
 
   void SupplyManager::update(int elapsedFrames)
@@ -28,7 +29,9 @@ namespace bb
     if (blockedNow)
     {
       ctx_.metrics.supplyBlockedFrames += elapsedFrames;
-      if (!blocked_)
+      // A block that comes back right after it ended (a unit started, supply freed,
+      // the next one blocks again) is the same block: no new event, no new adaptation.
+      if (!blocked_ && ctx_.frame - blockEndFrame_ > kSameBlockFrames)
       {
         ++ctx_.metrics.supplyBlockEvents;
         ctx_.log.info("Supply", concat("supply blocked at ", used / 2, "/", total / 2,
@@ -40,6 +43,8 @@ namespace bb
         }
       }
     }
+    if (blocked_ && !blockedNow)
+      blockEndFrame_ = ctx_.frame;
     blocked_ = blockedNow;
   }
 

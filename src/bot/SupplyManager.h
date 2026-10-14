@@ -21,6 +21,7 @@ namespace bb
   private:
     BotContext& ctx_;
     bool blocked_ = false;
+    int blockEndFrame_ = -100000;
     int extraMarginUi_ = 0;
   };
 }
