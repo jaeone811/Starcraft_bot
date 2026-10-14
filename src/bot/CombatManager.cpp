@@ -18,6 +18,7 @@ namespace bb
     constexpr int kTile = 32;
     constexpr int kLocalRadius = 12 * kTile;     // fight evaluation radius around the wave
     constexpr int kTargetSearchRadius = 8 * kTile;
+    constexpr int kJoinFightRadius = 22 * kTile;  // wave units this close to a local enemy count for the fight
     constexpr int kReinforcementBatch = 4;
     constexpr int kJoinNearHomeTiles = 25;            // small reinforcement groups join only while the wave is this close to the rally point
     constexpr int kProgressCheckFrames = 24 * 10;
@@ -493,7 +494,9 @@ namespace bb
 
     // The fight is where our units meet visible enemies, not around the wave center:
     // a strung-out wave can have nobody at its center (a 46-unit wave once retreated
-    // from "0 vs 130"). Enemies near any wave unit, and our units near those enemies.
+    // from "0 vs 130"). Enemies near any wave unit, against our units that can join
+    // that fight within a few seconds - not only the ones already in it (a 40-unit
+    // wave once retreated because its first 3 marines met 9 enemies).
     std::vector<Unit> localEnemies;
     std::set<int> seenEnemies;
     for (Unit u : waveUnits)
@@ -503,7 +506,7 @@ namespace bb
     std::vector<Unit> localOwnUnits;
     for (Unit u : waveUnits)
       for (Unit e : localEnemies)
-        if (u->getDistance(e) < kLocalRadius)
+        if (u->getDistance(e) < kJoinFightRadius)
         {
           localOwnUnits.push_back(u);
           break;
