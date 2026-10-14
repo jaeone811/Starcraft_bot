@@ -77,6 +77,10 @@ TEST_CASE("tech tree assumptions")
   CHECK(isOurArmyType(UnitTypes::Terran_Siege_Tank_Siege_Mode));
   CHECK(canAttackGround(UnitTypes::Terran_Siege_Tank_Tank_Mode));
   CHECK_EQ(UnitTypes::Terran_Siege_Tank_Tank_Mode.gasPrice(), 100);
+  // ProductionManager sizes Factories by build time: a tank/vulture mix takes ~1.8x a marine.
+  CHECK_EQ(UnitTypes::Terran_Siege_Tank_Tank_Mode.buildTime(), 750);
+  CHECK_EQ(UnitTypes::Terran_Vulture.buildTime(), 450);
+  CHECK_EQ(UnitTypes::Terran_Marine.buildTime(), 360);
   // Other mech: Vultures need only a Factory (and no gas), Goliaths an Armory and hit air.
   CHECK(UnitTypes::Terran_Vulture.whatBuilds().first == UnitTypes::Terran_Factory);
   CHECK(UnitTypes::Terran_Vulture.requiredUnits().count(UnitTypes::Terran_Machine_Shop) == 0);

@@ -31,6 +31,27 @@ namespace bb
       return isValid(u) && u->isCompleted() && !u->isLifted() && u->getTrainingQueue().empty() &&
              !u->isConstructing() && !u->isResearching() && !u->isUpgrading();
     }
+
+    // Mech units (finished or in production) as a share of mech + infantry.
+    double currentMechShare()
+    {
+      Player self = Broodwar->self();
+      int mech = 0, infantry = 0;
+      for (UnitType t : { UnitTypes::Terran_Vulture, UnitTypes::Terran_Siege_Tank_Tank_Mode,
+                          UnitTypes::Terran_Siege_Tank_Siege_Mode, UnitTypes::Terran_Goliath })
+        mech += self->allUnitCount(t);
+      for (UnitType t : { UnitTypes::Terran_Marine, UnitTypes::Terran_Medic, UnitTypes::Terran_Firebat })
+        infantry += self->allUnitCount(t);
+      return mech + infantry > 0 ? static_cast<double>(mech) / (mech + infantry) : 0.0;
+    }
+
+    // How much longer a Factory unit takes than a Marine. Factories make mostly
+    // tanks with some vultures (chooseFactoryUnit), so weigh them 0.7 / 0.3.
+    double mechBuildTimeRatio()
+    {
+      const double mech = 0.7 * UnitTypes::Terran_Siege_Tank_Tank_Mode.buildTime() + 0.3 * UnitTypes::Terran_Vulture.buildTime();
+      return mech / UnitTypes::Terran_Marine.buildTime();
+    }
   }
 
   void ProductionManager::onStart()
@@ -258,19 +279,33 @@ namespace bb
       }
     }
 
-    // More Factories as the mech share grows (the build order gives the first one).
-    // Only from money that is there now, so this never delays the army.
+    // More Factories so mech can keep up with the Barracks at the target share (the
+    // build order gives the first one). A tank takes about twice as long as a marine,
+    // so a single Factory next to three Barracks never reaches 25 % mech.
+    // While mech is behind and every Factory is busy, it saves up for the next one
+    // like any other priority item; otherwise it only uses money that is there now.
     const UnitType factory = UnitTypes::Terran_Factory;
-    const int wantedFactories = factoriesWanted(ctx_.strategy->mechShare(), ctx_.config.maxMechShare, ctx_.config.maxFactories);
+    const int barracks = Broodwar->self()->completedUnitCount(rax);
+    const int wantedFactories = factoriesWanted(ctx_.strategy->mechShare(), barracks, mechBuildTimeRatio(), ctx_.config.maxFactories);
     if (Broodwar->self()->completedUnitCount(factory) >= 1 && planned(factory) < wantedFactories &&
-        ctx_.buildings->notStarted(factory) == 0 && !ctx_.buildings->onCooldown(factory) &&
-        budget.canAfford({ factory.mineralPrice(), factory.gasPrice(), 0 }))
+        ctx_.buildings->notStarted(factory) == 0 && !ctx_.buildings->onCooldown(factory))
     {
-      budget.tryReserve({ factory.mineralPrice(), factory.gasPrice(), 0 });
-      ctx_.log.info("Production", concat("mech share ", static_cast<int>(ctx_.strategy->mechShare() * 100),
-                                         "%: adding Factory #", planned(factory) + 1));
-      ctx_.buildings->request(factory);
-      lastPlan_ += "factory ";
+      bool factoryIdle = false;
+      for (Unit u : Broodwar->self()->getUnits())
+        if (u->getType() == factory && idleProducer(u))
+          factoryIdle = true;
+      const bool mechBehind = currentMechShare() < ctx_.strategy->mechShare() && !factoryIdle;
+      const Cost cost{ factory.mineralPrice(), factory.gasPrice(), 0 };
+      if (mechBehind ? budget.tryReserve(cost) : (budget.canAfford(cost) && budget.tryReserve(cost)))
+      {
+        ctx_.log.info("Production", concat("mech share ", static_cast<int>(currentMechShare() * 100), "% (target ",
+                                           static_cast<int>(ctx_.strategy->mechShare() * 100), "%) with ", barracks,
+                                           " Barracks: adding Factory #", planned(factory) + 1, " of ", wantedFactories));
+        ctx_.buildings->request(factory);
+        lastPlan_ += "factory ";
+      }
+      else if (mechBehind)
+        lastPlan_ += "(saving:factory) ";
     }
 
     // Enemy air units: an Armory unlocks Goliaths.
@@ -353,14 +388,7 @@ namespace bb
   {
     // Whichever side is behind the target mech share spends first (and, with strict
     // priority, saves up first); Factories stop once mech is clearly above the target.
-    Player self = Broodwar->self();
-    int mech = 0, infantry = 0;
-    for (UnitType t : { UnitTypes::Terran_Vulture, UnitTypes::Terran_Siege_Tank_Tank_Mode,
-                        UnitTypes::Terran_Siege_Tank_Siege_Mode, UnitTypes::Terran_Goliath })
-      mech += self->allUnitCount(t);
-    for (UnitType t : { UnitTypes::Terran_Marine, UnitTypes::Terran_Medic, UnitTypes::Terran_Firebat })
-      infantry += self->allUnitCount(t);
-    const double share = mech + infantry > 0 ? static_cast<double>(mech) / (mech + infantry) : 0.0;
+    const double share = currentMechShare();
     const double target = ctx_.strategy->mechShare();
     if (target > 0.0 && share < target)
     {

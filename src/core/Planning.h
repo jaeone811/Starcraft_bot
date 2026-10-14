@@ -95,8 +95,11 @@ namespace bb
   FactoryUnit chooseFactoryUnit(int vultures, int tanks, int goliaths, const EnemyMix& enemy,
                                 bool hasMachineShop, bool armoryReady);
 
-  // Factories wanted for the current mech share (at least one once mech is used).
-  int factoriesWanted(double mechShare, double maxMechShare, int maxFactories);
+  // Factories needed so mech units come out at the target share of the army while
+  // `barracks` keep making infantry. A mech unit takes `mechBuildTimeRatio` times as
+  // long as an infantry unit, so one Factory cannot keep up with one Barracks.
+  // At least one once mech is used, never more than maxFactories.
+  int factoriesWanted(double mechShare, int barracks, double mechBuildTimeRatio, int maxFactories);
 
   // ---------------------------------------------------------------- attack / retreat
   struct AttackInputs

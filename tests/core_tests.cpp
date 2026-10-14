@@ -270,13 +270,20 @@ TEST_CASE("factory unit choice")
   CHECK(chooseFactoryUnit(0, 4, 0, air, true, false) != FactoryUnit::Goliath);      // no Armory: no goliaths
 }
 
-TEST_CASE("factories follow the mech share")
+TEST_CASE("factories keep up with the barracks at the mech share")
 {
-  CHECK_EQ(factoriesWanted(0.0, 0.0, 0), 0);
-  CHECK_EQ(factoriesWanted(0.15, 0.15, 1), 1);
-  CHECK_EQ(factoriesWanted(0.25, 0.5, 2), 1);
-  CHECK_EQ(factoriesWanted(0.5, 0.5, 2), 2);
-  CHECK_EQ(factoriesWanted(0.8, 0.8, 4), 4);
+  // A mix of tanks and vultures takes about 1.8x as long as a marine.
+  CHECK_EQ(factoriesWanted(0.0, 3, 1.8, 0), 0);
+  CHECK_EQ(factoriesWanted(0.0, 3, 1.8, 4), 0);
+  CHECK_EQ(factoriesWanted(0.15, 3, 1.8, 1), 1);
+  // 25% mech next to 3 Barracks needs about two Factories, not one.
+  CHECK_EQ(factoriesWanted(0.25, 3, 1.8, 2), 2);
+  CHECK_EQ(factoriesWanted(0.25, 1, 1.8, 4), 1);
+  // More Barracks or a higher share need more Factories, up to the cap.
+  CHECK(factoriesWanted(0.3, 6, 1.8, 10) > factoriesWanted(0.3, 3, 1.8, 10));
+  CHECK(factoriesWanted(0.5, 3, 1.8, 10) > factoriesWanted(0.25, 3, 1.8, 10));
+  CHECK_EQ(factoriesWanted(0.8, 3, 1.8, 4), 4);
+  CHECK_EQ(factoriesWanted(1.0, 3, 1.8, 4), 4);
 }
 
 TEST_CASE("group radius grows with the army but never below the minimum")

@@ -116,12 +116,14 @@ namespace bb
     return FactoryUnit::SiegeTank;
   }
 
-  int factoriesWanted(double mechShare, double maxMechShare, int maxFactories)
+  int factoriesWanted(double mechShare, int barracks, double mechBuildTimeRatio, int maxFactories)
   {
     if (mechShare <= 0.0 || maxFactories <= 0)
       return 0;
-    const double top = std::max(mechShare, maxMechShare);
-    return std::clamp(static_cast<int>(std::lround(maxFactories * mechShare / top)), 1, maxFactories);
+    // mech : infantry = share : (1 - share), produced at 1/ratio the rate per building.
+    const double share = std::min(mechShare, 0.95);
+    const double needed = share / (1.0 - share) * std::max(barracks, 1) * std::max(mechBuildTimeRatio, 0.0);
+    return std::clamp(static_cast<int>(std::lround(needed)), 1, maxFactories);
   }
 
   // ---------------------------------------------------------------- attack / retreat
