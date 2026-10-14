@@ -12,6 +12,8 @@
 
 namespace bb
 {
+  struct BaseLocation;
+
   class ProductionManager
   {
   public:
@@ -27,6 +29,7 @@ namespace bb
     void trainWorkers(Budget& budget);
     void followBuildOrder(Budget& budget);
     void macroBuildings(Budget& budget);
+    void replaceMinedOutBase(Budget& budget);
     void doResearch(Budget& budget);
     void buildComsat(Budget& budget);
     void trainArmy(Budget& budget);
@@ -35,10 +38,12 @@ namespace bb
     int planned(BWAPI::UnitType type) const;
     bool requirementsMet(BWAPI::UnitType type) const;
     bool freeGeyserAvailable() const;
+    const BaseLocation* nextExpansion() const;
 
     BotContext& ctx_;
     std::string lastPlan_;
     bool loggedFirstArmy_ = false;
     int comsatRetryFrame_ = 0;
+    bool loggedNoExpansion_ = false;
   };
 }

@@ -214,4 +214,10 @@ namespace bb
     }
     return count;
   }
+
+  int groupRadiusTiles(int minimumTiles, int units)
+  {
+    const int bySize = static_cast<int>(std::ceil(std::sqrt(static_cast<double>(std::max(0, units))))) + 2;
+    return std::max(minimumTiles, bySize);
+  }
 }

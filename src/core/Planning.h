@@ -131,4 +131,10 @@ namespace bb
 
   Point centroid(const std::vector<Point>& points);
   int countWithin(const std::vector<Point>& points, Point center, int radius);
+
+  // Radius in tiles within which a group of `units` counts as standing together.
+  // A group's area grows with its size, so a big army cannot fit the small radius
+  // that suits a dozen units; `minimumTiles` (e.g. the difficulty's regroup radius)
+  // is the lower bound.
+  int groupRadiusTiles(int minimumTiles, int units);
 }

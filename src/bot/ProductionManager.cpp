@@ -3,11 +3,13 @@
 #include "BuildingManager.h"
 #include "BwapiUtil.h"
 #include "Commander.h"
+#include "InformationManager.h"
 #include "MapInfo.h"
 #include "StrategyManager.h"
 #include "SupplyManager.h"
 #include "WorkerManager.h"
 
+#include <limits>
 #include <map>
 
 using namespace BWAPI;
@@ -19,6 +21,10 @@ namespace bb
     Cost costOf(UnitType t) { return { t.mineralPrice(), t.gasPrice(), t.supplyRequired() }; }
     Cost costOf(TechType t) { return { t.mineralPrice(), t.gasPrice(), 0 }; }
     Cost costOf(UpgradeType t) { return { t.mineralPrice(1), t.gasPrice(1), 0 }; }
+
+    // Below this many minerals left at our bases a new base is started: a Command
+    // Center takes 75 s to build plus the walk, roughly what ~2 minutes of mining leaves.
+    constexpr int kLowMineralsLeft = 3000;
 
     bool idleProducer(Unit u)
     {
@@ -159,8 +165,69 @@ namespace bb
     }
   }
 
+  const BaseLocation* ProductionManager::nextExpansion() const
+  {
+    // Free base closest to the main (the natural first): no Command Center of ours,
+    // no enemy building seen there, not an unchecked start location, reachable by ground.
+    const Position main = ctx_.map->mainPosition();
+    const auto& bases = ctx_.map->bases();
+    const BaseLocation* best = nullptr;
+    int bestDist = std::numeric_limits<int>::max();
+    for (int i = 0; i < static_cast<int>(bases.size()); ++i)
+    {
+      const BaseLocation& b = bases[i];
+      bool taken = false;
+      for (Unit u : Broodwar->self()->getUnits())
+        taken = taken || (u->getType().isResourceDepot() && u->getDistance(b.center) < 6 * 32);
+      for (const auto& [id, e] : ctx_.info->enemyBuildings())
+        taken = taken || e.position.getApproxDistance(b.center) < 12 * 32;
+      if (b.isStartLocation && b.depotTile != ctx_.map->mainTile() && ctx_.info->startStatus(b.depotTile) != StartStatus::Empty)
+        taken = true;
+      if (taken || !ctx_.map->groundReachable(main, b.center))
+        continue;
+      const int d = i == ctx_.map->naturalIndex() ? 0 : main.getApproxDistance(b.center);
+      if (d < bestDist)
+      {
+        bestDist = d;
+        best = &b;
+      }
+    }
+    return best;
+  }
+
+  void ProductionManager::replaceMinedOutBase(Budget& budget)
+  {
+    // Every difficulty does this, like rebuilding a lost Command Center: once the
+    // minerals run out there is no income and the bot can only lose.
+    const UnitType cc = UnitTypes::Terran_Command_Center;
+    const int depots = static_cast<int>(ctx_.workers->depots().size());
+    if (depots == 0 || ctx_.workers->mineralsLeftAtBases() >= kLowMineralsLeft || planned(cc) > depots ||
+        ctx_.buildings->onCooldown(cc) || ctx_.strategy->baseUnderThreat())
+      return;
+    const BaseLocation* next = nextExpansion();
+    if (!next)
+    {
+      if (!loggedNoExpansion_)
+        ctx_.log.warn("Production", concat("only ", ctx_.workers->mineralsLeftAtBases(), " minerals left but no free base is known"));
+      loggedNoExpansion_ = true;
+      return;
+    }
+    loggedNoExpansion_ = false;
+    if (budget.tryReserve({ cc.mineralPrice(), 0, 0 }))
+    {
+      ctx_.log.info("Production", concat("only ", ctx_.workers->mineralsLeftAtBases(), " minerals left at our bases: new base at ",
+                                         next->depotTile.x, ",", next->depotTile.y));
+      ctx_.buildings->request(cc, next->depotTile);
+      lastPlan_ += "expand(minerals) ";
+    }
+    else
+      lastPlan_ += "(saving:expand) ";
+  }
+
   void ProductionManager::macroBuildings(Budget& budget)
   {
+    replaceMinedOutBase(budget);
+
     // Expansion to the natural.
     const UnitType cc = UnitTypes::Terran_Command_Center;
     const BaseLocation* nat = ctx_.map->natural();

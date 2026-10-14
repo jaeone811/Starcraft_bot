@@ -23,7 +23,8 @@ namespace bb
     const int total = self->supplyTotal();
     const int used = self->supplyUsed();
     // Blocked = we cannot start even a Marine/SCV (2 supply) and are not maxed.
-    const bool blockedNow = total < kMaxSupply && used + 2 > total;
+    // Zero total supply means every depot and Command Center is gone, not a block.
+    const bool blockedNow = total > 0 && total < kMaxSupply && used + 2 > total;
     if (blockedNow)
     {
       ctx_.metrics.supplyBlockedFrames += elapsedFrames;

@@ -30,6 +30,7 @@ namespace bb
     int workerCount() const { return static_cast<int>(workers_.size()); }
     int countRole(WorkerRole role) const;
     int mineralPatchesAtBases() const { return mineralPatches_; }
+    int mineralsLeftAtBases() const { return mineralsLeft_; }   // remaining minerals at our completed bases
     int gasRefineries() const { return refineries_; }
     const std::vector<BWAPI::Unit>& depots() const { return depots_; }
 
@@ -62,7 +63,9 @@ namespace bb
     std::vector<Base> bases_;
     std::vector<BWAPI::Unit> depots_;
     int mineralPatches_ = 0;
+    int mineralsLeft_ = 0;
     int refineries_ = 0;
+    bool gasPaused_ = false;
     int lastRebalanceFrame_ = 0;
   };
 }

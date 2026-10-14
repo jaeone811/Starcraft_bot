@@ -20,8 +20,20 @@ namespace bb
     constexpr int kReinforcementBatch = 4;
     constexpr int kProgressCheckFrames = 24 * 10;
     constexpr int kMaxNoProgressChecks = 3;
+    constexpr int kRallyRadiusTiles = 5;              // smallest "at the rally point" radius
+    constexpr int kMaxRegroupFrames = 24 * 8;         // a regroup that takes longer is given up
+    constexpr int kRegroupCooldownFrames = 24 * 6;    // advance at least this long before regrouping again
 
     bool isMedic(Unit u) { return u->getType() == UnitTypes::Terran_Medic; }
+
+    // Close enough to the rally point. A unit that has stopped a bit further out is
+    // as close as the crowd (or the buildings around the spot) lets it get; ordering
+    // it there again would only repeat the same command.
+    bool settledNear(Unit u, Position rally, int radius)
+    {
+      const int d = u->getDistance(rally);
+      return d <= radius || (d <= 2 * radius && !u->isMoving());
+    }
 
     int valueOf(UnitType t) { return t.mineralPrice() + t.gasPrice(); }
 
@@ -166,10 +178,11 @@ namespace bb
   void CombatManager::gather()
   {
     const Position rally = ctx_.map->rallyPoint();
+    const int rallyRadius = groupRadiusTiles(kRallyRadiusTiles, static_cast<int>(army_.size())) * kTile;
     int nearRally = 0;
     for (Unit u : army_)
     {
-      if (u->getDistance(rally) <= 5 * kTile)
+      if (settledNear(u, rally, rallyRadius))
       {
         ++nearRally;
         continue;
@@ -239,6 +252,7 @@ namespace bb
     lastProgressCheckFrame_ = ctx_.frame;
     noProgressChecks_ = 0;
     regrouping_ = false;
+    nextRegroupAllowedFrame_ = 0;
     state_ = State::Attack;
     stateFrame_ = ctx_.frame;
     ++ctx_.metrics.attackWaves;
@@ -362,6 +376,7 @@ namespace bb
     // Reinforcements collect at the rally point and join in groups, so single
     // units do not walk into the enemy one by one. They defend the base if needed.
     const Position rally = ctx_.map->rallyPoint();
+    const int rallyRadius = groupRadiusTiles(kRallyRadiusTiles, static_cast<int>(reinforcements.size())) * kTile;
     std::vector<Unit> ready;
     for (Unit r : reinforcements)
     {
@@ -370,7 +385,7 @@ namespace bb
         fight(r, ctx_.strategy->threatCenter(), 0.0, 0.0);
         continue;
       }
-      if (r->getDistance(rally) <= 5 * kTile)
+      if (settledNear(r, rally, rallyRadius))
         ready.push_back(r);
       else if (isMedic(r))
         ctx_.commander->move(r, rally);
@@ -416,14 +431,18 @@ namespace bb
     }
 
     // No progress for a while (and no fight): the target is probably unreachable.
+    // Standing still to regroup is intended and does not count.
     if (ctx_.frame - lastProgressCheckFrame_ >= kProgressCheckFrames)
     {
       lastProgressCheckFrame_ = ctx_.frame;
       const int d = center.getApproxDistance(target_);
-      if (localEnemies.empty() && d > bestDistanceToTarget_ - 2 * kTile)
-        ++noProgressChecks_;
-      else
-        noProgressChecks_ = 0;
+      if (!regrouping_)
+      {
+        if (localEnemies.empty() && d > bestDistanceToTarget_ - 2 * kTile)
+          ++noProgressChecks_;
+        else
+          noProgressChecks_ = 0;
+      }
       bestDistanceToTarget_ = std::min(bestDistanceToTarget_, d);
       if (noProgressChecks_ >= kMaxNoProgressChecks)
       {
@@ -440,23 +459,31 @@ namespace bb
     }
 
     // Cohesion: stop and regroup when the wave is strung out (outside of fights).
-    int shooters = 0, together = 0;
+    // A long column in a narrow passage may never meet the cohesion test, so a
+    // regroup has a time limit and the wave then advances for a while.
+    int shooters = 0;
     for (Unit u : waveUnits)
-    {
-      if (isMedic(u))
-        continue;
-      ++shooters;
-      if (u->getDistance(center) <= ctx_.config.regroupRadiusTiles * kTile)
+      if (!isMedic(u))
+        ++shooters;
+    const int cohesionRadius = groupRadiusTiles(ctx_.config.regroupRadiusTiles, shooters) * kTile;
+    int together = 0;
+    for (Unit u : waveUnits)
+      if (!isMedic(u) && u->getDistance(center) <= cohesionRadius)
         ++together;
-    }
     const double fraction = shooters > 0 ? static_cast<double>(together) / shooters : 1.0;
-    if (!regrouping_ && fraction < 0.6 && localEnemies.empty())
+    if (!regrouping_ && fraction < 0.6 && localEnemies.empty() && ctx_.frame >= nextRegroupAllowedFrame_)
     {
       regrouping_ = true;
+      regroupStartFrame_ = ctx_.frame;
       ctx_.log.debug("Combat", concat("regrouping (", together, "/", shooters, " together)"));
     }
-    else if (regrouping_ && (fraction >= 0.85 || !localEnemies.empty()))
+    else if (regrouping_ && (fraction >= 0.85 || !localEnemies.empty() || ctx_.frame - regroupStartFrame_ >= kMaxRegroupFrames))
+    {
+      if (fraction < 0.85 && localEnemies.empty())
+        ctx_.log.debug("Combat", concat("regroup time limit (", together, "/", shooters, " together); advancing"));
       regrouping_ = false;
+      nextRegroupAllowedFrame_ = ctx_.frame + kRegroupCooldownFrames;
+    }
 
     const Position advance = regrouping_ ? center : target_;
     for (Unit u : waveUnits)
@@ -471,8 +498,9 @@ namespace bb
   void CombatManager::retreat()
   {
     const Position rally = ctx_.map->rallyPoint();
+    const int rallyRadius = groupRadiusTiles(kRallyRadiusTiles, static_cast<int>(army_.size())) * kTile;
     for (Unit u : army_)
-      if (u->getDistance(rally) > 4 * kTile)
+      if (!settledNear(u, rally, rallyRadius))
         ctx_.commander->move(u, rally);
     const Position center = groupCenter(army_);
     if (army_.empty() || center.getApproxDistance(rally) < 6 * kTile || ctx_.frame - stateFrame_ > 24 * 25)

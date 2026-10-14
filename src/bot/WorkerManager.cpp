@@ -14,6 +14,10 @@ namespace bb
   {
     constexpr int kBaseRadius = 10 * 32;   // minerals/refineries this close to a depot belong to it
     constexpr int kGasWorkersPerRefinery = 3;
+    // Gas bank at which gas workers move to minerals, and where they go back to gas.
+    // Every infantry unit needs minerals; an unused gas bank only stands for minerals not mined.
+    constexpr int kGasBankHigh = 800;
+    constexpr int kGasBankLow = 300;
   }
 
   void WorkerManager::onUnitComplete(Unit unit)
@@ -92,8 +96,13 @@ namespace bb
       bases_.push_back(b);
     }
     mineralPatches_ = 0;
+    mineralsLeft_ = 0;
     for (const auto& b : bases_)
+    {
       mineralPatches_ += static_cast<int>(b.minerals.size());
+      for (Unit m : b.minerals)
+        mineralsLeft_ += m->getResources();
+    }
 
     // Drop stale targets (mined-out patches) and recount assignments.
     mineralLoad_.clear();
@@ -159,6 +168,19 @@ namespace bb
 
   void WorkerManager::assignGas()
   {
+    const int gas = Broodwar->self()->gas();
+    if (!gasPaused_ && gas >= kGasBankHigh && mineralPatches_ > 0)
+    {
+      gasPaused_ = true;
+      ctx_.log.info("Workers", concat("gas bank ", gas, " is unused: gas workers move to minerals"));
+    }
+    else if (gasPaused_ && (gas < kGasBankLow || mineralPatches_ == 0))
+    {
+      gasPaused_ = false;
+      ctx_.log.info("Workers", concat("gas bank ", gas, ": mining gas again"));
+    }
+    const int perRefinery = gasPaused_ ? 0 : kGasWorkersPerRefinery;
+
     refineries_ = 0;
     for (Unit r : Broodwar->self()->getUnits())
     {
@@ -171,10 +193,19 @@ namespace bb
         continue;
       ++refineries_;
       int assigned = 0;
-      for (const auto& [id, w] : workers_)
-        if (w.role == WorkerRole::Gas && w.target == r)
+      for (auto& [id, w] : workers_)
+      {
+        if (w.role != WorkerRole::Gas || w.target != r)
+          continue;
+        if (assigned < perRefinery)
           ++assigned;
-      while (assigned < kGasWorkersPerRefinery)
+        else
+        {
+          w.role = WorkerRole::Minerals; // delivers its gas first (handleMineralWorker)
+          w.target = nullptr;
+        }
+      }
+      while (assigned < perRefinery)
       {
         Unit worker = acquireWorker(r->getPosition(), WorkerRole::Gas);
         if (!worker)

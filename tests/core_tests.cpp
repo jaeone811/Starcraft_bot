@@ -224,6 +224,15 @@ TEST_CASE("supply: forecast grows with production capacity")
   CHECK_EQ(desiredSupplyMargin(one, 0, 3, 0), 6);
 }
 
+TEST_CASE("group radius grows with the army but never below the minimum")
+{
+  CHECK_EQ(groupRadiusTiles(8, 0), 8);
+  CHECK_EQ(groupRadiusTiles(8, 20), 8);   // a dozen or two units: the difficulty radius applies
+  CHECK_EQ(groupRadiusTiles(5, 18), 7);
+  CHECK_EQ(groupRadiusTiles(8, 79), 11);  // the 79-unit wave of the first real game
+  CHECK(groupRadiusTiles(6, 60) >= groupRadiusTiles(6, 30));
+}
+
 // ------------------------------------------------------------------ economy / budget
 TEST_CASE("worker target")
 {
