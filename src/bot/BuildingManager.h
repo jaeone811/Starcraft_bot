@@ -49,10 +49,12 @@ namespace bb
       int stateFrame = 0;      // frame the current state began
       int placementAttempts = 0;
       int lastProgressFrame = 0;
+      int reissues = 0;        // build orders repeated while Assigned
     };
 
     BWAPI::TilePosition findLocation(const Task& task) const;
     bool overlapsOtherTask(const Task& task, BWAPI::TilePosition tile) const;
+    bool recentlyBlocked(BWAPI::TilePosition tile) const;
     void updateTask(Task& task, bool& remove);
     void startConstructionCheck(Task& task);
     void fail(Task& task, const char* reason);
@@ -61,6 +63,7 @@ namespace bb
     BotContext& ctx_;
     std::vector<Task> tasks_;
     std::map<int, int> cooldownUntil_; // unit type id -> frame
+    std::vector<std::pair<BWAPI::TilePosition, int>> blockedTiles_; // spot -> avoid until frame
     int nextId_ = 1;
   };
 }

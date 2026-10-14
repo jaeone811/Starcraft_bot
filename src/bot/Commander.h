@@ -39,6 +39,7 @@ namespace bb
   private:
     template <typename Send>
     bool issue(BWAPI::Unit u, const CommandKey& key, int cooldown, const char* what, Send send);
+    bool alreadyHeading(BWAPI::Unit u, BWAPI::Order order, BWAPI::Position p);
 
     BotContext& ctx_;
     bool lastSuppressed_ = false;

@@ -41,13 +41,28 @@ namespace bb
     return ok;
   }
 
+  bool Commander::alreadyHeading(Unit u, Order order, Position p)
+  {
+    // Still walking to the same spot: re-sending the order changes nothing and would
+    // look like a stuck unit. A unit that stopped gets the order again as usual.
+    if (!isValid(u) || !u->isMoving() || u->getOrder() != order || u->getOrderTargetPosition().getApproxDistance(p) > 64)
+      return false;
+    ctx_.history.noteSuppressed();
+    lastSuppressed_ = true;
+    return true;
+  }
+
   bool Commander::move(Unit u, Position p, int cooldown)
   {
+    if (alreadyHeading(u, Orders::Move, p))
+      return false;
     return issue(u, { CommandKind::Move, -1, p.x, p.y, 0 }, cooldown, "move", [&] { return u->move(p); });
   }
 
   bool Commander::attackMove(Unit u, Position p, int cooldown)
   {
+    if (alreadyHeading(u, Orders::AttackMove, p))
+      return false;
     return issue(u, { CommandKind::AttackMove, -1, p.x, p.y, 0 }, cooldown, "attack-move", [&] { return u->attack(p); });
   }
 

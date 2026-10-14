@@ -17,6 +17,8 @@ namespace bb
     constexpr int kFailureCooldownFrames = 24 * 20;
     constexpr int kNoBuilderTimeout = 24 * 30;
     constexpr int kAbandonedFrames = 48;
+    constexpr int kMaxBuildReissues = 4;           // build orders re-sent to an SCV that did not start
+    constexpr int kBlockedTileFrames = 24 * 180;   // a spot where construction did not start is avoided this long
 
     bool rectsOverlap(TilePosition a, UnitType ta, TilePosition b, UnitType tb, int margin)
     {
@@ -102,6 +104,14 @@ namespace bb
     return false;
   }
 
+  bool BuildingManager::recentlyBlocked(TilePosition tile) const
+  {
+    for (const auto& [t, until] : blockedTiles_)
+      if (t == tile && ctx_.frame < until)
+        return true;
+    return false;
+  }
+
   TilePosition BuildingManager::findLocation(const Task& task) const
   {
     const UnitType type = task.type;
@@ -137,7 +147,7 @@ namespace bb
       TilePosition desired = anchor + offsets[(task.placementAttempts + i) % n];
       desired.makeValid();
       TilePosition tile = Broodwar->getBuildLocation(type, desired, 40);
-      if (tile.isValid() && tile != TilePositions::None && !overlapsOtherTask(task, tile))
+      if (tile.isValid() && tile != TilePositions::None && !overlapsOtherTask(task, tile) && !recentlyBlocked(tile))
         return tile;
     }
     return TilePositions::None;
@@ -214,6 +224,7 @@ namespace bb
       {
         task.state = State::Assigned;
         task.stateFrame = ctx_.frame;
+        task.reissues = 0;
         ctx_.log.debug("Build", concat("task #", task.id, " SCV#", task.builder->getID(), " sent to ", task.tile.x, ",", task.tile.y));
       }
       else if (!ctx_.commander->lastWasSuppressed())
@@ -241,11 +252,17 @@ namespace bb
       }
       // Travel time plus a margin; SCVs move ~5 pixels per frame.
       const int timeout = 24 * 20 + task.builder->getDistance(buildingCenter(task.tile, task.type)) / 4;
-      if (ctx_.frame - task.stateFrame > timeout + 24 * 30)
+      // The SCV keeps arriving without starting (units or a building in the way): give
+      // the spot up early instead of waiting for the timeout.
+      if (ctx_.frame - task.stateFrame > timeout + 24 * 30 || task.reissues > kMaxBuildReissues)
       {
         ++ctx_.metrics.buildRetries;
         ctx_.log.info("Build", concat("task #", task.id, " ", task.type.c_str(), " did not start at ", task.tile.x, ",",
-                                      task.tile.y, "; trying another spot"));
+                                      task.tile.y, " (builder order ", task.builder->getOrder().c_str(), ", ", task.reissues,
+                                      " repeated orders); trying another spot"));
+        if (!task.type.isResourceDepot() && !task.type.isRefinery())
+          blockedTiles_.push_back({ task.tile, ctx_.frame + kBlockedTileFrames });
+        task.reissues = 0;
         task.tile = TilePositions::None;
         task.state = State::WaitingForBuilder;
         task.stateFrame = ctx_.frame;
@@ -261,7 +278,10 @@ namespace bb
       {
         // The SCV got distracted (e.g. returned cargo). Repeat the order, but only
         // after the Commander's cooldown, and pick a new spot if it is rejected.
-        if (!ctx_.commander->build(task.builder, task.type, task.tile) && !ctx_.commander->lastWasSuppressed())
+        const bool sent = ctx_.commander->build(task.builder, task.type, task.tile);
+        if (sent)
+          ++task.reissues;
+        else if (!ctx_.commander->lastWasSuppressed())
         {
           task.tile = TilePositions::None;
           task.state = State::WaitingForBuilder;

@@ -7,6 +7,7 @@
 #include "Planning.h"
 
 #include <algorithm>
+#include <limits>
 
 using namespace BWAPI;
 
@@ -32,7 +33,7 @@ namespace bb
     bool settledNear(Unit u, Position rally, int radius)
     {
       const int d = u->getDistance(rally);
-      return d <= radius || (d <= 2 * radius && !u->isMoving());
+      return d <= radius || (d <= radius + 4 * kTile && !u->isMoving());
     }
 
     int valueOf(UnitType t) { return t.mineralPrice() + t.gasPrice(); }
@@ -447,8 +448,12 @@ namespace bb
       if (noProgressChecks_ >= kMaxNoProgressChecks)
       {
         ++ctx_.metrics.stuckEvents;
+        int front = std::numeric_limits<int>::max();
+        for (Unit u : waveUnits)
+          front = std::min(front, u->getDistance(target_));
         ctx_.log.warn("Combat", concat("no progress towards ", target_.x, ",", target_.y, " for ",
-                                       kMaxNoProgressChecks * kProgressCheckFrames / 24, "s"));
+                                       kMaxNoProgressChecks * kProgressCheckFrames / 24, "s (center ", center.x, ",", center.y,
+                                       " is ", d / kTile, " tiles away, front ", front / kTile, " tiles, wave ", waveUnits.size(), ")"));
         ctx_.strategy->markUnreachable(target_, 24 * 180);
         if (!pickNewTarget(center))
         {
@@ -485,13 +490,20 @@ namespace bb
       nextRegroupAllowedFrame_ = ctx_.frame + kRegroupCooldownFrames;
     }
 
-    const Position advance = regrouping_ ? center : target_;
+    // While regrouping the leading units wait and the rest catch up. Pulling the
+    // front back to the center would undo the progress made through a narrow path.
+    const int centerToTarget = center.getApproxDistance(target_);
     for (Unit u : waveUnits)
     {
       if (isMedic(u))
         moveMedic(u, center);
+      else if (regrouping_ && u->getDistance(target_) < centerToTarget)
+      {
+        if (u->isMoving())
+          ctx_.commander->stop(u);
+      }
       else
-        fight(u, advance, localOwn, localEnemy);
+        fight(u, target_, localOwn, localEnemy);
     }
   }
 
