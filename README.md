@@ -6,6 +6,7 @@ BWAPI 기본 설정(전장의 안개 적용, 보이지 않는 유닛 정보 차�
 > **상태 요약**
 > - 빌드: Windows MSVC 32비트(Win32, Release)와 Linux g++에서 빌드 성공, 단위 테스트/모듈 로드 테스트 통과 (GitHub Actions)
 > - **실제 게임 실행: 아직 검증되지 않음.** 개발 환경(Linux 클라우드 컨테이너)에 StarCraft가 없었다. 자세한 내용은 [docs/VALIDATION.md](docs/VALIDATION.md)
+> - 로컬 Claude Code로 실전 테스트하기: [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md)
 
 ---
 
