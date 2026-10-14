@@ -57,8 +57,9 @@ namespace bb
     int maxWorkers = 26;
     int maxBarracks = 3;
     int extraBarracksMineralBank = 0;    // >0: build another barracks while banking this much (up to maxBarracks)
-    bool expand = false;                 // take the natural expansion
-    int expandAtWorkers = 0;             // ... once we have at least this many workers
+    int maxBases = 1;                    // expansions up to this many Command Centers (Planning::shouldExpand)
+    int expandEarliestFrame = 0;         // ... not before this frame
+    int expandAtWorkers = 0;             // ... once we have this many workers (or the bases are saturated)
     std::vector<ResearchItem> research;  // researched in this order once the building exists
 
     // ---- Supply -------------------------------------------------------------

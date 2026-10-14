@@ -53,6 +53,8 @@ TEST_CASE("higher difficulty never plays worse on the tuned axes")
     CHECK(hi.mechShare >= lo.mechShare);
     CHECK(hi.maxMechShare >= lo.maxMechShare);
     CHECK(hi.maxFactories >= lo.maxFactories);
+    CHECK(hi.maxBases >= lo.maxBases);
+    CHECK(hi.expandEarliestFrame <= lo.expandEarliestFrame);
   }
 }
 
@@ -326,6 +328,47 @@ TEST_CASE("budget: greedy lets cheaper items through, strict saves up")
   Budget supplyBlocked(500, 0, 0, true);
   CHECK(!supplyBlocked.tryReserve({ 50, 0, 2 }));    // supply problem: do not hoard money
   CHECK(supplyBlocked.tryReserve({ 100, 0, 0 }));    // the depot can still be bought
+}
+
+TEST_CASE("budget: reserveFirst saves up even at the greedy levels")
+{
+  Budget greedy(100, 0, 10, false);
+  CHECK(!greedy.reserveFirst({ 400, 0, 0 }));   // a Command Center is not affordable yet...
+  CHECK(!greedy.canAfford({ 50, 0, 2 }));       // ...and marines may not take the money meanwhile
+  Budget rich(500, 0, 10, false);
+  CHECK(rich.reserveFirst({ 400, 0, 0 }));
+  CHECK_EQ(rich.minerals(), 100);
+}
+
+TEST_CASE("expansion: one rule, the difficulty sets when and how far")
+{
+  ExpansionParams p{ 2, 24 * 600, 16 };
+  ExpansionInputs in;
+  in.frame = 24 * 600;
+  in.bases = 1;
+  in.workers = 16;
+  in.workerTarget = 15;
+  CHECK(shouldExpand(in, p));
+  in.frame = 24 * 599;
+  CHECK(!shouldExpand(in, p));                  // too early
+  in.frame = 24 * 600;
+  in.underThreat = true;
+  CHECK(!shouldExpand(in, p));
+  in.underThreat = false;
+  in.workers = 12;
+  CHECK(!shouldExpand(in, p));                  // neither enough workers...
+  in.workerTarget = 12;
+  CHECK(shouldExpand(in, p));                   // ...but the main is saturated
+  in.bases = 2;
+  CHECK(!shouldExpand(in, p));                  // maxBases reached
+  p.maxBases = 3;
+  in.basesBuilding = 1;
+  CHECK(!shouldExpand(in, p));                  // one at a time
+  in.basesBuilding = 0;
+  in.lastExpansionFrame = in.frame - kExpansionIntervalFrames + 1;
+  CHECK(!shouldExpand(in, p));
+  in.lastExpansionFrame = in.frame - kExpansionIntervalFrames;
+  CHECK(shouldExpand(in, p));
 }
 
 TEST_CASE("infantry mix")

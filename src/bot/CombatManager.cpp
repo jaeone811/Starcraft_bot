@@ -31,6 +31,17 @@ namespace bb
 
     bool isMedic(Unit u) { return u->getType() == UnitTypes::Terran_Medic; }
 
+    // Units that fight. Medics heal but cannot hold ground or kill anything, so army
+    // and wave sizes count only these (a "16-unit" wave once had 9 medics).
+    int shooterCount(const std::vector<Unit>& units)
+    {
+      int n = 0;
+      for (Unit u : units)
+        if (!isMedic(u))
+          ++n;
+      return n;
+    }
+
     // Close enough to the rally point. A unit that has stopped a bit further out is
     // as close as the crowd (or the buildings around the spot) lets it get; ordering
     // it there again would only repeat the same command.
@@ -214,7 +225,7 @@ namespace bb
       return;
 
     AttackInputs in;
-    in.armySize = static_cast<int>(army_.size());
+    in.armySize = shooterCount(army_);
     in.frame = ctx_.frame;
     in.ownStrength = strengthOf(army_);
     in.knownEnemyStrength = ctx_.info->knownEnemyArmyStrength();
@@ -263,7 +274,7 @@ namespace bb
       else ++firebats;
     }
     waveStartSize_ = static_cast<int>(wave_.size());
-    waveCommitted_ = waveStartSize_;
+    waveCommitted_ = shooterCount(army_);
     waveLost_ = waveValueLost_ = waveKilled_ = waveValueKilled_ = 0;
     target_ = target.position;
     targetReason_ = target.reason;
@@ -457,7 +468,7 @@ namespace bb
     // Small groups only join while the wave is still near home. Once it is out on the
     // map, a few units walking after it get caught alone on the way, so they wait
     // until they are a full wave themselves (or the wave comes back and merges).
-    const int ownWaveSize = static_cast<int>(ready.size());
+    const int ownWaveSize = shooterCount(ready);
     const bool waveNearHome = groupCenter(waveUnits).getApproxDistance(rally) <= kJoinNearHomeTiles * kTile;
     if (ownWaveSize >= kReinforcementBatch && (waveNearHome || ownWaveSize >= ctx_.strategy->attackSize()))
     {
@@ -472,21 +483,42 @@ namespace bb
     }
 
     const Position center = groupCenter(waveUnits);
-    const std::vector<Unit> localEnemies = ctx_.info->visibleEnemiesNear(center, kLocalRadius);
+    const int shooters = shooterCount(waveUnits);
+    if (shooters == 0)
+    {
+      ctx_.log.info("Combat", concat("retreating: only ", waveUnits.size(), " medics left in the wave"));
+      endWave("retreat", State::Retreat);
+      return;
+    }
+
+    // The fight is where our units meet visible enemies, not around the wave center:
+    // a strung-out wave can have nobody at its center (a 46-unit wave once retreated
+    // from "0 vs 130"). Enemies near any wave unit, and our units near those enemies.
+    std::vector<Unit> localEnemies;
+    std::set<int> seenEnemies;
+    for (Unit u : waveUnits)
+      for (Unit e : ctx_.info->visibleEnemiesNear(u->getPosition(), kLocalRadius))
+        if (seenEnemies.insert(e->getID()).second)
+          localEnemies.push_back(e);
     std::vector<Unit> localOwnUnits;
     for (Unit u : waveUnits)
-      if (u->getDistance(center) < 10 * kTile)
-        localOwnUnits.push_back(u);
+      for (Unit e : localEnemies)
+        if (u->getDistance(e) < kLocalRadius)
+        {
+          localOwnUnits.push_back(u);
+          break;
+        }
     const double localOwn = strengthOf(localOwnUnits);
     const double localEnemy = enemyStrengthOf(localEnemies);
 
-    // Survivors are compared with every unit sent (start + reinforcements), so a wave
-    // that keeps being refilled still pulls back once it has lost most of them.
-    if (shouldRetreat(localOwn, localEnemy, ctx_.config.retreatStrengthRatio, static_cast<int>(waveUnits.size()),
-                      waveCommitted_, ctx_.config.retreatArmyFraction))
+    // Survivors are compared with every shooter sent (start + reinforcements), so a
+    // wave that keeps being refilled still pulls back once it has lost most of them.
+    if (shouldRetreat(localOwn, localEnemy, ctx_.config.retreatStrengthRatio, shooters, waveCommitted_,
+                      ctx_.config.retreatArmyFraction))
     {
-      ctx_.log.info("Combat", concat("retreating: wave ", waveUnits.size(), "/", waveCommitted_, " units, local strength ",
-                                     static_cast<int>(localOwn), " vs enemy ", static_cast<int>(localEnemy)));
+      ctx_.log.info("Combat", concat("retreating: wave ", shooters, "/", waveCommitted_, " shooters, local strength ",
+                                     static_cast<int>(localOwn), " (", localOwnUnits.size(), " units) vs enemy ",
+                                     static_cast<int>(localEnemy), " (", localEnemies.size(), " units)"));
       endWave("retreat", State::Retreat);
       return;
     }
@@ -501,11 +533,15 @@ namespace bb
         lead = u;
         leadDistance = u->getDistance(target_);
       }
+    if (!lead)
+      leadDistance = center.getApproxDistance(target_);
     const bool leadEngaged = lead && !ctx_.info->visibleEnemiesNear(lead->getPosition(), kTargetSearchRadius).empty();
-    const bool engaged = !localEnemies.empty() || leadEngaged;
+    // Target reached / no progress / regroup look at the wave center as before.
+    const std::vector<Unit> centerEnemies = ctx_.info->visibleEnemiesNear(center, kLocalRadius);
+    const bool engaged = !centerEnemies.empty() || leadEngaged;
 
     // Reached the target and nothing is fighting us: choose the next target.
-    if ((center.getApproxDistance(target_) < 6 * kTile && localEnemies.empty()) || (leadDistance < 3 * kTile && !leadEngaged))
+    if ((center.getApproxDistance(target_) < 6 * kTile && centerEnemies.empty()) || (leadDistance < 3 * kTile && !leadEngaged))
     {
       if (!pickNewTarget(center))
       {
@@ -549,10 +585,6 @@ namespace bb
     // Cohesion: when the lead gets close to the target and the wave is strung out,
     // the lead waits for the rest. Not on the way across the map and never while
     // anyone is fighting; a regroup has a time limit and a cooldown.
-    int shooters = 0;
-    for (Unit u : waveUnits)
-      if (!isMedic(u))
-        ++shooters;
     const int cohesionRadius = groupRadiusTiles(ctx_.config.regroupRadiusTiles, shooters) * kTile;
     int together = 0;
     for (Unit u : waveUnits)

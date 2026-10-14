@@ -22,6 +22,9 @@ namespace bb
                        {BuildItem::Barracks, 24}, {BuildItem::Academy, 30} };
       c.workersPerMineralPatch = 1.5;
       c.maxWorkers = 18;
+      c.maxBases = 2;
+      c.expandEarliestFrame = 24 * 60 * 13;
+      c.expandAtWorkers = 14;
       c.maxBarracks = 2;
       c.extraBarracksMineralBank = 0;
       c.supplyLookaheadFrames = 0;
@@ -69,6 +72,9 @@ namespace bb
                        {BuildItem::Barracks, 30}, {BuildItem::Factory, 32} };
       c.workersPerMineralPatch = 1.75;
       c.maxWorkers = 22;
+      c.maxBases = 2;
+      c.expandEarliestFrame = 24 * 60 * 10 + 24 * 30;
+      c.expandAtWorkers = 16;
       c.maxBarracks = 3;
       c.extraBarracksMineralBank = 0;
       c.research = { ResearchItem::SiegeMode };
@@ -117,6 +123,9 @@ namespace bb
                        {BuildItem::Factory, 22}, {BuildItem::Barracks, 24}, {BuildItem::EngineeringBay, 30} };
       c.workersPerMineralPatch = 2.0;
       c.maxWorkers = 26;
+      c.maxBases = 3;
+      c.expandEarliestFrame = 24 * 60 * 8;
+      c.expandAtWorkers = 20;
       c.maxBarracks = 3;
       c.extraBarracksMineralBank = 0;
       c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells, ResearchItem::InfantryWeapons1 };
@@ -166,6 +175,9 @@ namespace bb
                        {BuildItem::Barracks, 30} };
       c.workersPerMineralPatch = 2.2;
       c.maxWorkers = 34;
+      c.maxBases = 3;
+      c.expandEarliestFrame = 24 * 60 * 6 + 24 * 30;
+      c.expandAtWorkers = 20;
       c.maxBarracks = 6;
       c.extraBarracksMineralBank = 400;
       c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells,
@@ -218,7 +230,8 @@ namespace bb
       c.maxWorkers = 50;
       c.maxBarracks = 8;
       c.extraBarracksMineralBank = 350;
-      c.expand = true;
+      c.maxBases = 4;
+      c.expandEarliestFrame = 24 * 60 * 4 + 24 * 30;
       c.expandAtWorkers = 20;
       c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells,
                      ResearchItem::InfantryWeapons1, ResearchItem::InfantryArmor1 };
@@ -308,7 +321,7 @@ namespace bb
       ss << ' ' << toString(r);
     ss << "\n  economy: workersPerPatch=" << c.workersPerMineralPatch << " maxWorkers=" << c.maxWorkers
        << " maxBarracks=" << c.maxBarracks << " extraBarracksBank=" << c.extraBarracksMineralBank
-       << " expand=" << c.expand << "@" << c.expandAtWorkers << "workers";
+       << " bases<=" << c.maxBases << " expand>=" << c.expandEarliestFrame << "f@" << c.expandAtWorkers << "workers";
     ss << "\n  supply: lookahead=" << c.supplyLookaheadFrames << " fixedMargin=" << c.supplyFixedMargin
        << " maxConcurrentDepots=" << c.maxConcurrentDepots << " marginOnBlock=+" << c.supplyMarginIncreaseOnBlock;
     ss << "\n  allocation: strictPriority=" << c.strictPriority << " armyFirstWhenThreatened=" << c.armyFirstWhenThreatened;

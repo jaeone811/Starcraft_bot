@@ -52,6 +52,7 @@ namespace bb
     bool loggedFirstMech_ = false;
     int machineShopRetryFrame_ = 0;
     int stalledSinceFrame_ = -1;
+    int lastExpansionFrame_ = -1;
     int loggedStallStep_ = -1;
   };
 }

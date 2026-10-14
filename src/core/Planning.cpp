@@ -48,6 +48,15 @@ namespace bb
     return std::clamp(target, 0, std::max(0, maxWorkers));
   }
 
+  bool shouldExpand(const ExpansionInputs& in, const ExpansionParams& p)
+  {
+    if (in.bases >= p.maxBases || in.basesBuilding > 0 || in.underThreat || in.frame < p.earliestFrame)
+      return false;
+    if (in.lastExpansionFrame >= 0 && in.frame - in.lastExpansionFrame < kExpansionIntervalFrames)
+      return false;
+    return in.workers >= p.atWorkers || (in.workerTarget > 0 && in.workers >= in.workerTarget);
+  }
+
   bool buildStepDue(int supplyUsed, int stepSupply, bool supplyStalled, bool earlierStepReleased)
   {
     if (supplyUsed >= stepSupply)
@@ -71,6 +80,18 @@ namespace bb
       return true;
     }
     if (strict_ && supply_ >= c.supply)
+    {
+      minerals_ -= c.minerals;
+      gas_ -= c.gas;
+    }
+    return false;
+  }
+
+  bool Budget::reserveFirst(const Cost& c)
+  {
+    if (canAfford(c))
+      return tryReserve(c);
+    if (supply_ >= c.supply)
     {
       minerals_ -= c.minerals;
       gas_ -= c.gas;

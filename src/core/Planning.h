@@ -42,6 +42,30 @@ namespace bb
   // Only the first waiting step is released, so the order stays in sequence.
   bool buildStepDue(int supplyUsed, int stepSupply, bool supplyStalled, bool earlierStepReleased);
 
+  // ---------------------------------------------------------------- expansion
+  struct ExpansionInputs
+  {
+    int frame = 0;
+    int bases = 0;             // Command Centers we have or are building
+    int basesBuilding = 0;     // ... of which not finished yet
+    int workers = 0;
+    int workerTarget = 0;      // what the current bases can use
+    int lastExpansionFrame = -1;
+    bool underThreat = false;
+  };
+  struct ExpansionParams
+  {
+    int maxBases = 1;
+    int earliestFrame = 0;
+    int atWorkers = 0;
+  };
+  // Same rule at every level, the parameters decide how early and how far:
+  // one base at a time, not while our base is attacked, not before earliestFrame,
+  // once workers reach atWorkers or the current bases are saturated, and the next
+  // one at least kExpansionIntervalFrames after the previous.
+  constexpr int kExpansionIntervalFrames = 24 * 150;
+  bool shouldExpand(const ExpansionInputs& in, const ExpansionParams& p);
+
   // ---------------------------------------------------------------- budget
   struct Cost
   {
@@ -64,6 +88,11 @@ namespace bb
     // mode, blocks the missing resources (unless supply is the problem: saving money
     // does not help a supply block).
     bool tryReserve(const Cost& c);
+    // Like tryReserve, but holds the missing money back at every level, strict or
+    // not. For the few items without which the bot loses outright (a new base when
+    // the minerals run out, detection against hidden attackers, expansions): at the
+    // greedy levels cheap units would otherwise take every mineral as it comes in.
+    bool reserveFirst(const Cost& c);
 
     int minerals() const { return minerals_; }
     int gas() const { return gas_; }

@@ -196,7 +196,7 @@ namespace bb
     {
       if (ctx_.buildings->onCooldown(ebay))
         return;
-      if (budget.tryReserve(costOf(ebay)))
+      if (budget.reserveFirst(costOf(ebay)))
       {
         ctx_.log.info("Production", "hidden attackers: Engineering Bay for Missile Turrets");
         ctx_.buildings->request(ebay);
@@ -222,7 +222,7 @@ namespace bb
         covered = covered || (u->getType() == turret && u->getDistance(Position(spot)) < 7 * 32);
       if (covered)
         continue;
-      if (budget.tryReserve(costOf(turret)))
+      if (budget.reserveFirst(costOf(turret)))
       {
         ctx_.log.info("Production", concat("hidden attackers: Missile Turret near ", spot.x, ",", spot.y));
         ctx_.buildings->request(turret, spot);
@@ -322,7 +322,7 @@ namespace bb
       return;
     }
     loggedNoExpansion_ = false;
-    if (budget.tryReserve({ cc.mineralPrice(), 0, 0 }))
+    if (budget.reserveFirst({ cc.mineralPrice(), 0, 0 }))
     {
       ctx_.log.info("Production", concat("only ", ctx_.workers->mineralsLeftAtBases(), " minerals left at our bases: new base at ",
                                          next->depotTile.x, ",", next->depotTile.y));
@@ -337,21 +337,34 @@ namespace bb
   {
     replaceMinedOutBase(budget);
 
-    // Expansion to the natural.
+    // Expansions: the same rule at every level, the difficulty sets how early and
+    // how many (Planning::shouldExpand). The natural first, then the nearest free base.
     const UnitType cc = UnitTypes::Terran_Command_Center;
-    const BaseLocation* nat = ctx_.map->natural();
-    if (ctx_.config.expand && nat && ctx_.workers->workerCount() >= ctx_.config.expandAtWorkers && planned(cc) < 2 &&
-        !ctx_.buildings->onCooldown(cc) && !ctx_.strategy->baseUnderThreat())
-    {
-      if (budget.tryReserve({ cc.mineralPrice(), 0, 0 }))
+    Player self = Broodwar->self();
+    ExpansionInputs ex;
+    ex.frame = ctx_.frame;
+    ex.bases = planned(cc);
+    ex.basesBuilding = ex.bases - self->completedUnitCount(cc);
+    ex.workers = ctx_.workers->workerCount();
+    ex.workerTarget = workerTarget(ctx_.workers->mineralPatchesAtBases(), ctx_.workers->gasRefineries(),
+                                   ctx_.config.workersPerMineralPatch, ctx_.config.maxWorkers);
+    ex.lastExpansionFrame = lastExpansionFrame_;
+    ex.underThreat = ctx_.strategy->baseUnderThreat();
+    const ExpansionParams ep{ ctx_.config.maxBases, ctx_.config.expandEarliestFrame, ctx_.config.expandAtWorkers };
+    if (!ctx_.buildings->onCooldown(cc) && shouldExpand(ex, ep))
+      if (const BaseLocation* next = nextExpansion())
       {
-        ctx_.log.info("Production", concat("expanding to the natural at ", nat->depotTile.x, ",", nat->depotTile.y));
-        ctx_.buildings->request(cc, nat->depotTile);
-        lastPlan_ += "expand ";
+        if (budget.reserveFirst({ cc.mineralPrice(), 0, 0 }))
+        {
+          ctx_.log.info("Production", concat("expanding: base #", ex.bases + 1, " of ", ctx_.config.maxBases, " at ",
+                                             next->depotTile.x, ",", next->depotTile.y, " (", ex.workers, " workers)"));
+          ctx_.buildings->request(cc, next->depotTile);
+          lastExpansionFrame_ = ctx_.frame;
+          lastPlan_ += "expand ";
+        }
+        else
+          lastPlan_ += "(saving:expand) ";
       }
-      else
-        lastPlan_ += "(saving:expand) ";
-    }
 
     // Extra barracks while money piles up (keeps production running at full capacity).
     const UnitType rax = UnitTypes::Terran_Barracks;
