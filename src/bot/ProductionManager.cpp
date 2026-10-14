@@ -210,11 +210,14 @@ namespace bb
       return;
 
     // One turret by every Command Center (workers and production) and one at the
-    // rally point (the army). A turret detects 11 tiles around it.
+    // rally point (the army). A turret detects 11 tiles around it. Never more turrets
+    // than spots, even if one could not be placed where it was wanted.
     std::vector<TilePosition> spots;
     for (Unit depot : ctx_.workers->depots())
       spots.push_back(depot->getTilePosition());
     spots.push_back(TilePosition(ctx_.map->rallyPoint()));
+    if (planned(turret) >= static_cast<int>(spots.size()))
+      return;
     for (TilePosition spot : spots)
     {
       bool covered = false;
