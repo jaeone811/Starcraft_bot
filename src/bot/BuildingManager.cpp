@@ -19,11 +19,21 @@ namespace bb
     constexpr int kAbandonedFrames = 48;
     constexpr int kMaxBuildReissues = 4;           // build orders re-sent to an SCV that did not start
     constexpr int kBlockedTileFrames = 24 * 180;   // a spot where construction did not start is avoided this long
+    constexpr int kExploreTimeout = 24 * 120;      // walking to an unexplored spot
 
     bool rectsOverlap(TilePosition a, UnitType ta, TilePosition b, UnitType tb, int margin)
     {
       return a.x - margin < b.x + tb.tileWidth() && b.x - margin < a.x + ta.tileWidth() &&
              a.y - margin < b.y + tb.tileHeight() && b.y - margin < a.y + ta.tileHeight();
+    }
+
+    bool footprintExplored(TilePosition t, UnitType type)
+    {
+      for (int x = t.x; x < t.x + type.tileWidth(); ++x)
+        for (int y = t.y; y < t.y + type.tileHeight(); ++y)
+          if (!Broodwar->isExplored(x, y))
+            return false;
+      return true;
     }
 
     // Buildings whose units walk out of their sides.
@@ -298,6 +308,23 @@ namespace bb
           return;
         }
       }
+      // BWAPI accepts a build order only on explored tiles (the natural is often
+      // unexplored at the easy levels). Walk the SCV there first.
+      if (!footprintExplored(task.tile, task.type))
+      {
+        if (ctx_.frame - task.stateFrame > kExploreTimeout)
+        {
+          fail(task, "spot never got explored");
+          remove = true;
+          return;
+        }
+        if (!task.loggedUnexplored)
+          ctx_.log.info("Build", concat("task #", task.id, " ", task.type.c_str(), " at ", task.tile.x, ",", task.tile.y,
+                                        " is unexplored: SCV#", task.builder->getID(), " walks there first"));
+        task.loggedUnexplored = true;
+        ctx_.commander->move(task.builder, buildingCenter(task.tile, task.type));
+        return;
+      }
       if (ctx_.commander->build(task.builder, task.type, task.tile))
       {
         task.state = State::Assigned;
@@ -307,10 +334,15 @@ namespace bb
       }
       else if (!ctx_.commander->lastWasSuppressed())
       {
-        // The spot is not valid any more; try somewhere else.
+        // The spot is not valid any more; try somewhere else, but not forever
+        // (a Command Center spot is fixed, so findLocation returns it again).
         task.tile = TilePositions::None;
-        ++task.placementAttempts;
         ++ctx_.metrics.buildRetries;
+        if (++task.placementAttempts > kMaxPlacementAttempts)
+        {
+          fail(task, concat("build order rejected: ", Broodwar->getLastError().c_str()).c_str());
+          remove = true;
+        }
       }
       return;
     }
@@ -364,8 +396,12 @@ namespace bb
           task.tile = TilePositions::None;
           task.state = State::WaitingForBuilder;
           task.stateFrame = ctx_.frame;
-          ++task.placementAttempts;
           ++ctx_.metrics.buildRetries;
+          if (++task.placementAttempts > kMaxPlacementAttempts)
+          {
+            fail(task, concat("build order rejected: ", Broodwar->getLastError().c_str()).c_str());
+            remove = true;
+          }
         }
       }
       return;

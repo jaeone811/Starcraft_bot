@@ -26,6 +26,9 @@ namespace bb
     // Center takes 75 s to build plus the walk, roughly what ~2 minutes of mining leaves.
     constexpr int kLowMineralsLeft = 3000;
 
+    // Supply that has not been able to grow for this long counts as stalled.
+    constexpr int kSupplyStallFrames = 24 * 5;
+
     bool idleProducer(Unit u)
     {
       return isValid(u) && u->isCompleted() && !u->isLifted() && u->getTrainingQueue().empty() &&
@@ -156,9 +159,31 @@ namespace bb
     }
   }
 
+  bool ProductionManager::supplyStalled()
+  {
+    // Supply can still grow while workers are below their target or anything is in
+    // production. Otherwise it has stopped for good once that lasts a few seconds.
+    Player self = Broodwar->self();
+    const int target = workerTarget(ctx_.workers->mineralPatchesAtBases(), ctx_.workers->gasRefineries(),
+                                    ctx_.config.workersPerMineralPatch, ctx_.config.maxWorkers);
+    bool canGrow = self->allUnitCount(UnitTypes::Terran_SCV) < target;
+    for (Unit u : self->getUnits())
+      canGrow = canGrow || (u->isCompleted() && !u->getTrainingQueue().empty());
+    if (canGrow)
+    {
+      stalledSinceFrame_ = -1;
+      return false;
+    }
+    if (stalledSinceFrame_ < 0)
+      stalledSinceFrame_ = ctx_.frame;
+    return ctx_.frame - stalledSinceFrame_ >= kSupplyStallFrames;
+  }
+
   void ProductionManager::followBuildOrder(Budget& budget)
   {
     const int supplyUi = Broodwar->self()->supplyUsed() / 2;
+    const bool stalled = supplyStalled();
+    bool released = false;
     std::map<BuildItem, int> wanted;
     for (const auto& step : ctx_.config.buildOrder)
     {
@@ -166,8 +191,16 @@ namespace bb
       const UnitType type = toUnitType(step.item);
       if (planned(type) >= want)
         continue;              // already have / building it
-      if (supplyUi < step.supply)
+      if (!buildStepDue(supplyUi, step.supply, stalled, released))
         break;                 // later steps wait for their supply count
+      if (supplyUi < step.supply)
+      {
+        released = true;
+        if (loggedStallStep_ != step.supply)
+          ctx_.log.info("Production", concat("supply stays at ", supplyUi, " (worker target reached, nothing in production): starting ",
+                                             toString(step.item), "@", step.supply, " now"));
+        loggedStallStep_ = step.supply;
+      }
       if (!requirementsMet(type) || ctx_.buildings->onCooldown(type))
         continue;              // e.g. Academy before the first Barracks finished
       if (step.item == BuildItem::Refinery && !freeGeyserAvailable())

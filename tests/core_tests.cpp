@@ -270,6 +270,17 @@ TEST_CASE("factory unit choice")
   CHECK(chooseFactoryUnit(0, 4, 0, air, true, false) != FactoryUnit::Goliath);      // no Armory: no goliaths
 }
 
+TEST_CASE("a build step waits for its supply unless supply stopped growing")
+{
+  CHECK(buildStepDue(12, 12, false, false));
+  CHECK(!buildStepDue(11, 12, false, false));
+  // Level 1 on Boxer: 11 workers is the target and nothing trains -> Barracks@12 still comes.
+  CHECK(buildStepDue(11, 12, true, false));
+  // Only the first waiting step is released.
+  CHECK(!buildStepDue(11, 20, true, true));
+  CHECK(buildStepDue(20, 20, true, true));
+}
+
 TEST_CASE("factories keep up with the barracks at the mech share")
 {
   // A mix of tanks and vultures takes about 1.8x as long as a marine.

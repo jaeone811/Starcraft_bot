@@ -50,6 +50,7 @@ namespace bb
       int placementAttempts = 0;
       int lastProgressFrame = 0;
       int reissues = 0;        // build orders repeated while Assigned
+      bool loggedUnexplored = false;
     };
 
     BWAPI::TilePosition findLocation(const Task& task) const;

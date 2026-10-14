@@ -40,6 +40,7 @@ namespace bb
     int planned(BWAPI::UnitType type) const;
     bool requirementsMet(BWAPI::UnitType type) const;
     bool freeGeyserAvailable() const;
+    bool supplyStalled();
     const BaseLocation* nextExpansion() const;
 
     BotContext& ctx_;
@@ -49,5 +50,7 @@ namespace bb
     bool loggedNoExpansion_ = false;
     bool loggedFirstMech_ = false;
     int machineShopRetryFrame_ = 0;
+    int stalledSinceFrame_ = -1;
+    int loggedStallStep_ = -1;
   };
 }

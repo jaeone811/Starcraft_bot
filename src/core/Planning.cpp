@@ -48,6 +48,13 @@ namespace bb
     return std::clamp(target, 0, std::max(0, maxWorkers));
   }
 
+  bool buildStepDue(int supplyUsed, int stepSupply, bool supplyStalled, bool earlierStepReleased)
+  {
+    if (supplyUsed >= stepSupply)
+      return true;
+    return supplyStalled && !earlierStepReleased;
+  }
+
   // ---------------------------------------------------------------- budget
   bool Budget::canAfford(const Cost& c) const
   {

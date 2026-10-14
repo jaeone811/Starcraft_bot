@@ -36,6 +36,12 @@ namespace bb
   // ---------------------------------------------------------------- economy
   int workerTarget(int mineralPatches, int refineries, double workersPerPatch, int maxWorkers);
 
+  // A build-order step waits until supply reaches its count. When supply has stopped
+  // growing for good (worker target reached, nothing in production) the next step is
+  // due anyway: otherwise Barracks@12 with an 11-worker target would never come.
+  // Only the first waiting step is released, so the order stays in sequence.
+  bool buildStepDue(int supplyUsed, int stepSupply, bool supplyStalled, bool earlierStepReleased);
+
   // ---------------------------------------------------------------- budget
   struct Cost
   {
