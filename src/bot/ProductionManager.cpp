@@ -228,16 +228,25 @@ namespace bb
     const UnitType comsat = UnitTypes::Terran_Comsat_Station;
     Player self = Broodwar->self();
     if (!ctx_.config.useComsatScan || self->allUnitCount(comsat) > 0 ||
-        self->completedUnitCount(UnitTypes::Terran_Academy) < 1)
+        self->completedUnitCount(UnitTypes::Terran_Academy) < 1 || ctx_.frame < comsatRetryFrame_)
       return;
     for (Unit cc : self->getUnits())
     {
       if (cc->getType() != UnitTypes::Terran_Command_Center || !idleProducer(cc) || cc->getAddon())
         continue;
-      if (budget.tryReserve({ comsat.mineralPrice(), comsat.gasPrice(), 0 }) && ctx_.commander->buildAddon(cc, comsat))
+      if (!budget.tryReserve({ comsat.mineralPrice(), comsat.gasPrice(), 0 }))
+        return;
+      if (ctx_.commander->buildAddon(cc, comsat))
       {
         ctx_.log.info("Production", "building Comsat Station");
         lastPlan_ += "comsat ";
+      }
+      else if (!ctx_.commander->lastWasSuppressed())
+      {
+        // Usually the add-on spot next to the Command Center is blocked.
+        comsatRetryFrame_ = ctx_.frame + 24 * 120;
+        ctx_.log.warn("Production", concat("Comsat Station could not be started (", Broodwar->getLastError().c_str(),
+                                           "); retrying in 2 minutes"));
       }
       return;
     }

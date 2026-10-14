@@ -39,5 +39,6 @@ namespace bb
     BotContext& ctx_;
     std::string lastPlan_;
     bool loggedFirstArmy_ = false;
+    int comsatRetryFrame_ = 0;
   };
 }
