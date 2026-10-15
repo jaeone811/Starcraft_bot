@@ -416,18 +416,25 @@ namespace bb
         lastPlan_ += "(saving:factory) ";
     }
 
-    // Every level: once one geyser is not enough, take the geyser at another base.
-    // The level 3 game (0.4.3) ran on one Refinery with 26 workers and 60-130 gas
-    // for six minutes while minerals piled up.
+    // Every level: more geysers as the economy grows. A base takes its geyser once
+    // the mineral lines are (nearly) full, and any free geyser is taken when gas runs
+    // short while minerals are left. Waiting for "gas < 100 with 300 minerals" alone
+    // was too late: levels 4-5 ran their upper tech on one Refinery for 4-6 minutes
+    // because the army spent every mineral first.
     const UnitType refinery = UnitTypes::Terran_Refinery;
-    if (self->completedUnitCount(refinery) >= 1 && budget.gas() < 100 && budget.minerals() >= 300 &&
-        ctx_.buildings->notStarted(refinery) == 0 && !ctx_.buildings->onCooldown(refinery) && freeGeyserAvailable() &&
-        budget.tryReserve(costOf(refinery)))
+    if (self->completedUnitCount(refinery) >= 1 && ctx_.buildings->notStarted(refinery) == 0 &&
+        !ctx_.buildings->onCooldown(refinery) && freeGeyserAvailable())
     {
-      ctx_.log.info("Production", concat("short on gas (", self->gas(), ") with ", self->minerals(), " minerals: Refinery #",
-                                         planned(refinery) + 1));
-      ctx_.buildings->request(refinery);
-      lastPlan_ += "refinery ";
+      const bool saturated = planned(refinery) < self->completedUnitCount(cc) && ex.workers >= ex.workerTarget - 2;
+      const bool shortOnGas = budget.gas() < 100 && budget.minerals() >= 300;
+      if ((saturated || shortOnGas) && budget.tryReserve(costOf(refinery)))
+      {
+        ctx_.log.info("Production", concat(saturated ? "bases saturated (" : "short on gas (",
+                                           saturated ? ex.workers : self->gas(), saturated ? " workers)" : " gas)",
+                                           ": Refinery #", planned(refinery) + 1));
+        ctx_.buildings->request(refinery);
+        lastPlan_ += "refinery ";
+      }
     }
 
     // Enemy air units: an Armory unlocks Goliaths.
