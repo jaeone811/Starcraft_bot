@@ -69,6 +69,21 @@
 - 4~5단계: 같은 조건에서 3단계보다 승률·`gathered_minerals`·`idle_production_frames`(낮을수록 좋음)가 나아야 함.
 - 차이가 없으면 수치만 키우지 말고 판단 로직을 개선 (docs/DIFFICULTY.md 끝 참고).
 
+## 4.1 다른 봇과 대전 (한 PC, 두 인스턴스)
+
+상대 봇은 저장소 밖(예: `Desktop\opponents\`)에서 소스로 직접 빌드해 DLL로 쓴다(남이 빌드한 실행 파일은 쓰지 않음).
+`cmake/BWAPI.cmake`로 BWAPILIB를 같이 빌드하는 작은 CMake 프로젝트를 만들면 된다. 확인한 상대:
+
+- UAlbertaBot (github.com/davechurchill/ualbertabot 558899d): 원래 클라이언트 exe라 `UAlbertaBotModule`을 AIModule로 감싸는 Dll.cpp를 추가,
+  `_HAS_AUTO_PTR_ETC=1`(SparCraft의 std::random_shuffle), 설정 파일 위치를 `bwapi-data/AI/UAlbertaBot_Config.txt`로 변경.
+- Steamhammer 5.3.6 (satirist.org 소스 릴리스): 그대로 DLL. 설정 `Steamhammer_5.3.6.json`(바이너리 zip에만 있음)을 `bwapi-data/AI/`에.
+  상대별 학습 파일을 `bwapi-data/write/`에 남기므로 경기를 거듭하면 BeginnerBot에 적응한다.
+
+두 봇 모두 `CompleteMapInformation`은 꺼져 있다(설정 확인). `bwapi.ini`(백업 후):
+`ai = bwapi-data/AI/BeginnerBot.dll, bwapi-data/AI/<상대>.dll`, `race = Terran, <상대 종족>`, `auto_menu = LAN`,
+`lan_mode = Local PC`, `game = JOIN_FIRST`. 사용자가 `Chaoslauncher - MultiInstance.exe`(관리자)에서 Start를 두 번 누른다
+(첫 번째 창이 방을 만들고 두 번째가 들어온다). 기본 AI 테스트로 돌아갈 때는 백업한 bwapi.ini를 되돌린다.
+
 ## 5. 결과 기록 양식
 
 | 날짜 | 맵 | 상대 | 난이도 | 경기 수 | 승률 | 평균 시간 | 비고 |
