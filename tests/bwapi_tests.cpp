@@ -119,6 +119,16 @@ TEST_CASE("tech tree assumptions")
   CHECK(researchBuilding(ResearchItem::VehicleWeapons1) == UnitTypes::Terran_Armory);
   CHECK(researchBuilding(ResearchItem::VehiclePlating1) == UnitTypes::Terran_Armory);
   CHECK(researchBuilding(ResearchItem::CharonBoosters) == UnitTypes::Terran_Machine_Shop);
+  // Damage types behind target choice and kiting against Dragoons.
+  CHECK(UnitTypes::Protoss_Dragoon.size() == UnitSizeTypes::Large);
+  CHECK(UnitTypes::Protoss_Zealot.size() == UnitSizeTypes::Small);
+  CHECK(UnitTypes::Terran_Firebat.groundWeapon().damageType() == DamageTypes::Concussive);
+  CHECK(UnitTypes::Terran_Vulture.groundWeapon().damageType() == DamageTypes::Concussive);
+  CHECK(UnitTypes::Terran_Siege_Tank_Tank_Mode.groundWeapon().damageType() == DamageTypes::Explosive);
+  CHECK(damageFactor(UnitTypes::Terran_Firebat.groundWeapon(), UnitSizeTypes::Large) == 0.25);
+  CHECK(damageFactor(UnitTypes::Terran_Marine.groundWeapon(), UnitSizeTypes::Large) == 1.0);
+  CHECK_EQ(UnitTypes::Protoss_Dragoon.groundWeapon().maxRange(), 128);
+  CHECK_EQ(UnitTypes::Terran_Siege_Tank_Tank_Mode.groundWeapon().maxRange(), 224);
   // Spider Mines: Machine Shop tech, laid at a position by Vultures (CombatManager::layMines).
   CHECK(toTechType(ResearchItem::SpiderMines) == TechTypes::Spider_Mines);
   CHECK(researchBuilding(ResearchItem::SpiderMines) == UnitTypes::Terran_Machine_Shop);

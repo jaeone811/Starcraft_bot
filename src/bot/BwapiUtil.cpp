@@ -131,6 +131,16 @@ namespace bb
            type == UnitTypes::Zerg_Ultralisk || type == UnitTypes::Protoss_Dark_Templar;
   }
 
+  double damageFactor(WeaponType weapon, UnitSizeType size)
+  {
+    const DamageType d = weapon.damageType();
+    if (d == DamageTypes::Concussive)
+      return size == UnitSizeTypes::Large ? 0.25 : size == UnitSizeTypes::Medium ? 0.5 : 1.0;
+    if (d == DamageTypes::Explosive)
+      return size == UnitSizeTypes::Small ? 0.5 : size == UnitSizeTypes::Medium ? 0.75 : 1.0;
+    return 1.0;
+  }
+
   double groundDamagePerFrame(UnitType type)
   {
     if (type == UnitTypes::Terran_Bunker)

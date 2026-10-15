@@ -277,11 +277,15 @@ namespace bb
         category = t.canAttackUs ? 0 : (t.isBuilding ? 2 : 1);
 
       const int rangeKey = (focusFireLevel >= 2 && !t.inRange) ? 1 : 0;
+      // Hit points as our weapon sees them: a Firebat's flames do a quarter of their
+      // damage to a Dragoon, so for it a Dragoon has four times its hit points.
+      const double factor = std::clamp(t.ourDamageFactor, 0.1, 1.0);
+      const double effectiveHp = std::max(1, t.hitPoints) / factor;
       double valueKey = 0.0;
       if (focusFireLevel == 2)
-        valueKey = t.hitPoints;                                   // finish weak units
+        valueKey = effectiveHp;                                   // finish weak units
       else if (focusFireLevel >= 3)
-        valueKey = -(t.damagePerFrame * 1000.0) / std::max(1, t.hitPoints); // most damage per hp first
+        valueKey = -(t.damagePerFrame * 1000.0) / effectiveHp;    // most damage per hp first
       return std::make_tuple(category, rangeKey, valueKey, t.distance);
     };
 

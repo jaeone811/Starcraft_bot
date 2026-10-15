@@ -78,7 +78,8 @@ namespace bb
       return combineStrength(s);
     }
 
-    // Units that can shoot a melee attacker while backing off from it.
+    // Units that can shoot while backing off from melee attackers and from ranged
+    // units they outrange.
     bool kitesMelee(UnitType t)
     {
       return t == UnitTypes::Terran_Marine || t == UnitTypes::Terran_Vulture || t == UnitTypes::Terran_Goliath ||
@@ -650,7 +651,7 @@ namespace bb
     stateFrame_ = ctx_.frame;
     regrouping_ = false;
     ctx_.log.info("Combat", concat("wave over: ", reason, " -> ", stateName(), " (regrouped ", regroups_, " times, sieged ", sieges_,
-                                   " times, ", kiteSteps_, " back-off steps from melee units)"));
+                                   " times, ", kiteSteps_, " back-off steps from melee/outranged units)"));
     kiteSteps_ = 0;
   }
 
@@ -740,18 +741,35 @@ namespace bb
         }
     }
 
-    // Back off from a melee attacker while the weapon reloads, shoot when it is
-    // ready (Marines stood next to Zealots and were cut down; Tanks walked in front
-    // of them). Tanks keep a wider distance. Every level: the same rule, the army
-    // that uses it differs.
+    // Back off while the weapon reloads, shoot when it is ready:
+    //  - from melee attackers (Marines stood next to Zealots and were cut down; Tanks
+    //    walked in front of them). Tanks keep a wider distance;
+    //  - from ranged units we outrange by a tile or more (a Tank, a Goliath or a
+    //    U-238 Marine against Dragoons): stay just outside their range instead of
+    //    trading shots at equal range. Upgrades on both sides count.
+    // Every level: the same rule, the army that uses it differs.
     if (kitesMelee(type) && !enemies.empty())
     {
-      const int trigger = type == UnitTypes::Terran_Siege_Tank_Tank_Mode ? 4 * kTile : type == UnitTypes::Terran_Vulture ? 3 * kTile : 2 * kTile + 16;
+      const int meleeTrigger = type == UnitTypes::Terran_Siege_Tank_Tank_Mode ? 4 * kTile : type == UnitTypes::Terran_Vulture ? 3 * kTile : 2 * kTile + 16;
+      const int ourRange = Broodwar->self()->weaponMaxRange(type.groundWeapon());
       Unit melee = nullptr;
       for (Unit e : enemies)
-        if (!e->isFlying() && isMeleeAttacker(e->getType()) && u->getDistance(e) <= trigger &&
-            (!melee || u->getDistance(e) < u->getDistance(melee)))
+      {
+        const UnitType et = e->getType();
+        if (e->isFlying() || et.isBuilding() || et.isWorker() || !canAttackGround(et))
+          continue;
+        int trigger = -1;
+        if (isMeleeAttacker(et))
+          trigger = meleeTrigger;
+        else if (et.groundWeapon() != WeaponTypes::None)
+        {
+          const int theirRange = e->getPlayer()->weaponMaxRange(et.groundWeapon());
+          if (theirRange + kTile <= ourRange)
+            trigger = theirRange + kTile / 2;
+        }
+        if (trigger >= 0 && u->getDistance(e) <= trigger && (!melee || u->getDistance(e) < u->getDistance(melee)))
           melee = e;
+      }
       if (melee && u->getGroundWeaponCooldown() > 0)
       {
         const Position from = u->getPosition();
@@ -801,6 +819,7 @@ namespace bb
         t.damagePerFrame = groundDamagePerFrame(e->getType());
         t.distance = u->getDistance(e);
         t.inRange = u->isInWeaponRange(e);
+        t.ourDamageFactor = damageFactor(e->isFlying() ? type.airWeapon() : type.groundWeapon(), e->getType().size());
         infos.push_back(t);
       }
       const int idx = chooseTarget(infos, ctx_.config.focusFireLevel);

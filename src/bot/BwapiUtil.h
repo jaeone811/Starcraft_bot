@@ -32,6 +32,8 @@ namespace bb
 
   // Damage per frame against ground units (special cases for Bunker, Carrier, Reaver).
   double groundDamagePerFrame(BWAPI::UnitType type);
+  // Share of a weapon's damage a target of `size` takes (concussive / explosive vs size).
+  double damageFactor(BWAPI::WeaponType weapon, BWAPI::UnitSizeType size);
   bool canAttackGround(BWAPI::UnitType type);
   // Strength of a unit type at full health; used for remembered (not visible) units.
   double typeStrength(BWAPI::UnitType type);

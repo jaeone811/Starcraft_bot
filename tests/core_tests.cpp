@@ -592,6 +592,24 @@ TEST_CASE("target choice per focus fire level")
   CHECK_EQ(chooseTarget({}, 3), -1);
 }
 
+TEST_CASE("targets: our damage type counts (Firebat: Zealot before Dragoon)")
+{
+  TargetInfo zealot;
+  zealot.canAttackUs = true;
+  zealot.hitPoints = 160;
+  zealot.damagePerFrame = 16.0 / 22;
+  zealot.inRange = true;
+  zealot.ourDamageFactor = 1.0;       // small: full concussive damage
+  TargetInfo dragoon = zealot;
+  dragoon.hitPoints = 120;            // a hurt Dragoon looks weaker...
+  dragoon.damagePerFrame = 20.0 / 30;
+  dragoon.ourDamageFactor = 0.25;     // ...but it is large: a quarter of concussive damage
+  CHECK_EQ(chooseTarget({ dragoon, zealot }, 2), 1);
+  CHECK_EQ(chooseTarget({ dragoon, zealot }, 3), 1);
+  dragoon.ourDamageFactor = 1.0;      // a Marine's normal damage
+  CHECK_EQ(chooseTarget({ dragoon, zealot }, 2), 0);
+}
+
 // ------------------------------------------------------------------ geometry
 TEST_CASE("mineral clustering")
 {

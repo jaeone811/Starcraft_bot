@@ -222,6 +222,7 @@ namespace bb
     double damagePerFrame = 0.0;
     int distance = 0;          // pixels from the deciding unit / army
     bool inRange = false;
+    double ourDamageFactor = 1.0; // share of our weapon's damage this target takes (damage type vs unit size)
   };
 
   // Index of the preferred target, or -1 to keep attack-moving (focus level 0, or no candidates).
