@@ -235,6 +235,7 @@ namespace bb
       {
         state_ = State::Defend;
         stateFrame_ = ctx_.frame;
+        holdPoint_ = Positions::None;
         ctx_.log.info("Combat", concat("base under attack by ", ctx_.strategy->baseThreats().size(), " units: defending"));
       }
       else if (state_ == State::Attack && ctx_.config.recallArmyToDefend && ctx_.strategy->baseThreats().size() >= 2)
@@ -259,7 +260,7 @@ namespace bb
 
   void CombatManager::gather()
   {
-    const Position rally = ctx_.map->rallyPoint();
+    const Position rally = holdPoint_.isValid() ? holdPoint_ : ctx_.map->rallyPoint();
     const int rallyRadius = groupRadiusTiles(kRallyRadiusTiles, static_cast<int>(army_.size())) * kTile;
     int nearRally = 0;
     for (Unit u : army_)
@@ -337,7 +338,6 @@ namespace bb
     lastProgressCheckFrame_ = ctx_.frame;
     noProgressChecks_ = 0;
     regrouping_ = false;
-    fallingBack_ = false;
     nextRegroupAllowedFrame_ = 0;
     regroups_ = 0;
     sieges_ = 0;
@@ -353,8 +353,22 @@ namespace bb
                                    " requiredSize=", ctx_.strategy->attackSize()));
   }
 
+  void CombatManager::holdPosition(Position p)
+  {
+    // The wave won its fights and found nothing more: it waits where it is for the
+    // next target and the reinforcements, instead of walking back across the map
+    // and out again. Home (the rally point) again after a retreat or to defend.
+    if (p.isValid() && ctx_.map->groundReachable(ctx_.map->rallyPoint(), p))
+    {
+      holdPoint_ = p;
+      ctx_.log.info("Combat", concat("army holds at ", p.x, ",", p.y, " instead of walking home"));
+    }
+  }
+
   void CombatManager::endWave(const char* reason, State next)
   {
+    if (next != State::Gather)
+      holdPoint_ = Positions::None;
     ctx_.strategy->onWaveEnd(waveLost_, waveKilled_, waveValueLost_, waveValueKilled_, reason);
     wave_.clear();
     state_ = next;
@@ -557,14 +571,11 @@ namespace bb
         if (seenEnemies.insert(e->getID()).second)
           localEnemies.push_back(e);
     std::vector<Unit> localOwnUnits;
-    std::set<int> inContact;
     for (Unit u : waveUnits)
       for (Unit e : localEnemies)
         if (u->getDistance(e) < kJoinFightRadius)
         {
           localOwnUnits.push_back(u);
-          if (u->getDistance(e) < kLocalRadius)
-            inContact.insert(u->getID());
           break;
         }
     const double localOwn = strengthOf(localOwnUnits);
@@ -573,23 +584,13 @@ namespace bb
     // Survivors are compared with every shooter sent (start + reinforcements), so a
     // wave that keeps being refilled still pulls back once it has lost most of them.
     // When only the front of a strung-out wave is outmatched but the whole wave is
-    // not, the front falls back to the others instead of the wave going home (a
-    // 29-shooter wave once retreated because its first 2 units met a cannon).
-    bool fallBack = false;
-    if (shouldRetreat(localOwn, localEnemy, ctx_.config.retreatStrengthRatio, shooters, waveCommitted_,
-                      ctx_.config.retreatArmyFraction) &&
-        !shouldRetreat(strengthOf(waveUnits), localEnemy, ctx_.config.retreatStrengthRatio, shooters, waveCommitted_,
-                       ctx_.config.retreatArmyFraction))
-    {
-      fallBack = true;
-      if (!fallingBack_)
-        ctx_.log.info("Combat", concat("front falls back to the wave: ", inContact.size(), " units in contact (",
-                                       static_cast<int>(localOwn), " vs enemy ", static_cast<int>(localEnemy), "), wave ",
-                                       static_cast<int>(strengthOf(waveUnits))));
-    }
-    fallingBack_ = fallBack;
-    if (!fallBack && shouldRetreat(localOwn, localEnemy, ctx_.config.retreatStrengthRatio, shooters, waveCommitted_,
-                                   ctx_.config.retreatArmyFraction))
+    // not, nobody turns around: the rest is on its way into the same fight (a
+    // 29-shooter wave once retreated because its first 2 units met a cannon, and
+    // pulling the front back made the army walk back and forth).
+    const bool waveCanWin = !shouldRetreat(strengthOf(waveUnits), localEnemy, ctx_.config.retreatStrengthRatio, shooters,
+                                           waveCommitted_, ctx_.config.retreatArmyFraction);
+    if (!waveCanWin && shouldRetreat(localOwn, localEnemy, ctx_.config.retreatStrengthRatio, shooters, waveCommitted_,
+                                     ctx_.config.retreatArmyFraction))
     {
       ctx_.log.info("Combat", concat("retreating: wave ", shooters, "/", waveCommitted_, " shooters, local strength ",
                                      static_cast<int>(localOwn), " (", localOwnUnits.size(), " units) vs enemy ",
@@ -620,6 +621,7 @@ namespace bb
     {
       if (!pickNewTarget(center))
       {
+        holdPosition(center);
         endWave("no more targets known", State::Gather);
         return;
       }
@@ -651,6 +653,7 @@ namespace bb
         ctx_.strategy->markUnreachable(target_, 24 * 180);
         if (!pickNewTarget(center))
         {
+          holdPosition(center);
           endWave("all known targets unreachable", State::Gather);
           return;
         }
@@ -666,7 +669,9 @@ namespace bb
       if (!isSupport(u) && u->getDistance(center) <= cohesionRadius)
         ++together;
     const double fraction = shooters > 0 ? static_cast<double>(together) / shooters : 1.0;
-    if (!regrouping_ && fraction < 0.5 && !engaged && leadDistance <= kRegroupNearTargetTiles * kTile &&
+    // At most one regroup per wave, just before the target: walking back and forth
+    // only gives the enemy time (the user saw waves stop again and again).
+    if (!regrouping_ && regroups_ == 0 && fraction < 0.5 && !engaged && leadDistance <= kRegroupNearTargetTiles * kTile &&
         ctx_.frame >= nextRegroupAllowedFrame_)
     {
       regrouping_ = true;
@@ -688,8 +693,6 @@ namespace bb
     {
       if (isSupport(u))
         moveMedic(u, center);
-      else if (fallBack && inContact.count(u->getID()) && !(isSiegeTank(u->getType()) && updateSiege(u) != TankMode::Mobile))
-        ctx_.commander->move(u, center);
       else if (regrouping_ && u->getDistance(target_) < centerToTarget)
       {
         if (u->isMoving())

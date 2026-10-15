@@ -47,6 +47,7 @@ namespace bb
     void defend();
     void startWave(const AttackTarget& target);
     void endWave(const char* reason, State next);
+    void holdPosition(BWAPI::Position p);
     bool pickNewTarget(BWAPI::Position from);
 
     // Unit-level fighting used by Attack and Defend.
@@ -64,7 +65,7 @@ namespace bb
     int lastThreatFrame_ = -10000;
     int readySinceFrame_ = -1;  // first frame the attack conditions held in Gather
     bool regrouping_ = false;
-    bool fallingBack_ = false;
+    BWAPI::Position holdPoint_ = BWAPI::Positions::None;  // where a wave that cleared its targets waits
     std::set<int> bunkerCrew_;          // marines sent into the Bunker (kept out of the army)
     bool bunkerReleased_ = false;
     int ignoreThreatUntilFrame_ = 0;   // a threat too far from every base is not chased for a while

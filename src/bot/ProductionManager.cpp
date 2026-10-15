@@ -97,11 +97,10 @@ namespace bb
     // Every level: until the early army is there, it is bought before tech and
     // research (but after workers). The level sets how big that army is.
     const bool earlyDefense = !armyFirst && fightingUnits() < earlyDefenseTarget(ctx_.frame, ctx_.config.earlyDefenseArmy);
-    if (earlyDefense != loggedEarlyDefense_)
-      ctx_.log.info("Production", earlyDefense ? concat("early defense: ", fightingUnits(), " fighting units, want ",
-                                                        earlyDefenseTarget(ctx_.frame, ctx_.config.earlyDefenseArmy), " - army before tech")
-                                               : std::string("early defense army is there"));
-    loggedEarlyDefense_ = earlyDefense;
+    if (earlyDefense && !loggedEarlyDefense_)
+      ctx_.log.info("Production", concat("early defense: ", fightingUnits(), " fighting units, want ",
+                                         earlyDefenseTarget(ctx_.frame, ctx_.config.earlyDefenseArmy), " - army before tech until 8:00"));
+    loggedEarlyDefense_ = loggedEarlyDefense_ || earlyDefense;
     planSupply(budget);
     ensureCommandCenter(budget);
     buildDetection(budget);
