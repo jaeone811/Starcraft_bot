@@ -55,6 +55,8 @@ namespace bb
     // An enemy that attacks while hidden (Dark Templar, Lurker, cloaked Ghost/Wraith)
     // has been seen this game: we need detection.
     bool hiddenAttackerSeen() const { return hiddenAttackerFrame_ >= 0; }
+    // Signs of an early attack seen before 3:00 (Planning::rushSigns).
+    bool rushSeen() const { return rushFrame_ >= 0; }
 
     // Visible enemy units within `radius` pixels of `p` (only units we can currently see).
     std::vector<BWAPI::Unit> visibleEnemiesNear(BWAPI::Position p, int radius) const;
@@ -69,5 +71,6 @@ namespace bb
     BWAPI::Race enemyRace_ = BWAPI::Races::Unknown;
     bool loggedInference_ = false;
     int hiddenAttackerFrame_ = -1;
+    int rushFrame_ = -1;
   };
 }

@@ -59,7 +59,9 @@ namespace bb
     int lastExpansionFrame_ = -1;
     bool loggedEarlyDefense_ = false;
     bool holdTech_ = false;
-    bool loggedHoldTech_ = false;   // research and tech buildings wait: the early army (or the defense) comes first
+    bool loggedHoldTech_ = false;
+    bool rush_ = false;       // an early attack is expected (seen by the scout, levels that use what they see)
+    int earlyGasNeed() const;   // research and tech buildings wait: the early army (or the defense) comes first
     int loggedStallStep_ = -1;
   };
 }

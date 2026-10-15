@@ -857,6 +857,32 @@ namespace bb
       ignoreThreatUntilFrame_ = ctx_.frame + 24 * 5;
       return;
     }
+    // While the manned Bunker at the entrance stands and the enemy is at it or
+    // outside it, the army waits right behind it and shoots what comes into range.
+    // Running out after zealots, it died a few units at a time in the open while the
+    // Bunker stood (UAlbertaBot's zealot rush). Enemies past the Bunker are fought.
+    const Position behindBunker = ctx_.map->bunkerRally();
+    bool bunkerManned = false;
+    for (Unit b : Broodwar->self()->getUnits())
+      bunkerManned = bunkerManned || (b->getType() == UnitTypes::Terran_Bunker && b->isCompleted() && !b->getLoadedUnits().empty() &&
+                                      b->getDistance(behindBunker) <= 6 * kTile);
+    const Position main = ctx_.map->mainPosition();
+    if (!bunkerReleased_ && bunkerManned && behindBunker.isValid() &&
+        threat.getApproxDistance(main) + 2 * kTile >= behindBunker.getApproxDistance(main))
+    {
+      if (!holdingAtBunker_)
+        ctx_.log.info("Combat", "enemy at the Bunker: the army holds right behind it");
+      holdingAtBunker_ = true;
+      for (Unit u : army_)
+      {
+        if (isSupport(u))
+          ctx_.commander->move(u, behindBunker);
+        else if (!settledNear(u, behindBunker, 3 * kTile))
+          ctx_.commander->attackMove(u, behindBunker);
+      }
+      return;
+    }
+    holdingAtBunker_ = false;
     const std::vector<Unit> enemies = ctx_.info->visibleEnemiesNear(threat, kLocalRadius);
     const double localOwn = strengthOf(army_);
     const double localEnemy = enemyStrengthOf(enemies);

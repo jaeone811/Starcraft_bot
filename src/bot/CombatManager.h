@@ -75,6 +75,7 @@ namespace bb
     std::map<int, int> crewSince_;      // marine id -> frame it was sent to the Bunker
     std::set<int> notCrew_;             // marines that did not reach the Bunker (e.g. boxed in)
     std::set<int> repairers_;           // SCVs repairing the Bunker
+    bool holdingAtBunker_ = false;
     int ignoreThreatUntilFrame_ = 0;   // a threat too far from every base is not chased for a while
     int regroupStartFrame_ = 0;
     int nextRegroupAllowedFrame_ = 0;

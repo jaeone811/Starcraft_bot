@@ -379,21 +379,46 @@ TEST_CASE("budget: greedy lets cheaper items through, strict saves up")
 
 TEST_CASE("early defense army grows until 6:00 and ends at 8:00")
 {
-  CHECK_EQ(earlyDefenseTarget(24 * 120, 10, 0), 0);
-  CHECK_EQ(earlyDefenseTarget(24 * 180, 10, 0), 0);
-  CHECK_EQ(earlyDefenseTarget(24 * 270, 10, 0), 5);
-  CHECK_EQ(earlyDefenseTarget(24 * 360, 10, 0), 10);
-  CHECK_EQ(earlyDefenseTarget(24 * 479, 10, 0), 10);
-  CHECK_EQ(earlyDefenseTarget(24 * 480, 10, 0), 0);
-  CHECK_EQ(earlyDefenseTarget(24 * 360, 0, 0), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 120, 10, 0, false), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 180, 10, 0, false), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 270, 10, 0, false), 5);
+  CHECK_EQ(earlyDefenseTarget(24 * 360, 10, 0, false), 10);
+  CHECK_EQ(earlyDefenseTarget(24 * 479, 10, 0, false), 10);
+  CHECK_EQ(earlyDefenseTarget(24 * 480, 10, 0, false), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 360, 0, 0, false), 0);
 }
 
 TEST_CASE("early defense answers the enemy army that was seen")
 {
-  CHECK_EQ(earlyDefenseTarget(24 * 150, 10, 3), 3);   // zealots seen before 3:00
-  CHECK_EQ(earlyDefenseTarget(24 * 270, 10, 8), 8);   // more than the ramp
-  CHECK_EQ(earlyDefenseTarget(24 * 270, 10, 2), 5);   // the ramp is higher
-  CHECK_EQ(earlyDefenseTarget(24 * 480, 10, 8), 0);   // over after 8:00
+  CHECK_EQ(earlyDefenseTarget(24 * 150, 10, 3, false), 3);   // zealots seen before 3:00
+  CHECK_EQ(earlyDefenseTarget(24 * 270, 10, 8, false), 8);   // more than the ramp
+  CHECK_EQ(earlyDefenseTarget(24 * 270, 10, 2, false), 5);   // the ramp is higher
+  CHECK_EQ(earlyDefenseTarget(24 * 480, 10, 8, false), 0);   // over after 8:00
+}
+
+TEST_CASE("a seen rush wants the whole early army at once")
+{
+  CHECK_EQ(earlyDefenseTarget(24 * 150, 10, 1, true), 10);
+  CHECK_EQ(earlyDefenseTarget(24 * 150, 10, 12, true), 12);
+  CHECK_EQ(earlyDefenseTarget(24 * 480, 10, 0, true), 0);
+  EarlyScouting twoGates;
+  twoGates.frame = 24 * 141;
+  twoGates.productionBuildings = 2;
+  CHECK(rushSigns(twoGates));
+  EarlyScouting normal;
+  normal.frame = 24 * 141;
+  normal.productionBuildings = 1;
+  normal.combatUnits = 1;
+  CHECK(!rushSigns(normal));
+  EarlyScouting pool;
+  pool.frame = 24 * 140;
+  pool.spawningPool = true;
+  CHECK(rushSigns(pool));
+  pool.frame = 24 * 170;
+  CHECK(!rushSigns(pool));            // a pool seen late is a normal opening
+  EarlyScouting late = twoGates;
+  late.frame = 24 * 200;
+  CHECK(!rushSigns(late));            // two Gateways after 3:00 are normal
 }
 
 TEST_CASE("only what makes the early army is built while it is short")

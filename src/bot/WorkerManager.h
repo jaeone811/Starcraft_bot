@@ -29,6 +29,9 @@ namespace bb
     // A worker that refused a build order (Unit_Busy) is not chosen as a builder again
     // until `untilFrame`; it was picked as the closest one every time before.
     void avoidAsBuilder(BWAPI::Unit worker, int untilFrame);
+    // Gas wanted in the bank for now (-1: no limit beyond the usual one). Above it
+    // the gas workers mine minerals.
+    void setGasCap(int cap) { gasCap_ = cap; }
 
     int workerCount() const { return static_cast<int>(workers_.size()); }
     int countRole(WorkerRole role) const;
@@ -70,6 +73,7 @@ namespace bb
     int mineralsLeft_ = 0;
     int refineries_ = 0;
     bool gasPaused_ = false;
+    int gasCap_ = -1;
     int lastRebalanceFrame_ = 0;
   };
 }

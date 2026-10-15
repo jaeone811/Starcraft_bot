@@ -169,12 +169,17 @@ namespace bb
   void WorkerManager::assignGas()
   {
     const int gas = Broodwar->self()->gas();
-    if (!gasPaused_ && gas >= kGasBankHigh && mineralPatches_ > 0)
+    // While the early army is short only a little gas is needed (Factory, Machine
+    // Shop, a few Firebats/Medics); 3 SCVs on gas with 500 in the bank were 3 SCVs
+    // short on minerals during a zealot rush.
+    const int high = gasCap_ >= 0 ? std::min(kGasBankHigh, gasCap_) : kGasBankHigh;
+    const int low = gasCap_ >= 0 ? std::min(kGasBankLow, gasCap_ / 2) : kGasBankLow;
+    if (!gasPaused_ && gas >= high && mineralPatches_ > 0)
     {
       gasPaused_ = true;
-      ctx_.log.info("Workers", concat("gas bank ", gas, " is unused: gas workers move to minerals"));
+      ctx_.log.info("Workers", concat("gas bank ", gas, " is more than needed now (", high, "): gas workers move to minerals"));
     }
-    else if (gasPaused_ && (gas < kGasBankLow || mineralPatches_ == 0))
+    else if (gasPaused_ && (gas < low || mineralPatches_ == 0))
     {
       gasPaused_ = false;
       ctx_.log.info("Workers", concat("gas bank ", gas, ": mining gas again"));

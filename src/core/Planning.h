@@ -47,7 +47,20 @@ namespace bb
   // Protoss sends zealots around 6:30) meets an army: none before 3:00, rising to
   // `armyBySixMinutes` at 6:00, held until 8:00, nothing after. Until 8:00 it is at
   // least the enemy army we have seen (`enemyArmySeen`), even before 3:00.
-  int earlyDefenseTarget(int frame, int armyBySixMinutes, int enemyArmySeen);
+  // With `rushSeen` the whole early army is wanted at once (no ramp).
+  int earlyDefenseTarget(int frame, int armyBySixMinutes, int enemyArmySeen, bool rushSeen);
+
+  // What the scout saw of the enemy before 3:00. Two Gateways/Barracks, an early
+  // Spawning Pool or two fighting units that early mean an early attack is coming
+  // (UAlbertaBot's 2-Gateway zealot rush arrived at 2:57).
+  struct EarlyScouting
+  {
+    int frame = 0;
+    int productionBuildings = 0;   // Gateways, Barracks
+    bool spawningPool = false;
+    int combatUnits = 0;
+  };
+  bool rushSigns(const EarlyScouting& s);
 
   // ---------------------------------------------------------------- expansion
   struct ExpansionInputs

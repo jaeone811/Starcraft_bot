@@ -97,6 +97,25 @@ namespace bb
         }
       }
 
+    if (rushFrame_ < 0 && ctx_.frame < 24 * 180)
+    {
+      EarlyScouting s;
+      s.frame = ctx_.frame;
+      for (const auto& [id, r] : buildings_)
+      {
+        if (r.type == UnitTypes::Protoss_Gateway || r.type == UnitTypes::Terran_Barracks)
+          ++s.productionBuildings;
+        s.spawningPool = s.spawningPool || r.type == UnitTypes::Zerg_Spawning_Pool;
+      }
+      s.combatUnits = knownEnemyCombatUnits();
+      if (rushSigns(s))
+      {
+        rushFrame_ = ctx_.frame;
+        ctx_.log.info("Info", concat("early attack expected: ", s.productionBuildings, " Gateways/Barracks, pool=", s.spawningPool,
+                                     ", ", s.combatUnits, " fighting units seen"));
+      }
+    }
+
     // Buildings: if we can see the spot and the building is not there, it is gone.
     for (auto it = buildings_.begin(); it != buildings_.end();)
     {

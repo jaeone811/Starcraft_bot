@@ -98,7 +98,8 @@ namespace bb
     // research (but after workers). The level sets how big that army is; the levels
     // that use what they scout also want at least the enemy army they have seen.
     const int enemyArmySeen = ctx_.config.enemyInfoUsage >= 1 ? ctx_.info->knownEnemyCombatUnits() : 0;
-    const int earlyTarget = earlyDefenseTarget(ctx_.frame, ctx_.config.earlyDefenseArmy, enemyArmySeen);
+    rush_ = ctx_.config.enemyInfoUsage >= 1 && ctx_.info->rushSeen();
+    const int earlyTarget = earlyDefenseTarget(ctx_.frame, ctx_.config.earlyDefenseArmy, enemyArmySeen, rush_);
     const bool earlyDefense = !armyFirst && fightingUnits() < earlyTarget;
     if (earlyDefense && !loggedEarlyDefense_)
       ctx_.log.info("Production", concat("early defense: ", fightingUnits(), " fighting units, want ", earlyTarget,
@@ -115,6 +116,7 @@ namespace bb
       ctx_.log.info("Production", "tech and research wait for the army (logged once)");
     loggedHoldTech_ = loggedHoldTech_ || hold;
     holdTech_ = hold;
+    ctx_.workers->setGasCap(hold ? earlyGasNeed() : -1);
     planSupply(budget);
     ensureCommandCenter(budget);
     buildDetection(budget);
@@ -309,7 +311,14 @@ namespace bb
         lastPlan_ += concat("(after army:", toString(step.item), ") ");
         continue;              // tech waits until the early army is there
       }
-      if (!buildStepDue(supplyUi, step.supply, stalled, released))
+      // An early attack is coming: the second Barracks now, gas later.
+      if (rush_ && holdTech_ && step.item == BuildItem::Refinery)
+      {
+        lastPlan_ += "(after army:Refinery) ";
+        continue;
+      }
+      const bool rushBarracks = rush_ && step.item == BuildItem::Barracks && want <= 2;
+      if (!rushBarracks && !buildStepDue(supplyUi, step.supply, stalled, released))
         break;                 // later steps wait for their supply count
       if (supplyUi < step.supply)
       {
@@ -511,6 +520,23 @@ namespace bb
       else
         lastPlan_ += "(saving:armory) ";
     }
+  }
+
+  int ProductionManager::earlyGasNeed() const
+  {
+    // Gas for what is still bought while the early army is short: the early
+    // buildings of the build order not started yet, a Machine Shop, a few
+    // Firebats/Medics.
+    int need = UnitTypes::Terran_Machine_Shop.gasPrice() + 4 * UnitTypes::Terran_Firebat.gasPrice();
+    std::map<BuildItem, int> wanted;
+    for (const auto& step : ctx_.config.buildOrder)
+    {
+      const int want = ++wanted[step.item];
+      const UnitType type = toUnitType(step.item);
+      if (makesEarlyArmy(step.item) && Broodwar->self()->allUnitCount(type) + ctx_.buildings->inProgress(type) < want)
+        need += type.gasPrice();
+    }
+    return need;
   }
 
   void ProductionManager::doResearch(Budget& budget)

@@ -48,6 +48,7 @@ namespace bb
     BWAPI::Position rallyPoint() const;
     BWAPI::TilePosition mainChoke() const { return mainChoke_; } // the main's entrance (narrowest point on the way out); None if not found
     BWAPI::Position bunkerSpot() const { return bunkerSpot_; }   // just inside the ramp, covering it
+    BWAPI::Position bunkerRally() const { return bunkerRally_; } // right behind our Bunker there; None without one
     const std::vector<BWAPI::TilePosition>& otherStartLocations() const { return otherStarts_; }
     const std::vector<SearchCell>& searchCells() const { return searchCells_; }
 
