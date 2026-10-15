@@ -43,6 +43,10 @@ namespace bb
     // Visible enemy units close to any of our buildings.
     const std::vector<BWAPI::Unit>& baseThreats() const { return threats_; }
     bool baseUnderThreat() const { return !threats_.empty(); }
+    // A threat our army cannot shrug off: its strength is more than half of our whole
+    // army's. One Zealot poking the base for five minutes made every frame "army
+    // first" and kept Stim, Siege Mode and the natural waiting until 10:00.
+    bool seriousThreat() const;
     BWAPI::Position threatCenter() const { return threatCenter_; }
 
     // Whether firebats should be mixed in (enemy melee units were seen).

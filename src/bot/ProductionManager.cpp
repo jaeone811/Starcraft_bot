@@ -93,7 +93,7 @@ namespace bb
                   self->supplyTotal() - self->supplyUsed(), ctx_.config.strictPriority);
     lastPlan_.clear();
 
-    const bool armyFirst = ctx_.strategy->baseUnderThreat() && ctx_.config.armyFirstWhenThreatened;
+    const bool armyFirst = ctx_.strategy->seriousThreat() && ctx_.config.armyFirstWhenThreatened;
     // Every level: until the early army is there, it is bought before tech and
     // research (but after workers). The level sets how big that army is; the levels
     // that use what they scout also want at least the enemy army they have seen.
@@ -450,10 +450,14 @@ namespace bb
     ex.workerTarget = workerTarget(ctx_.workers->mineralPatchesAtBases(), ctx_.workers->gasRefineries(),
                                    ctx_.config.workersPerMineralPatch, ctx_.config.maxWorkers);
     ex.lastExpansionFrame = lastExpansionFrame_;
-    ex.underThreat = ctx_.strategy->baseUnderThreat();
+    ex.underThreat = ctx_.strategy->seriousThreat();
+    // Combined like the enemy's (Planning::combineStrength); a plain sum made our
+    // army look many times weaker than the enemy's.
+    std::vector<double> own;
     for (Unit u : self->getUnits())
       if (isOurArmyType(u->getType()) && u->isCompleted())
-        ex.ownArmyStrength += unitStrengthNow(u);
+        own.push_back(unitStrengthNow(u));
+    ex.ownArmyStrength = combineStrength(own);
     ex.knownEnemyStrength = ctx_.info->knownEnemyArmyStrength();
     const ExpansionParams ep{ ctx_.config.maxBases, ctx_.config.expandEarliestFrame, ctx_.config.expandAtWorkers };
     if (!ctx_.buildings->onCooldown(cc) && shouldExpand(ex, ep))

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 using namespace BWAPI;
 
@@ -220,5 +221,19 @@ namespace bb
       }
     if (!pts.empty())
       threatCenter_ = toPosition(centroid(pts));
+  }
+
+  bool StrategyManager::seriousThreat() const
+  {
+    if (threats_.empty())
+      return false;
+    std::vector<double> enemy, own;
+    for (BWAPI::Unit e : threats_)
+      if (e->exists() && canAttackGround(e->getType()))
+        enemy.push_back(unitStrengthNow(e));
+    for (BWAPI::Unit u : BWAPI::Broodwar->self()->getUnits())
+      if (isOurArmyType(u->getType()) && u->isCompleted())
+        own.push_back(unitStrengthNow(u));
+    return combineStrength(enemy) * 2.0 > combineStrength(own);
   }
 }

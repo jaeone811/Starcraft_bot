@@ -68,6 +68,24 @@ namespace bb
       return a.x - margin < b.x + b.w && b.x - margin < a.x + a.w && a.y - margin < b.y + b.h && b.y - margin < a.y + a.h;
     }
 
+    // The add-on spot of one of our Command Centers/Factories/Starports without its
+    // add-on yet: nothing else goes there (the Comsat failed twice with
+    // Unbuildable_Location because a depot stood on its spot).
+    bool takesAddonSpot(TilePosition t, UnitType type)
+    {
+      const TileRect r{ t.x, t.y, type.tileWidth(), type.tileHeight() };
+      for (Unit u : Broodwar->self()->getUnits())
+      {
+        const UnitType ut = u->getType();
+        if (!ut.canBuildAddon() || u->getAddon() || u->isLifted())
+          continue;
+        const TilePosition p = u->getTilePosition();
+        if (rectsOverlap(r, TileRect{ p.x + ut.tileWidth(), p.y + ut.tileHeight() - 2, 2, 2 }, 0))
+          return true;
+      }
+      return false;
+    }
+
     // Every tile of the one-tile ring around `r` lies inside the map, is fully
     // walkable and holds no building or resource. A unit that comes out next to the
     // building can then walk around it to any side.
@@ -316,7 +334,7 @@ namespace bb
       {
         const TilePosition t(centre.x + dx, centre.y + dy);
         if (dx * dx + dy * dy > radius * radius || !t.isValid() || !Broodwar->canBuildHere(t, type) || !addonSpaceFree(t, type) ||
-            overlapsOtherTask(task, t) || recentlyBlocked(t) || blocksRamp(task, t))
+            overlapsOtherTask(task, t) || recentlyBlocked(t) || blocksRamp(task, t) || takesAddonSpot(t, type))
           continue;
         legal.push_back(t);
       }

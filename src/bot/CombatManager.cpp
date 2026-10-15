@@ -78,6 +78,20 @@ namespace bb
       return combineStrength(s);
     }
 
+    // Units that can shoot a melee attacker while backing off from it.
+    bool kitesMelee(UnitType t)
+    {
+      return t == UnitTypes::Terran_Marine || t == UnitTypes::Terran_Vulture || t == UnitTypes::Terran_Goliath ||
+             t == UnitTypes::Terran_Siege_Tank_Tank_Mode;
+    }
+
+    // Zealots, Zerglings, Ultralisks, Dark Templar, Firebats: ground weapon of melee range.
+    bool isMeleeAttacker(UnitType t)
+    {
+      const WeaponType w = t.groundWeapon();
+      return w != WeaponTypes::None && w.maxRange() <= 32 && !t.isWorker() && !t.isBuilding();
+    }
+
     double enemyStrengthOf(const std::vector<Unit>& units)
     {
       std::vector<double> s;
@@ -227,7 +241,11 @@ namespace bb
       chasers_.insert(scv->getID());
     }
     for (int id : chasers_)
-      ctx_.commander->attackUnit(Broodwar->getUnit(id), harasser);
+    {
+      Unit scv = Broodwar->getUnit(id);
+      if (scv->getOrderTarget() != harasser)
+        ctx_.commander->attackUnit(scv, harasser);
+    }
   }
 
   void CombatManager::releaseChasers()
@@ -621,7 +639,9 @@ namespace bb
     state_ = next;
     stateFrame_ = ctx_.frame;
     regrouping_ = false;
-    ctx_.log.info("Combat", concat("wave over: ", reason, " -> ", stateName(), " (regrouped ", regroups_, " times, sieged ", sieges_, " times)"));
+    ctx_.log.info("Combat", concat("wave over: ", reason, " -> ", stateName(), " (regrouped ", regroups_, " times, sieged ", sieges_,
+                                   " times, ", kiteSteps_, " back-off steps from melee units)"));
+    kiteSteps_ = 0;
   }
 
   bool CombatManager::pickNewTarget(Position from)
@@ -708,6 +728,51 @@ namespace bb
           ctx_.commander->useTech(u, TechTypes::Stim_Packs, 24 * 10);
           break;
         }
+    }
+
+    // Back off from a melee attacker while the weapon reloads, shoot when it is
+    // ready (Marines stood next to Zealots and were cut down; Tanks walked in front
+    // of them). Tanks keep a wider distance. Every level: the same rule, the army
+    // that uses it differs.
+    if (kitesMelee(type) && !enemies.empty())
+    {
+      const int trigger = type == UnitTypes::Terran_Siege_Tank_Tank_Mode ? 4 * kTile : type == UnitTypes::Terran_Vulture ? 3 * kTile : 2 * kTile + 16;
+      Unit melee = nullptr;
+      for (Unit e : enemies)
+        if (!e->isFlying() && isMeleeAttacker(e->getType()) && u->getDistance(e) <= trigger &&
+            (!melee || u->getDistance(e) < u->getDistance(melee)))
+          melee = e;
+      if (melee && u->getGroundWeaponCooldown() > 0)
+      {
+        const Position from = u->getPosition();
+        const Position away = from - melee->getPosition();
+        const double len = std::max(1.0, std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.y) * away.y));
+        Position step(from.x + static_cast<int>(away.x * 80 / len), from.y + static_cast<int>(away.y * 80 / len));
+        if (!step.isValid() || !Broodwar->isWalkable(WalkPosition(step)))
+        {
+          // Wall behind: back off towards home instead.
+          const Position home = ctx_.map->rallyPoint();
+          const Position h = home - from;
+          const double hl = std::max(1.0, std::sqrt(static_cast<double>(h.x) * h.x + static_cast<double>(h.y) * h.y));
+          step = Position(from.x + static_cast<int>(h.x * 80 / hl), from.y + static_cast<int>(h.y * 80 / hl));
+        }
+        if (step.isValid())
+        {
+          ++kiteSteps_;
+          ctx_.commander->move(u, step, 4);
+          return;
+        }
+      }
+    }
+
+    // Tanks do not lead: while nothing is in reach, a tank ahead of its group waits
+    // for it instead of walking into the enemy first.
+    if (type == UnitTypes::Terran_Siege_Tank_Tank_Mode && enemies.empty() && fightCenter_.isValid() &&
+        u->getDistance(advanceTo) + 3 * kTile < fightCenter_.getApproxDistance(advanceTo))
+    {
+      if (u->getDistance(fightCenter_) > 2 * kTile)
+        ctx_.commander->move(u, fightCenter_);
+      return;
     }
 
     // Focus fire: pick an explicit target when the difficulty uses it.
@@ -936,6 +1001,7 @@ namespace bb
     // While regrouping the leading units wait and the rest catch up. Pulling the
     // front back to the center would undo the progress made through a narrow path.
     const int centerToTarget = center.getApproxDistance(target_);
+    fightCenter_ = center;
     for (Unit u : waveUnits)
     {
       if (isSupport(u))
@@ -948,6 +1014,7 @@ namespace bb
       else
         fight(u, target_, localOwn, localEnemy);
     }
+    fightCenter_ = Positions::None;
   }
 
   void CombatManager::retreat()
@@ -1044,6 +1111,7 @@ namespace bb
     const double localOwn = strengthOf(army_);
     const double localEnemy = enemyStrengthOf(enemies);
     const Position center = groupCenter(army_);
+    fightCenter_ = center;
     for (Unit u : army_)
     {
       if (isSupport(u))
@@ -1051,5 +1119,6 @@ namespace bb
       else
         fight(u, threat, localOwn, localEnemy);
     }
+    fightCenter_ = Positions::None;
   }
 }
