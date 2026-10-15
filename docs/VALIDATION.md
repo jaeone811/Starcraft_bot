@@ -84,6 +84,18 @@
 `lan_mode = Local PC`, `game = JOIN_FIRST`. 사용자가 `Chaoslauncher - MultiInstance.exe`(관리자)에서 Start를 두 번 누른다
 (첫 번째 창이 방을 만들고 두 번째가 들어온다). 기본 AI 테스트로 돌아갈 때는 백업한 bwapi.ini를 되돌린다.
 
+## 4.2 이전 버전과 비교 (0.8.8 / 0.9.0 백업)
+
+| 파일 (`bwapi-data\AI\`) | 버전 | 오프닝 |
+|---|---|---|
+| `BeginnerBot.dll` | 최신 (0.9.1~) | `BeginnerBot.ini`의 `opening` (기본 liquipedia, classic 가능) |
+| `BeginnerBot_0.9.0.dll` | 0.9.0 | 프로토스 상대만 팩토리 먼저 |
+| `BeginnerBot_0.8.8.dll` | 0.8.8 | 모든 종족 상대로 난이도 빌드 그대로 |
+
+- 쓰는 방법: `bwapi.ini`의 `ai =` 첫 번째 DLL을 원하는 파일로 바꾼다(봇 대 봇이면 `ai = bwapi-data/AI/BeginnerBot_0.8.8.dll, bwapi-data/AI/Steamhammer.dll`). 로그 첫 줄에 버전이 찍힌다.
+- 같은 DLL로 오프닝만 비교하려면 `BeginnerBot.ini`의 `opening = classic` / `liquipedia`를 바꾼다. 로그에 `opening vs ... (Liquipedia)` 또는 `opening: classic`이 찍힌다.
+- 백업 DLL은 git 태그 `v0.8.8`(2f19166), `v0.9.0`(793b751)에서 다시 빌드할 수 있다: `git worktree add <폴더> v0.8.8` → 그 폴더에서 `cmake -S . -B build -A Win32` → `cmake --build build --config Release --target BeginnerBot`.
+
 ## 5. 결과 기록 양식
 
 | 날짜 | 맵 | 상대 | 난이도 | 경기 수 | 승률 | 평균 시간 | 비고 |

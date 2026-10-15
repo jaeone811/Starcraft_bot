@@ -64,9 +64,11 @@ namespace bb
     bool holdTech_ = false;
     bool loggedHoldTech_ = false;
     bool loggedRangeFirst_ = false;
-    std::vector<BuildStep> buildOrder_;  // the configured one, or factoryFirst() against Protoss
+    std::vector<BuildStep> buildOrder_;  // the configured one, or raceOpening() (opening = liquipedia)
     bool buildOrderSet_ = false;
-    bool factoryFirst_ = false;
+    EnemyRace openingRace_ = EnemyRace::Unknown; // race the build order was made for
+    bool liquipedia_ = false;           // opening = liquipedia and the level counters what it knows
+    bool factoryFirst_ = false;         // Liquipedia opening against Protoss or Terran
     bool rush_ = false;       // an early attack is expected (seen by the scout, levels that use what they see)
     int earlyGasNeed() const;   // research and tech buildings wait: the early army (or the defense) comes first
     int loggedStallStep_ = -1;

@@ -30,6 +30,13 @@ namespace bb
         s.race = "Terran";
       }
 
+      s.opening = toLower(ini.getString("bot", "opening", s.opening));
+      if (s.opening != "liquipedia" && s.opening != "classic")
+      {
+        s.warnings.push_back("opening '" + s.opening + "' unknown; using liquipedia");
+        s.opening = "liquipedia";
+      }
+
       s.logLevel = toLower(ini.getString("log", "level", s.logLevel));
       if (s.logLevel != "debug" && s.logLevel != "info" && s.logLevel != "warn" && s.logLevel != "error")
       {

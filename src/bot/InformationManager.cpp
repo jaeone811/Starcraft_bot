@@ -272,12 +272,16 @@ namespace bb
     return mix;
   }
 
+  EnemyRace InformationManager::enemyRaceKind() const
+  {
+    return enemyRace_ == Races::Protoss ? EnemyRace::Protoss
+         : enemyRace_ == Races::Zerg    ? EnemyRace::Zerg
+         : enemyRace_ == Races::Terran  ? EnemyRace::Terran : EnemyRace::Unknown;
+  }
+
   EnemyMix InformationManager::expectedEnemyMix() const
   {
-    const EnemyRace race = enemyRace_ == Races::Protoss ? EnemyRace::Protoss
-                         : enemyRace_ == Races::Zerg    ? EnemyRace::Zerg
-                         : enemyRace_ == Races::Terran  ? EnemyRace::Terran : EnemyRace::Unknown;
-    return withRacePrior(enemyMix(), race);
+    return withRacePrior(enemyMix(), enemyRaceKind());
   }
 
   int InformationManager::knownEnemyCombatUnits() const

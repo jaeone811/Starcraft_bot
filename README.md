@@ -91,7 +91,7 @@ map = maps/(2)Boxer.scm
 ```
 실행: BWAPI 설치 폴더의 `Chaoslauncher\Chaoslauncher.exe`를 **관리자 권한**으로 실행 → `BWAPI 4.4.0 Injector [RELEASE]` 체크 (창 모드는 `W-MODE`) → Start.
 `auto_menu = OFF`이면 Single Player → Expansion → Play Custom에서 Terran으로 직접 게임을 만든다.
-게임이 시작되면 화면 왼쪽 위에 `BeginnerBot 0.9.0 - difficulty 3 (Normal)` 문구가 나온다.
+게임이 시작되면 화면 왼쪽 위에 `BeginnerBot 0.9.1 - difficulty 3 (Normal)` 문구가 나온다.
 
 ## 6. 난이도 / 종족 / 맵 설정
 
@@ -101,7 +101,14 @@ StarCraft 폴더는 작업 폴더에 `bwapi-data`가 있으면 그 폴더, 아�
 [bot]
 difficulty = 3      ; 1 매우 쉬움, 2 쉬움, 3 기본(기본값), 4 어려움, 5 매우 어려움
 race = Terran       ; Terran만 구현
+opening = liquipedia ; liquipedia(기본, 0.9.1) | classic(0.8.8 방식)
 ```
+- **오프닝** (`opening`, 2~5단계에 적용):
+  - `liquipedia`: 상대 종족별 Liquipedia 정석.
+    - 프로토스·테란 상대: 두 번째 배럭 자리에 팩토리, 시즈 모드·U-238 먼저.
+    - 저그 상대: 팩토리 자리에 엔지니어링 베이, 스팀·U-238·보병 +1을 시즈 모드보다 먼저.
+  - `classic`: 난이도의 빌드 순서를 종족과 상관없이 그대로 씀.
+  - 0.8.8을 그대로 쓰고 싶으면 `bwapi.ini`에서 `ai = bwapi-data/AI/BeginnerBot_0.8.8.dll`로 지정한다(VALIDATION.md 4.2).
 | 단계 | 이름 | 설명 |
 |---|---|---|
 | 1 | 매우 쉬움 (VeryEasy) | 단순한 빌드, 늦은 정찰과 공격, 집중 공격/후퇴 판단 제한 |

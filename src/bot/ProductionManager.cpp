@@ -93,21 +93,27 @@ namespace bb
                   self->supplyTotal() - self->supplyUsed(), ctx_.config.strictPriority);
     lastPlan_.clear();
 
-    // Against Protoss the levels that counter what they know open Factory first:
-    // Dragoons cut down the Marines of the infantry opening (three Barracks, Stim
-    // first) and broke the Bunker from out of range, game after game.
-    const bool protoss = ctx_.config.enemyInfoUsage >= 1 && ctx_.info->enemyRace() == Races::Protoss;
-    if (!buildOrderSet_ || protoss != factoryFirst_)
+    // The opening for the enemy race (BeginnerBot.ini opening = liquipedia, the
+    // levels that counter what they know): Liquipedia's TvP/TvT Factory first, TvZ
+    // bio with an early Engineering Bay. Dragoons cut down the Marines of the
+    // infantry opening and broke the Bunker from out of range, game after game.
+    // opening = classic keeps the difficulty's own order against every race.
+    liquipedia_ = ctx_.settings.opening == "liquipedia" && ctx_.config.enemyInfoUsage >= 1;
+    const EnemyRace race = liquipedia_ ? ctx_.info->enemyRaceKind() : EnemyRace::Unknown;
+    if (!buildOrderSet_ || race != openingRace_)
     {
-      buildOrder_ = protoss ? factoryFirst(ctx_.config.buildOrder, ctx_.config.maxFactories) : ctx_.config.buildOrder;
-      if (protoss)
+      buildOrder_ = raceOpening(ctx_.config.buildOrder, race, ctx_.config.maxFactories);
+      if (race != EnemyRace::Unknown)
       {
         std::string steps;
         for (const auto& s : buildOrder_)
           steps += concat(toString(s.item), "@", s.supply, " ");
-        ctx_.log.info("Production", concat("against Protoss: Factory before the second Barracks: ", steps));
+        ctx_.log.info("Production", concat("opening vs ", ctx_.info->enemyRace().c_str(), " (Liquipedia): ", steps));
       }
-      factoryFirst_ = protoss;
+      else if (!buildOrderSet_ && !liquipedia_)
+        ctx_.log.info("Production", "opening: classic (the difficulty's build order against every race)");
+      factoryFirst_ = race == EnemyRace::Protoss || race == EnemyRace::Terran;
+      openingRace_ = race;
       buildOrderSet_ = true;
     }
 
@@ -150,7 +156,7 @@ namespace bb
     buildBunker(budget);
     // Siege Mode before the next Marines: the first Siege Tank holds Dragoons that
     // the Marines cannot (Siege Mode waited until 8:13 behind the early army).
-    if (rangeResearchFirst())
+    if (liquipedia_ && rangeResearchFirst())
       doResearch(budget);
     if (earlyDefense)
       trainArmy(budget);
@@ -670,13 +676,14 @@ namespace bb
     // 9:12 with a Tank standing since 5:44, and U-238 never started.
     const bool rangeFirst = rangeResearchFirst();
     if (rangeFirst && !loggedRangeFirst_)
-      ctx_.log.info("Production", "heavy ranged enemies (or Protoss): Siege Mode and U-238 first, even before the early army is complete");
+      ctx_.log.info("Production", "heavy ranged enemies (or Liquipedia vs Protoss/Terran): Siege Mode and U-238 first, even before the early army is complete");
     loggedRangeFirst_ = loggedRangeFirst_ || rangeFirst;
     if (holdTech_ && !rangeFirst)
       return;
     // While enemy air outmatches our anti-air, only research that helps against it.
     const bool airFirst = ctx_.strategy->antiAirShort();
-    for (ResearchItem item : researchOrder(ctx_.config.research, rangeFirst))
+    const std::vector<ResearchItem> base = raceResearch(ctx_.config.research, openingRace_);
+    for (ResearchItem item : researchOrder(base, rangeFirst))
     {
       if (isResearchDone(item) || isResearchInProgress(item))
         continue;

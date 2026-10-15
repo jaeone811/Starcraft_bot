@@ -168,6 +168,12 @@ TEST_CASE("settings defaults and validation")
   s = parseBotSettings("[bot]\ndifficulty = hard\n");
   CHECK_EQ(s.difficulty, 3);
   CHECK_EQ(static_cast<int>(s.warnings.size()), 1);
+
+  CHECK(parseBotSettings("").opening == "liquipedia");
+  CHECK(parseBotSettings("[bot]\nopening = Classic\n").opening == "classic");
+  s = parseBotSettings("[bot]\nopening = rush\n");
+  CHECK(s.opening == "liquipedia");
+  CHECK_EQ(static_cast<int>(s.warnings.size()), 1);
 }
 
 TEST_CASE("missing settings file falls back to defaults with a warning")
@@ -507,6 +513,43 @@ TEST_CASE("build order: Factory first against Protoss")
   const std::vector<BuildStep> level1{ {B::Barracks, 12}, {B::Refinery, 20}, {B::Barracks, 24} };
   CHECK_EQ(factoryFirst(level1, 0).size(), level1.size());
   CHECK(factoryFirst(level1, 0)[2].item == B::Barracks);
+}
+
+TEST_CASE("openings per enemy race (Liquipedia)")
+{
+  using B = BuildItem;
+  const std::vector<BuildStep> level4{ {B::Barracks, 11}, {B::Refinery, 12}, {B::Barracks, 15}, {B::Academy, 17},
+                                       {B::Factory, 19}, {B::Barracks, 20}, {B::EngineeringBay, 26}, {B::Barracks, 30},
+                                       {B::Armory, 50} };
+  // Zerg: Engineering Bay where the Factory was, the Factory where the Engineering Bay was.
+  const std::vector<BuildStep> z = raceOpening(level4, EnemyRace::Zerg, 3);
+  CHECK(z[4].item == B::EngineeringBay);
+  CHECK_EQ(z[4].supply, 19);
+  CHECK(z[6].item == B::Factory);
+  CHECK_EQ(z[6].supply, 26);
+  CHECK_EQ(z.size(), level4.size());
+  // Terran and Protoss: Factory first.
+  CHECK(raceOpening(level4, EnemyRace::Terran, 3)[2].item == B::Factory);
+  CHECK(raceOpening(level4, EnemyRace::Protoss, 3)[2].item == B::Factory);
+  // Unknown race: unchanged.
+  CHECK(raceOpening(level4, EnemyRace::Unknown, 3)[2].item == B::Barracks);
+  // No Engineering Bay (level 2): unchanged against Zerg.
+  const std::vector<BuildStep> level2{ {B::Barracks, 11}, {B::Refinery, 14}, {B::Barracks, 18}, {B::Factory, 32} };
+  CHECK(raceOpening(level2, EnemyRace::Zerg, 1)[3].item == B::Factory);
+
+  using R = ResearchItem;
+  const std::vector<R> research{ R::StimPacks, R::SiegeMode, R::SpiderMines, R::U238Shells, R::InfantryWeapons1,
+                                 R::InfantryArmor1, R::VehicleWeapons1 };
+  const std::vector<R> zr = raceResearch(research, EnemyRace::Zerg);
+  CHECK(zr[0] == R::StimPacks);
+  CHECK(zr[1] == R::U238Shells);
+  CHECK(zr[2] == R::InfantryWeapons1);
+  CHECK(zr[3] == R::InfantryArmor1);
+  CHECK(zr[4] == R::SiegeMode);
+  const std::vector<R> tr = raceResearch(research, EnemyRace::Terran);
+  CHECK(tr[0] == R::SiegeMode);
+  CHECK(tr[1] == R::U238Shells);
+  CHECK(raceResearch(research, EnemyRace::Unknown) == research);
 }
 
 TEST_CASE("research: range first against heavy ranged enemies")

@@ -333,6 +333,50 @@ namespace bb
     return out;
   }
 
+  std::vector<BuildStep> bioFirst(const std::vector<BuildStep>& base)
+  {
+    std::vector<BuildStep> out(base);
+    int factory = -1, ebay = -1;
+    for (int i = 0; i < static_cast<int>(out.size()); ++i)
+    {
+      if (factory < 0 && out[i].item == BuildItem::Factory)
+        factory = i;
+      if (ebay < 0 && out[i].item == BuildItem::EngineeringBay)
+        ebay = i;
+    }
+    if (factory >= 0 && ebay > factory)
+      std::swap(out[factory].item, out[ebay].item);
+    return out;
+  }
+
+  std::vector<BuildStep> raceOpening(const std::vector<BuildStep>& base, EnemyRace race, int maxFactories)
+  {
+    switch (race)
+    {
+    case EnemyRace::Protoss:
+    case EnemyRace::Terran:
+      return factoryFirst(base, maxFactories);
+    case EnemyRace::Zerg:
+      return bioFirst(base);
+    case EnemyRace::Unknown:
+      break;
+    }
+    return base;
+  }
+
+  std::vector<ResearchItem> raceResearch(const std::vector<ResearchItem>& list, EnemyRace race)
+  {
+    if (race == EnemyRace::Protoss || race == EnemyRace::Terran)
+      return researchOrder(list, true);
+    std::vector<ResearchItem> out(list);
+    if (race == EnemyRace::Zerg)
+      std::stable_partition(out.begin(), out.end(), [](ResearchItem i) {
+        return i == ResearchItem::StimPacks || i == ResearchItem::U238Shells || i == ResearchItem::InfantryWeapons1 ||
+               i == ResearchItem::InfantryArmor1;
+      });
+    return out;
+  }
+
   bool extendsRange(ResearchItem item)
   {
     return item == ResearchItem::SiegeMode || item == ResearchItem::U238Shells;

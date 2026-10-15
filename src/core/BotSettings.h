@@ -10,6 +10,9 @@ namespace bb
   {
     int difficulty = 3;           // 1..5
     std::string race = "Terran";  // the race this bot implements; checked against the game
+    // liquipedia: openings per enemy race from Liquipedia's guides (0.9.1);
+    // classic: the difficulty's build and research order for every race (as in 0.8.8).
+    std::string opening = "liquipedia";
     std::string logLevel = "info";// debug | info | warn | error
     std::string logDirectory = "bwapi-data/write/BeginnerBot";
     int localSpeed = -1;          // -1 = leave the game speed alone, 0 = fastest

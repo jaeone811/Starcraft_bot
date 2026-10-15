@@ -5,6 +5,8 @@
 // reads these fields; it never branches on the level number itself.
 // This header is deliberately free of BWAPI types so it can be unit tested.
 
+#include "Planning.h"
+
 #include <string>
 #include <vector>
 
@@ -69,6 +71,16 @@ namespace bb
   // of the second Barracks, and with room for two Factories the next Barracks
   // becomes the second one. Build orders without a Factory stay as they are.
   std::vector<BuildStep> factoryFirst(const std::vector<BuildStep>& base, int maxFactories);
+  // The build order against Zerg (Liquipedia's TvZ: Barracks, Academy and an early
+  // Engineering Bay for +1 and Turrets against Mutalisks; Tanks later for Lurkers):
+  // the Engineering Bay takes the first Factory's place and the Factory its own.
+  std::vector<BuildStep> bioFirst(const std::vector<BuildStep>& base);
+  // The opening for the enemy race: factoryFirst against Protoss and Terran,
+  // bioFirst against Zerg, the base build order when the race is unknown.
+  std::vector<BuildStep> raceOpening(const std::vector<BuildStep>& base, EnemyRace race, int maxFactories);
+  // Research for the enemy race: Siege Mode / U-238 first against Protoss and Terran;
+  // Stim, U-238 and the infantry upgrades first against Zerg; unchanged otherwise.
+  std::vector<ResearchItem> raceResearch(const std::vector<ResearchItem>& list, EnemyRace race);
 
   struct DifficultyConfig
   {
