@@ -273,6 +273,16 @@ namespace bb
     return enemyAirStrength > 0.0 && ownAntiAirStrength < enemyAirStrength;
   }
 
+  bool defenseOutmatched(double ownStrength, double enemyStrength)
+  {
+    return enemyStrength > 0.0 && enemyStrength > ownStrength * 1.2;
+  }
+
+  bool onLeash(int tilesToNearestBuilding, bool alreadyLeashed, int leashTiles, int returnTiles)
+  {
+    return alreadyLeashed ? tilesToNearestBuilding > returnTiles : tilesToNearestBuilding > leashTiles;
+  }
+
   bool baseContested(double enemyStrengthSeenThere, double ownArmyStrength)
   {
     return enemyStrengthSeenThere > 0.0 && enemyStrengthSeenThere * 2.0 > ownArmyStrength;

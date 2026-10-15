@@ -474,6 +474,17 @@ TEST_CASE("anti-air: strength counts only what can shoot the enemy")
   CHECK(!helpsAgainstAir(ResearchItem::VehicleWeapons1));
 }
 
+TEST_CASE("defense: no chase away from the base, no fight against a stronger enemy outside")
+{
+  CHECK(!defenseOutmatched(1000.0, 0.0));
+  CHECK(!defenseOutmatched(1000.0, 1100.0));     // about even: fight
+  CHECK(defenseOutmatched(1000.0, 1500.0));      // clearly stronger: wait at the rally
+  CHECK(!onLeash(8, false, 10, 5));              // close to our buildings
+  CHECK(onLeash(11, false, 10, 5));              // chased too far: called back
+  CHECK(onLeash(7, true, 10, 5));                // on the way back: keeps walking
+  CHECK(!onLeash(4, true, 10, 5));               // back home: fights again
+}
+
 TEST_CASE("geometry: stepping away from a Scarab's target")
 {
   const Point p = awayFrom({ 100, 100 }, { 70, 100 }, 96);

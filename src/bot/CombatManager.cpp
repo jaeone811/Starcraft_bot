@@ -1160,7 +1160,12 @@ namespace bb
       {
         state_ = State::Gather;
         stateFrame_ = ctx_.frame;
-        ctx_.log.info("Combat", "base is safe again; gathering");
+        ctx_.log.info("Combat", leashCalls_ > 0 ? concat("base is safe again; gathering (", leashCalls_,
+                                                         " units called back from chasing)")
+                                                : std::string("base is safe again; gathering"));
+        leashed_.clear();
+        leashCalls_ = 0;
+        holdingOutmatched_ = false;
       }
       return;
     }
@@ -1235,14 +1240,66 @@ namespace bb
     const std::vector<Unit> enemies = ctx_.info->visibleEnemiesNear(threat, kLocalRadius);
     const double localOwn = strengthOf(army_, enemyAirFraction(enemies));
     const double localEnemy = enemyStrengthOf(enemies);
+
+    // Every level: the army does not go out to an enemy at the edge of the base that
+    // is clearly stronger; it waits at the rally (behind the Bunker or at the
+    // entrance) where reinforcements, the Bunker and repairs are. Zealots and Dragoons
+    // poking the edge drew the whole army out again and again; it fell from 9 to 2
+    // units before the Reavers and the main army came.
+    const Position rally = ctx_.map->rallyPoint();
+    const bool atEdge = rally.isValid() && threat.getApproxDistance(main) > rally.getApproxDistance(main) + 4 * kTile;
+    if (atEdge && defenseOutmatched(localOwn, localEnemy))
+    {
+      if (!holdingOutmatched_)
+        ctx_.log.info("Combat", concat("enemy at the edge of the base is stronger (", static_cast<int>(localEnemy), " vs ",
+                                       static_cast<int>(localOwn), "): the army waits at the rally"));
+      holdingOutmatched_ = true;
+      for (Unit u : army_)
+      {
+        if (dodging(u) || settledNear(u, rally, 3 * kTile))
+          continue;
+        if (isSupport(u))
+          ctx_.commander->move(u, rally);
+        else
+          ctx_.commander->attackMove(u, rally);
+      }
+      return;
+    }
+    holdingOutmatched_ = false;
+
+    // No chase away from home: a unit more than 10 tiles from every building of ours
+    // walks back toward the rally and fights again once within 5 tiles. A Dragoon
+    // backing off pulled units out of the base one at a time.
+    std::vector<Unit> buildings;
+    for (Unit b : Broodwar->self()->getUnits())
+      if (b->getType().isBuilding() && !b->isLifted())
+        buildings.push_back(b);
     const Position center = groupCenter(army_);
     fightCenter_ = center;
     for (Unit u : army_)
     {
       if (isSupport(u))
+      {
         moveMedic(u, center);
-      else
-        fight(u, threat, localOwn, localEnemy);
+        continue;
+      }
+      int nearest = std::numeric_limits<int>::max();
+      for (Unit b : buildings)
+        nearest = std::min(nearest, u->getDistance(b));
+      const bool leashed = leashed_.count(u->getID()) > 0;
+      if (!buildings.empty() && rally.isValid() && onLeash(nearest / kTile, leashed, 10, 5))
+      {
+        if (!leashed)
+        {
+          leashed_.insert(u->getID());
+          ++leashCalls_;
+        }
+        if (!dodging(u))
+          ctx_.commander->move(u, rally);
+        continue;
+      }
+      leashed_.erase(u->getID());
+      fight(u, threat, localOwn, localEnemy);
     }
     fightCenter_ = Positions::None;
   }

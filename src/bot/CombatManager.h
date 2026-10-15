@@ -81,6 +81,9 @@ namespace bb
     std::set<int> notCrew_;             // marines that did not reach the Bunker (e.g. boxed in)
     std::set<int> repairers_;           // SCVs repairing the Bunker
     bool holdingAtBunker_ = false;
+    bool holdingOutmatched_ = false;    // "outmatched outside: waiting at the rally" logged per defense
+    std::set<int> leashed_;             // units called back from chasing away from our buildings
+    int leashCalls_ = 0;                // logged when the defense ends
     int nextRepairLogFrame_ = 0;
     BWAPI::Position fightCenter_ = BWAPI::Positions::None;   // group center while a wave/the defense fights
     int kiteSteps_ = 0;                 // back-off steps from melee units (reported per wave)
