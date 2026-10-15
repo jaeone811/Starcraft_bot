@@ -384,9 +384,11 @@ namespace bb
         taken = taken || e.position.getApproxDistance(b.center) < 12 * 32;
       // Not where enemy fighting units were seen in the last minute (they killed
       // the Command Center being built there and every SCV sent after it).
+      const bool takenBefore = taken;
       for (const auto& [id, e] : ctx_.info->enemyUnits())
         taken = taken || (!e.type.isWorker() && canAttackGround(e.type) && ctx_.frame - e.lastSeenFrame < 24 * 60 &&
                           e.position.getApproxDistance(b.center) < 15 * 32);
+      const bool contestedOnly = taken && !takenBefore;
       if (b.isStartLocation && b.depotTile != ctx_.map->mainTile() && ctx_.info->startStatus(b.depotTile) != StartStatus::Empty)
         taken = true;
       // Something we can see stands on the spot (enemy units, a building we did not
@@ -394,7 +396,14 @@ namespace bb
       if (!taken && Broodwar->isExplored(b.depotTile) && !Broodwar->canBuildHere(b.depotTile, UnitTypes::Terran_Command_Center))
         taken = true;
       if (taken || !ctx_.map->groundReachable(main, b.center))
+      {
+        // The natural is free but enemies were just there: wait for it rather than
+        // taking a base further out (a center base went up while the natural was
+        // contested and had nothing to protect it).
+        if (i == ctx_.map->naturalIndex() && contestedOnly)
+          return nullptr;
         continue;
+      }
       const int d = i == ctx_.map->naturalIndex() ? 0 : main.getApproxDistance(b.center);
       if (d < bestDist)
       {
@@ -460,8 +469,9 @@ namespace bb
     ex.ownArmyStrength = combineStrength(own);
     ex.knownEnemyStrength = ctx_.info->knownEnemyArmyStrength();
     const ExpansionParams ep{ ctx_.config.maxBases, ctx_.config.expandEarliestFrame, ctx_.config.expandAtWorkers };
-    if (!ctx_.buildings->onCooldown(cc) && shouldExpand(ex, ep))
-      if (const BaseLocation* next = nextExpansion())
+    const BaseLocation* next = ctx_.buildings->onCooldown(cc) ? nullptr : nextExpansion();
+    ex.nextIsNatural = next && ctx_.map->naturalIndex() >= 0 && next == &ctx_.map->bases()[ctx_.map->naturalIndex()];
+    if (next && shouldExpand(ex, ep))
       {
         if (budget.reserveFirst({ cc.mineralPrice(), 0, 0 }))
         {
@@ -678,23 +688,26 @@ namespace bb
         continue;
       // Every Factory gets a Machine Shop (tanks and Siege Mode need it).
       // While a blocked add-on waits for its retry, the Factory builds Vultures / Goliaths.
+      // Without the gas for it the Factory builds a Vulture meanwhile instead of
+      // standing idle (three Factories made 4 Vultures in 5 minutes once).
       if (!factory->getAddon() && ctx_.frame >= machineShopRetryFrame_)
       {
         const UnitType shop = UnitTypes::Terran_Machine_Shop;
-        if (!budget.tryReserve({ shop.mineralPrice(), shop.gasPrice(), 0 }))
-          continue;
-        if (ctx_.commander->buildAddon(factory, shop))
+        if (budget.tryReserve({ shop.mineralPrice(), shop.gasPrice(), 0 }))
         {
-          ctx_.log.info("Production", "building Machine Shop");
-          lastPlan_ += "machine-shop ";
-          continue;
+          if (ctx_.commander->buildAddon(factory, shop))
+          {
+            ctx_.log.info("Production", "building Machine Shop");
+            lastPlan_ += "machine-shop ";
+            continue;
+          }
+          if (ctx_.commander->lastWasSuppressed())
+            continue;
+          // Usually a unit standing on the add-on spot; it moves soon.
+          machineShopRetryFrame_ = ctx_.frame + 24 * 30;
+          ctx_.log.warn("Production", concat("Machine Shop could not be started (", Broodwar->getLastError().c_str(),
+                                             "); retrying in 30 seconds"));
         }
-        if (ctx_.commander->lastWasSuppressed())
-          continue;
-        // Usually a unit standing on the add-on spot; it moves soon.
-        machineShopRetryFrame_ = ctx_.frame + 24 * 30;
-        ctx_.log.warn("Production", concat("Machine Shop could not be started (", Broodwar->getLastError().c_str(),
-                                           "); retrying in 30 seconds"));
       }
       if (!trainUnits)
         continue;

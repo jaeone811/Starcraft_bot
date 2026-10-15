@@ -161,7 +161,8 @@ namespace bb
       Unit best = nullptr;
       for (Unit u : army_)
         if (u->getType() == UnitTypes::Terran_Marine && !wave_.count(u->getID()) && !bunkerCrew_.count(u->getID()) &&
-            !notCrew_.count(u->getID()) && (!best || u->getDistance(bunker) < best->getDistance(bunker)))
+            !notCrew_.count(u->getID()) && u->getDistance(bunker) <= 20 * kTile &&
+            (!best || u->getDistance(bunker) < best->getDistance(bunker)))
           best = u;
       if (!best)
         break;
@@ -516,7 +517,16 @@ namespace bb
 
   void CombatManager::gather()
   {
-    const Position rally = holdPoint_.isValid() ? holdPoint_ : ctx_.map->rallyPoint();
+    // A Command Center being built away from the main is guarded by the army until
+    // it stands (the natural's and a center base's were killed unfinished).
+    Position guard = Positions::None;
+    for (Unit cc : Broodwar->self()->getUnits())
+      if (cc->getType().isResourceDepot() && !cc->isCompleted() && cc->getDistance(ctx_.map->mainPosition()) > 12 * kTile)
+        guard = cc->getPosition();
+    if (guard.isValid() && guard != guardedBase_)
+      ctx_.log.info("Combat", concat("army guards the new base at ", guard.x / 32, ",", guard.y / 32, " until it stands"));
+    guardedBase_ = guard;
+    const Position rally = guard.isValid() ? guard : holdPoint_.isValid() ? holdPoint_ : ctx_.map->rallyPoint();
     const int rallyRadius = groupRadiusTiles(kRallyRadiusTiles, static_cast<int>(army_.size())) * kTile;
     int nearRally = 0;
     for (Unit u : army_)

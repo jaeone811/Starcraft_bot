@@ -78,6 +78,7 @@ namespace bb
     bool underThreat = false;
     double ownArmyStrength = 0.0;
     double knownEnemyStrength = 0.0;   // remembered enemy army + static defense
+    bool nextIsNatural = false;        // the base to take is the natural
   };
   struct ExpansionParams
   {
@@ -111,8 +112,10 @@ namespace bb
 
     bool canAfford(const Cost& c) const;
     // Reserves and returns true if affordable. Otherwise returns false and, in strict
-    // mode, blocks the missing resources (unless supply is the problem: saving money
-    // does not help a supply block).
+    // mode, holds back the resources that are short (unless supply is the problem:
+    // saving money does not help a supply block). A Tank waiting for gas does not
+    // freeze the minerals: Barracks sat idle with 500 minerals while the Factory
+    // waited for gas.
     bool tryReserve(const Cost& c);
     // Like tryReserve, but holds the missing money back at every level, strict or
     // not. For the few items without which the bot loses outright (a new base when
@@ -125,6 +128,8 @@ namespace bb
     int supply() const { return supply_; }
 
   private:
+    void holdShort(const Cost& c);
+
     int minerals_;
     int gas_;
     int supply_;

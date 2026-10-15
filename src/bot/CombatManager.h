@@ -82,6 +82,7 @@ namespace bb
     int nextRepairLogFrame_ = 0;
     BWAPI::Position fightCenter_ = BWAPI::Positions::None;   // group center while a wave/the defense fights
     int kiteSteps_ = 0;                 // back-off steps from melee units (reported per wave)
+    BWAPI::Position guardedBase_ = BWAPI::Positions::None;
     int harasserId_ = -1;                // enemy worker attacking our SCVs in a base
     int harassSinceFrame_ = 0;
     std::set<int> chasers_;             // SCVs sent after it

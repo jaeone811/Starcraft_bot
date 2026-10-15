@@ -78,10 +78,11 @@ namespace bb
   {
     if (in.bases >= p.maxBases || in.basesBuilding > 0 || in.underThreat || in.frame < p.earliestFrame)
       return false;
-    // A base beyond the natural lies further out than the army can cover: only when
-    // our army is at least as strong as the enemy army we know. A third Command
-    // Center went up twice next to UAlbertaBot's army and took seven SCVs with it.
-    if (in.bases >= 2 && in.ownArmyStrength < in.knownEnemyStrength)
+    // A base other than the natural lies further out than the army can cover: only
+    // when our army is at least as strong as the enemy army we know. A third Command
+    // Center went up twice next to UAlbertaBot's army and took seven SCVs with it,
+    // and a center base was taken while the natural was contested.
+    if (!in.nextIsNatural && in.ownArmyStrength < in.knownEnemyStrength)
       return false;
     if (in.lastExpansionFrame >= 0 && in.frame - in.lastExpansionFrame < kExpansionIntervalFrames)
       return false;
@@ -98,7 +99,10 @@ namespace bb
   // ---------------------------------------------------------------- budget
   bool Budget::canAfford(const Cost& c) const
   {
-    return minerals_ >= c.minerals && gas_ >= c.gas && supply_ >= c.supply;
+    // A resource the item does not need is not checked: gas held for a Tank must not
+    // stop a Marine.
+    return (c.minerals <= 0 || minerals_ >= c.minerals) && (c.gas <= 0 || gas_ >= c.gas) &&
+           (c.supply <= 0 || supply_ >= c.supply);
   }
 
   bool Budget::tryReserve(const Cost& c)
@@ -111,11 +115,16 @@ namespace bb
       return true;
     }
     if (strict_ && supply_ >= c.supply)
-    {
-      minerals_ -= c.minerals;
-      gas_ -= c.gas;
-    }
+      holdShort(c);
     return false;
+  }
+
+  void Budget::holdShort(const Cost& c)
+  {
+    if (minerals_ < c.minerals)
+      minerals_ -= c.minerals;
+    if (gas_ < c.gas)
+      gas_ -= c.gas;
   }
 
   bool Budget::reserveFirst(const Cost& c)
@@ -123,10 +132,7 @@ namespace bb
     if (canAfford(c))
       return tryReserve(c);
     if (supply_ >= c.supply)
-    {
-      minerals_ -= c.minerals;
-      gas_ -= c.gas;
-    }
+      holdShort(c);
     return false;
   }
 

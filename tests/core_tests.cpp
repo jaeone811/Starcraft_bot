@@ -375,6 +375,10 @@ TEST_CASE("budget: greedy lets cheaper items through, strict saves up")
   Budget supplyBlocked(500, 0, 0, true);
   CHECK(!supplyBlocked.tryReserve({ 50, 0, 2 }));    // supply problem: do not hoard money
   CHECK(supplyBlocked.tryReserve({ 100, 0, 0 }));    // the depot can still be bought
+  Budget gasShort(300, 40, 20, true);
+  CHECK(!gasShort.tryReserve({ 150, 100, 4 }));      // a Tank waits for gas...
+  CHECK(gasShort.tryReserve({ 50, 0, 2 }));          // ...but the minerals still buy a Marine
+  CHECK(!gasShort.tryReserve({ 50, 25, 2 }));        // gas is held for the Tank
 }
 
 TEST_CASE("early defense army grows until 6:00 and ends at 8:00")
@@ -493,11 +497,12 @@ TEST_CASE("expansion: one rule, the difficulty sets when and how far")
   CHECK(shouldExpand(in, p));
   in.knownEnemyStrength = 5000;
   in.ownArmyStrength = 4000;
-  CHECK(!shouldExpand(in, p));                  // a third base the army cannot cover
+  CHECK(!shouldExpand(in, p));                  // a base the army cannot cover
   in.ownArmyStrength = 5000;
   CHECK(shouldExpand(in, p));
   in.bases = 1;
   in.ownArmyStrength = 0;
+  in.nextIsNatural = true;
   CHECK(shouldExpand(in, p));                   // the natural does not wait for the army
 }
 

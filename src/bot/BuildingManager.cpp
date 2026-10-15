@@ -499,9 +499,12 @@ namespace bb
       startConstructionCheck(task);
       if (task.state == State::UnderConstruction)
         return;
-      if (enemiesAtSite(buildingCenter(task.tile, task.type)))
+      if (enemiesAtSite(buildingCenter(task.tile, task.type)) &&
+          task.builder->getDistance(buildingCenter(task.tile, task.type)) > 6 * 32)
       {
-        // Turn back on the way: waiting is handled in WaitingForBuilder.
+        // Turn back on the way (not at the site: an SCV placing the building there
+        // was released, built it anyway, and was ordered to mine for minutes).
+        // Waiting is handled in WaitingForBuilder.
         task.state = State::WaitingForBuilder;
         task.stateFrame = ctx_.frame;
         waitForSafeSite(task, buildingCenter(task.tile, task.type), remove);

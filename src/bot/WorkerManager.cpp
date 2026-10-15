@@ -248,6 +248,8 @@ namespace bb
   void WorkerManager::handleMineralWorker(WorkerData& w)
   {
     Unit u = w.unit;
+    if (u->isConstructing())
+      return;   // still finishing a building; it mines afterwards
     if (bases_.empty())
       return; // no Command Center: nothing to mine until one is rebuilt
 
