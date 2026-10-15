@@ -130,6 +130,13 @@ namespace bb
   FactoryUnit chooseFactoryUnit(int vultures, int tanks, int goliaths, const EnemyMix& enemy,
                                 bool hasMachineShop, bool armoryReady);
 
+  // What an idle Starport should build next: Science Vessels first (detection and
+  // support for the army, up to maxVessels), Battlecruisers when they are unlocked,
+  // otherwise Wraiths.
+  enum class StarportUnit { Wraith, ScienceVessel, Battlecruiser };
+  StarportUnit chooseStarportUnit(int wraiths, int vessels, int battlecruisers, int maxVessels, bool vesselReady,
+                                  bool battlecruiserReady);
+
   // Factories needed so mech units come out at the target share of the army while
   // `barracks` keep making infantry. A mech unit takes `mechBuildTimeRatio` times as
   // long as an infantry unit, so one Factory cannot keep up with one Barracks.

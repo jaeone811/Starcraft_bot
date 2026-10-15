@@ -30,15 +30,17 @@ namespace bb
     constexpr int kUnsiegeDelayFrames = 24 * 3;       // stay sieged this long after the last threat in range
     constexpr int kRegroupNearTargetTiles = 20;       // regroup only when the lead is this close to the target
 
-    bool isMedic(Unit u) { return u->getType() == UnitTypes::Terran_Medic; }
+    // Support units follow the army instead of fighting: Medics heal, Science Vessels
+    // detect hidden units around the army.
+    bool isSupport(Unit u) { return u->getType() == UnitTypes::Terran_Medic || u->getType() == UnitTypes::Terran_Science_Vessel; }
 
-    // Units that fight. Medics heal but cannot hold ground or kill anything, so army
-    // and wave sizes count only these (a "16-unit" wave once had 9 medics).
+    // Units that fight. Medics and Science Vessels cannot hold ground or kill anything,
+    // so army and wave sizes count only these (a "16-unit" wave once had 9 medics).
     int shooterCount(const std::vector<Unit>& units)
     {
       int n = 0;
       for (Unit u : units)
-        if (!isMedic(u))
+        if (!isSupport(u))
           ++n;
       return n;
     }
@@ -111,7 +113,7 @@ namespace bb
     for (Unit u : units)
     {
       all.push_back(toPoint(u->getPosition()));
-      if (!isMedic(u))
+      if (!isSupport(u))
         shooters.push_back(toPoint(u->getPosition()));
     }
     if (all.empty())
@@ -217,7 +219,7 @@ namespace bb
         ++nearRally;
         continue;
       }
-      if (isMedic(u))
+      if (isSupport(u))
         ctx_.commander->move(u, rally);
       else
         ctx_.commander->attackMove(u, rally);
@@ -462,7 +464,7 @@ namespace bb
         continue;
       if (settledNear(r, rally, rallyRadius))
         ready.push_back(r);
-      else if (isMedic(r))
+      else if (isSupport(r))
         ctx_.commander->move(r, rally);
       else
         ctx_.commander->attackMove(r, rally);
@@ -551,7 +553,7 @@ namespace bb
     Unit lead = nullptr;
     int leadDistance = std::numeric_limits<int>::max();
     for (Unit u : waveUnits)
-      if (!isMedic(u) && u->getDistance(target_) < leadDistance)
+      if (!isSupport(u) && u->getDistance(target_) < leadDistance)
       {
         lead = u;
         leadDistance = u->getDistance(target_);
@@ -611,7 +613,7 @@ namespace bb
     const int cohesionRadius = groupRadiusTiles(ctx_.config.regroupRadiusTiles, shooters) * kTile;
     int together = 0;
     for (Unit u : waveUnits)
-      if (!isMedic(u) && u->getDistance(center) <= cohesionRadius)
+      if (!isSupport(u) && u->getDistance(center) <= cohesionRadius)
         ++together;
     const double fraction = shooters > 0 ? static_cast<double>(together) / shooters : 1.0;
     if (!regrouping_ && fraction < 0.5 && !engaged && leadDistance <= kRegroupNearTargetTiles * kTile &&
@@ -634,7 +636,7 @@ namespace bb
     const int centerToTarget = center.getApproxDistance(target_);
     for (Unit u : waveUnits)
     {
-      if (isMedic(u))
+      if (isSupport(u))
         moveMedic(u, center);
       else if (fallBack && inContact.count(u->getID()) && !(isSiegeTank(u->getType()) && updateSiege(u) != TankMode::Mobile))
         ctx_.commander->move(u, center);
@@ -698,7 +700,7 @@ namespace bb
     const Position center = groupCenter(army_);
     for (Unit u : army_)
     {
-      if (isMedic(u))
+      if (isSupport(u))
         moveMedic(u, center);
       else
         fight(u, threat, localOwn, localEnemy);

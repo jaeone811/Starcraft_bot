@@ -93,6 +93,26 @@ TEST_CASE("tech tree assumptions")
   CHECK(UnitTypes::Terran_Missile_Turret.isDetector());
   CHECK(UnitTypes::Terran_Missile_Turret.requiredUnits().count(UnitTypes::Terran_Engineering_Bay) == 1);
   CHECK_EQ(UnitTypes::Terran_Missile_Turret.sightRange(), 11 * 32);
+  // Upper tech tree used by levels 4-5.
+  CHECK(toUnitType(BuildItem::Armory) == UnitTypes::Terran_Armory);
+  CHECK(toUnitType(BuildItem::Starport) == UnitTypes::Terran_Starport);
+  CHECK(toUnitType(BuildItem::ScienceFacility) == UnitTypes::Terran_Science_Facility);
+  CHECK(UnitTypes::Terran_Starport.requiredUnits().count(UnitTypes::Terran_Factory) == 1);
+  CHECK(UnitTypes::Terran_Science_Facility.requiredUnits().count(UnitTypes::Terran_Starport) == 1);
+  CHECK(UnitTypes::Terran_Control_Tower.whatBuilds().first == UnitTypes::Terran_Starport);
+  CHECK(UnitTypes::Terran_Physics_Lab.whatBuilds().first == UnitTypes::Terran_Science_Facility);
+  CHECK(UnitTypes::Terran_Science_Vessel.requiredUnits().count(UnitTypes::Terran_Control_Tower) == 1);
+  CHECK(UnitTypes::Terran_Science_Vessel.requiredUnits().count(UnitTypes::Terran_Science_Facility) == 1);
+  CHECK(UnitTypes::Terran_Science_Vessel.isDetector());
+  CHECK(UnitTypes::Terran_Battlecruiser.requiredUnits().count(UnitTypes::Terran_Control_Tower) == 1);
+  CHECK(UnitTypes::Terran_Battlecruiser.requiredUnits().count(UnitTypes::Terran_Physics_Lab) == 1);
+  CHECK(UnitTypes::Terran_Wraith.requiredUnits().count(UnitTypes::Terran_Control_Tower) == 0);
+  CHECK(canAttackGround(UnitTypes::Terran_Wraith));
+  CHECK(isOurArmyType(UnitTypes::Terran_Battlecruiser) && isAirArmyType(UnitTypes::Terran_Science_Vessel));
+  CHECK(researchBuilding(ResearchItem::VehicleWeapons1) == UnitTypes::Terran_Armory);
+  CHECK(researchBuilding(ResearchItem::VehiclePlating1) == UnitTypes::Terran_Armory);
+  CHECK(researchBuilding(ResearchItem::CharonBoosters) == UnitTypes::Terran_Machine_Shop);
+  CHECK(UpgradeTypes::Charon_Boosters.whatsRequired(1) == UnitTypes::Terran_Armory);
   // Other mech: Vultures need only a Factory (and no gas), Goliaths an Armory and hit air.
   CHECK(UnitTypes::Terran_Vulture.whatBuilds().first == UnitTypes::Terran_Factory);
   CHECK(UnitTypes::Terran_Vulture.requiredUnits().count(UnitTypes::Terran_Machine_Shop) == 0);

@@ -240,6 +240,8 @@ namespace bb
       self->completedUnitCount(UnitTypes::Terran_Siege_Tank_Tank_Mode) +
         self->completedUnitCount(UnitTypes::Terran_Siege_Tank_Siege_Mode), "t/",
       self->completedUnitCount(UnitTypes::Terran_Goliath), "g (target ", static_cast<int>(strategy_->mechShare() * 100), "%)",
+      " air=", self->completedUnitCount(UnitTypes::Terran_Wraith), "w/", self->completedUnitCount(UnitTypes::Terran_Science_Vessel), "v/",
+      self->completedUnitCount(UnitTypes::Terran_Battlecruiser), "b",
       " army=", combat_->armySize(), " combat=", combat_->stateName(), " wave=", combat_->waveSize(),
       " attackSize=", strategy_->attackSize(), " buildTasks=", buildings_->taskCount(),
       " knownEnemyBuildings=", info_->enemyBuildings().size(), " knownEnemyUnits=", info_->enemyUnits().size(),

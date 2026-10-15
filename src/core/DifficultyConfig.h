@@ -19,7 +19,10 @@ namespace bb
     Academy,
     EngineeringBay,
     CommandCenter,
-    Factory
+    Factory,
+    Armory,
+    Starport,
+    ScienceFacility
   };
 
   // Research/upgrades the planner can ask for.
@@ -29,7 +32,10 @@ namespace bb
     U238Shells,
     InfantryWeapons1,
     InfantryArmor1,
-    SiegeMode
+    SiegeMode,
+    VehicleWeapons1,
+    VehiclePlating1,
+    CharonBoosters
   };
 
   const char* toString(BuildItem item);
@@ -85,6 +91,9 @@ namespace bb
     double mechShare = 0.0;              // share of the army built at Factories (vultures, tanks, goliaths); needs a Factory in the build order
     double maxMechShare = 0.0;           // with enemyInfoUsage >= 1 the share grows up to this against armies mech handles well
     int maxFactories = 0;                // Factories are added as the mech share grows
+    double airShare = 0.0;               // share of the army from the Starport (Wraiths, Battlecruisers); needs a Starport in the build order
+    int maxScienceVessels = 0;           // detectors / support that follow the army; needs a Science Facility in the build order
+    bool useBattlecruisers = false;      // Physics Lab on the Science Facility, Battlecruisers from the Starport
 
     // ---- Attack ---------------------------------------------------------------
     int attackArmySize = 12;

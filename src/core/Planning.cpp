@@ -128,10 +128,11 @@ namespace bb
   {
     const int total = std::max(1, enemy.total());
     const int built = vultures + tanks + goliaths;
-    // Air: goliaths up to 80% of the factory units, in proportion to the air seen.
-    if (armoryReady && enemy.air > 0)
+    // With an Armory: a quarter goliaths (they hold well against ground armies too),
+    // up to 80% of the factory units in proportion to the air seen.
+    if (armoryReady)
     {
-      const double goliathShare = std::clamp(1.5 * enemy.air / total, 0.2, 0.8);
+      const double goliathShare = std::clamp(0.25 + 1.5 * enemy.air / total, 0.25, 0.8);
       if (goliaths < goliathShare * (built + 1))
         return FactoryUnit::Goliath;
     }
@@ -142,6 +143,17 @@ namespace bb
     if (vultures < vultureShare * (built + 1) && tanks > 0)
       return FactoryUnit::Vulture;
     return FactoryUnit::SiegeTank;
+  }
+
+  StarportUnit chooseStarportUnit(int wraiths, int vessels, int battlecruisers, int maxVessels, bool vesselReady,
+                                  bool battlecruiserReady)
+  {
+    if (vesselReady && vessels < maxVessels)
+      return StarportUnit::ScienceVessel;
+    // Battlecruisers carry the late game; a few Wraiths alongside are cheap cover.
+    if (battlecruiserReady && battlecruisers <= wraiths)
+      return StarportUnit::Battlecruiser;
+    return StarportUnit::Wraith;
   }
 
   int factoriesWanted(double mechShare, int barracks, double mechBuildTimeRatio, int maxFactories)

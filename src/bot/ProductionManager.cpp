@@ -416,6 +416,20 @@ namespace bb
         lastPlan_ += "(saving:factory) ";
     }
 
+    // Every level: once one geyser is not enough, take the geyser at another base.
+    // The level 3 game (0.4.3) ran on one Refinery with 26 workers and 60-130 gas
+    // for six minutes while minerals piled up.
+    const UnitType refinery = UnitTypes::Terran_Refinery;
+    if (self->completedUnitCount(refinery) >= 1 && budget.gas() < 100 && budget.minerals() >= 300 &&
+        ctx_.buildings->notStarted(refinery) == 0 && !ctx_.buildings->onCooldown(refinery) && freeGeyserAvailable() &&
+        budget.tryReserve(costOf(refinery)))
+    {
+      ctx_.log.info("Production", concat("short on gas (", self->gas(), ") with ", self->minerals(), " minerals: Refinery #",
+                                         planned(refinery) + 1));
+      ctx_.buildings->request(refinery);
+      lastPlan_ += "refinery ";
+    }
+
     // Enemy air units: an Armory unlocks Goliaths.
     const UnitType armory = UnitTypes::Terran_Armory;
     if (ctx_.config.mechShare > 0.0 && ctx_.info->enemyMix().air >= 2 && planned(armory) == 0 &&
@@ -445,6 +459,10 @@ namespace bb
           building = u;
       if (!building)
         continue; // building missing or busy; the build order provides it
+      // e.g. Charon Boosters (Machine Shop) also need an Armory.
+      const UnitType required = isResearchItemTech(item) ? toTechType(item).requiredUnit() : toUpgradeType(item).whatsRequired(1);
+      if (required != UnitTypes::None && Broodwar->self()->completedUnitCount(required) == 0)
+        continue;
       const Cost cost = isResearchItemTech(item) ? costOf(toTechType(item)) : costOf(toUpgradeType(item));
       if (!budget.tryReserve(cost))
       {
@@ -496,6 +514,8 @@ namespace bb
   {
     // Whichever side is behind the target mech share spends first (and, with strict
     // priority, saves up first); Factories stop once mech is clearly above the target.
+    // Starport units (levels 4-5) take their share first; the rest follows as before.
+    trainStarports(budget);
     const double share = currentMechShare();
     const double target = ctx_.strategy->mechShare();
     if (target > 0.0 && share < target)
@@ -575,6 +595,85 @@ namespace bb
       }
     }
   }
+  void ProductionManager::trainStarports(Budget& budget)
+  {
+    const DifficultyConfig& c = ctx_.config;
+    if (c.airShare <= 0.0 && c.maxScienceVessels <= 0)
+      return;
+    Player self = Broodwar->self();
+    int wraiths = self->allUnitCount(UnitTypes::Terran_Wraith);
+    int vessels = self->allUnitCount(UnitTypes::Terran_Science_Vessel);
+    int battlecruisers = self->allUnitCount(UnitTypes::Terran_Battlecruiser);
+    int ground = 0;
+    for (Unit u : self->getUnits())
+      if (isOurArmyType(u->getType()) && !isAirArmyType(u->getType()))
+        ++ground;
+    const bool needTower = c.maxScienceVessels > 0 || c.useBattlecruisers;
+    const bool scienceReady = self->completedUnitCount(UnitTypes::Terran_Science_Facility) > 0;
+    const bool physicsLab = self->completedUnitCount(UnitTypes::Terran_Physics_Lab) > 0;
+
+    // Battlecruisers need a Physics Lab on the Science Facility.
+    if (c.useBattlecruisers)
+      for (Unit sf : self->getUnits())
+        if (sf->getType() == UnitTypes::Terran_Science_Facility && idleProducer(sf) && !sf->getAddon())
+        {
+          const UnitType lab = UnitTypes::Terran_Physics_Lab;
+          if (budget.tryReserve(costOf(lab)) && ctx_.commander->buildAddon(sf, lab))
+          {
+            ctx_.log.info("Production", "building Physics Lab");
+            lastPlan_ += "physics-lab ";
+          }
+        }
+
+    for (Unit sp : self->getUnits())
+    {
+      if (sp->getType() != UnitTypes::Terran_Starport || !sp->isCompleted())
+        continue;
+      ctx_.commander->setRally(sp, ctx_.map->rallyPoint(), 24 * 60);
+      if (!idleProducer(sp))
+        continue;
+      // Science Vessels and Battlecruisers need a Control Tower; Wraiths do not.
+      if (needTower && !sp->getAddon())
+      {
+        const UnitType tower = UnitTypes::Terran_Control_Tower;
+        if (budget.tryReserve(costOf(tower)) && ctx_.commander->buildAddon(sp, tower))
+        {
+          ctx_.log.info("Production", "building Control Tower");
+          lastPlan_ += "control-tower ";
+          continue;
+        }
+      }
+      const bool towerReady = sp->getAddon() && sp->getAddon()->isCompleted();
+      const int air = wraiths + vessels + battlecruisers;
+      const bool airBehind = air < c.airShare * (air + ground + 1);
+      const bool vesselWanted = scienceReady && towerReady && vessels < c.maxScienceVessels;
+      if (!airBehind && !vesselWanted)
+        continue;
+      const StarportUnit choice = chooseStarportUnit(wraiths, vessels, battlecruisers, c.maxScienceVessels, scienceReady && towerReady,
+                                                     c.useBattlecruisers && towerReady && physicsLab);
+      UnitType type = choice == StarportUnit::ScienceVessel ? UnitTypes::Terran_Science_Vessel
+                    : choice == StarportUnit::Battlecruiser ? UnitTypes::Terran_Battlecruiser : UnitTypes::Terran_Wraith;
+      if (!budget.tryReserve(costOf(type)))
+      {
+        lastPlan_ += "(saving:air) ";
+        continue;
+      }
+      if (ctx_.commander->train(sp, type))
+      {
+        ++ctx_.metrics.armyTrained;
+        if (type == UnitTypes::Terran_Science_Vessel) ++vessels;
+        else if (type == UnitTypes::Terran_Battlecruiser) ++battlecruisers;
+        else ++wraiths;
+        lastPlan_ += concat(type == UnitTypes::Terran_Science_Vessel ? "vessel " : type == UnitTypes::Terran_Battlecruiser ? "bc " : "wraith ");
+        if (!loggedFirstAir_)
+        {
+          loggedFirstAir_ = true;
+          ctx_.log.info("Production", concat("first Starport unit started: ", type.c_str()));
+        }
+      }
+    }
+  }
+
   void ProductionManager::trainInfantry(Budget& budget)
   {
     Player self = Broodwar->self();

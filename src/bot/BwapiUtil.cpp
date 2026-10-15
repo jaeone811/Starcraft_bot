@@ -17,6 +17,9 @@ namespace bb
     case BuildItem::EngineeringBay: return UnitTypes::Terran_Engineering_Bay;
     case BuildItem::CommandCenter: return UnitTypes::Terran_Command_Center;
     case BuildItem::Factory: return UnitTypes::Terran_Factory;
+    case BuildItem::Armory: return UnitTypes::Terran_Armory;
+    case BuildItem::Starport: return UnitTypes::Terran_Starport;
+    case BuildItem::ScienceFacility: return UnitTypes::Terran_Science_Facility;
     }
     return UnitTypes::None;
   }
@@ -43,6 +46,9 @@ namespace bb
     case ResearchItem::U238Shells: return UpgradeTypes::U_238_Shells;
     case ResearchItem::InfantryWeapons1: return UpgradeTypes::Terran_Infantry_Weapons;
     case ResearchItem::InfantryArmor1: return UpgradeTypes::Terran_Infantry_Armor;
+    case ResearchItem::VehicleWeapons1: return UpgradeTypes::Terran_Vehicle_Weapons;
+    case ResearchItem::VehiclePlating1: return UpgradeTypes::Terran_Vehicle_Plating;
+    case ResearchItem::CharonBoosters: return UpgradeTypes::Charon_Boosters;
     default: return UpgradeTypes::None;
     }
   }
@@ -78,7 +84,12 @@ namespace bb
   bool isOurArmyType(UnitType type)
   {
     return type == UnitTypes::Terran_Marine || type == UnitTypes::Terran_Firebat || type == UnitTypes::Terran_Medic ||
-           isMechType(type);
+           isMechType(type) || isAirArmyType(type);
+  }
+
+  bool isAirArmyType(UnitType type)
+  {
+    return type == UnitTypes::Terran_Wraith || type == UnitTypes::Terran_Battlecruiser || type == UnitTypes::Terran_Science_Vessel;
   }
 
   bool isMechType(UnitType type)

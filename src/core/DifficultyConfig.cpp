@@ -168,11 +168,12 @@ namespace bb
       c.level = 4;
       c.name = "Hard";
       c.koreanName = u8"어려움";
-      c.description = u8"높은 가동률, 보급 예측, 정찰 정보 기반 조합/공격 시점, 효율적인 집중 공격과 후퇴";
+      c.description = u8"높은 가동률, 보급 예측, 정찰 정보 기반 조합/공격 시점, 상위 테크(골리앗·레이스·사이언스 베슬)";
       c.buildOrder = { {BuildItem::Barracks, 11}, {BuildItem::Refinery, 12},
                        {BuildItem::Barracks, 15}, {BuildItem::Academy, 17},
                        {BuildItem::Factory, 19}, {BuildItem::Barracks, 20}, {BuildItem::EngineeringBay, 26},
-                       {BuildItem::Barracks, 30} };
+                       {BuildItem::Barracks, 30}, {BuildItem::Armory, 50}, {BuildItem::Starport, 70},
+                       {BuildItem::ScienceFacility, 95} };
       c.workersPerMineralPatch = 2.2;
       c.maxWorkers = 34;
       c.maxBases = 3;
@@ -181,7 +182,8 @@ namespace bb
       c.maxBarracks = 6;
       c.extraBarracksMineralBank = 400;
       c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells,
-                     ResearchItem::InfantryWeapons1, ResearchItem::InfantryArmor1 };
+                     ResearchItem::InfantryWeapons1, ResearchItem::InfantryArmor1, ResearchItem::VehicleWeapons1,
+                     ResearchItem::CharonBoosters };
       c.supplyLookaheadFrames = 850;
       c.supplyFixedMargin = 4;
       c.maxConcurrentDepots = 2;
@@ -198,6 +200,8 @@ namespace bb
       c.mechShare = 0.3;
       c.maxMechShare = 0.7;
       c.maxFactories = 3;
+      c.airShare = 0.1;
+      c.maxScienceVessels = 1;
       c.attackArmySize = 12;
       c.earliestAttackFrame = minutes(5);
       c.attackStrengthRatio = 1.3;
@@ -221,11 +225,12 @@ namespace bb
       c.level = 5;
       c.name = "VeryHard";
       c.koreanName = u8"매우 어려움";
-      c.description = u8"구현된 전략 내 최대 효율: 앞마당 확장, 업그레이드, 위협 우선순위 집중 공격, 손실 기반 재판단";
+      c.description = u8"구현된 전략 내 최대 효율: 다중 확장, 업그레이드, 최상위 테크(배틀크루저), 위협 우선순위 집중 공격";
       c.buildOrder = { {BuildItem::Barracks, 11}, {BuildItem::Refinery, 12},
                        {BuildItem::Barracks, 15}, {BuildItem::Academy, 16},
                        {BuildItem::Factory, 18}, {BuildItem::Barracks, 19}, {BuildItem::EngineeringBay, 24},
-                       {BuildItem::Barracks, 28} };
+                       {BuildItem::Barracks, 28}, {BuildItem::Armory, 42}, {BuildItem::Starport, 60},
+                       {BuildItem::ScienceFacility, 80} };
       c.workersPerMineralPatch = 2.5;
       c.maxWorkers = 50;
       c.maxBarracks = 8;
@@ -234,7 +239,8 @@ namespace bb
       c.expandEarliestFrame = 24 * 60 * 4 + 24 * 30;
       c.expandAtWorkers = 20;
       c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells,
-                     ResearchItem::InfantryWeapons1, ResearchItem::InfantryArmor1 };
+                     ResearchItem::InfantryWeapons1, ResearchItem::InfantryArmor1, ResearchItem::VehicleWeapons1,
+                     ResearchItem::CharonBoosters, ResearchItem::VehiclePlating1 };
       c.supplyLookaheadFrames = 950;
       c.supplyFixedMargin = 4;
       c.maxConcurrentDepots = 3;
@@ -251,6 +257,9 @@ namespace bb
       c.mechShare = 0.3;
       c.maxMechShare = 0.8;
       c.maxFactories = 4;
+      c.airShare = 0.15;
+      c.maxScienceVessels = 2;
+      c.useBattlecruisers = true;
       c.attackArmySize = 10;
       c.earliestAttackFrame = minutes(4) + seconds(30);
       c.attackStrengthRatio = 1.2;
@@ -280,6 +289,9 @@ namespace bb
     case BuildItem::EngineeringBay: return "EngineeringBay";
     case BuildItem::CommandCenter: return "CommandCenter";
     case BuildItem::Factory: return "Factory";
+    case BuildItem::Armory: return "Armory";
+    case BuildItem::Starport: return "Starport";
+    case BuildItem::ScienceFacility: return "ScienceFacility";
     }
     return "?";
   }
@@ -293,6 +305,9 @@ namespace bb
     case ResearchItem::InfantryWeapons1: return "InfantryWeapons1";
     case ResearchItem::InfantryArmor1: return "InfantryArmor1";
     case ResearchItem::SiegeMode: return "SiegeMode";
+    case ResearchItem::VehicleWeapons1: return "VehicleWeapons1";
+    case ResearchItem::VehiclePlating1: return "VehiclePlating1";
+    case ResearchItem::CharonBoosters: return "CharonBoosters";
     }
     return "?";
   }
@@ -328,7 +343,8 @@ namespace bb
     ss << "\n  scouting: atSupply=" << c.scoutAtSupply << " atFrame=" << c.scoutAtFrame
        << " inferByElimination=" << c.inferEnemyStartByElimination << " observeFrames=" << c.scoutObserveFrames
        << " rescout=" << c.rescoutAfterDeath << " infoUsage=" << c.enemyInfoUsage;
-    ss << "\n  composition: medicRatio=" << c.medicRatio << " firebatVsMelee=" << c.firebatRatioVsMelee << " mechShare=" << c.mechShare << "-" << c.maxMechShare << " maxFactories=" << c.maxFactories;
+    ss << "\n  composition: medicRatio=" << c.medicRatio << " firebatVsMelee=" << c.firebatRatioVsMelee << " mechShare=" << c.mechShare << "-" << c.maxMechShare << " maxFactories=" << c.maxFactories
+       << " airShare=" << c.airShare << " scienceVessels=" << c.maxScienceVessels << " battlecruisers=" << c.useBattlecruisers;
     ss << "\n  attack: size=" << c.attackArmySize << " earliestFrame=" << c.earliestAttackFrame
        << " strengthRatio=" << c.attackStrengthRatio << " regroupRadius=" << c.regroupRadiusTiles
        << " recallToDefend=" << c.recallArmyToDefend;

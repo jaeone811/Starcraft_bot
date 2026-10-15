@@ -36,6 +36,7 @@ namespace bb
     void trainArmy(Budget& budget);
     void trainInfantry(Budget& budget);
     void trainFactories(Budget& budget, bool trainUnits);
+    void trainStarports(Budget& budget);
     void measureIdle(int elapsedFrames, const Budget& budget);
 
     int planned(BWAPI::UnitType type) const;
@@ -50,6 +51,7 @@ namespace bb
     int comsatRetryFrame_ = 0;
     bool loggedNoExpansion_ = false;
     bool loggedFirstMech_ = false;
+    bool loggedFirstAir_ = false;
     int machineShopRetryFrame_ = 0;
     int stalledSinceFrame_ = -1;
     int lastExpansionFrame_ = -1;

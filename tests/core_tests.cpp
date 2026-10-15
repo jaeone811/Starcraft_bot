@@ -54,6 +54,9 @@ TEST_CASE("higher difficulty never plays worse on the tuned axes")
     CHECK(hi.maxMechShare >= lo.maxMechShare);
     CHECK(hi.maxFactories >= lo.maxFactories);
     CHECK(hi.maxBases >= lo.maxBases);
+    CHECK(hi.airShare >= lo.airShare);
+    CHECK(hi.maxScienceVessels >= lo.maxScienceVessels);
+    CHECK(hi.useBattlecruisers >= lo.useBattlecruisers);
     CHECK(hi.expandEarliestFrame <= lo.expandEarliestFrame);
   }
 }
@@ -88,6 +91,17 @@ TEST_CASE("build orders are sorted by supply and every level keeps fallbacks")
     CHECK_EQ(siege, c.mechShare > 0.0);
     CHECK_EQ(c.maxFactories > 0, c.mechShare > 0.0);
     CHECK(c.maxMechShare >= c.mechShare);
+    // Upper tech: each unit or upgrade has its building in the build order.
+    auto has = [&](BuildItem item) {
+      return std::any_of(c.buildOrder.begin(), c.buildOrder.end(), [item](const BuildStep& s) { return s.item == item; });
+    };
+    auto researches = [&](ResearchItem r) { return std::find(c.research.begin(), c.research.end(), r) != c.research.end(); };
+    if (researches(ResearchItem::VehicleWeapons1) || researches(ResearchItem::VehiclePlating1) || researches(ResearchItem::CharonBoosters))
+      CHECK(has(BuildItem::Armory));
+    CHECK_EQ(c.airShare > 0.0 || c.maxScienceVessels > 0, has(BuildItem::Starport));
+    CHECK_EQ(c.maxScienceVessels > 0 || c.useBattlecruisers, has(BuildItem::ScienceFacility));
+    if (has(BuildItem::Starport))
+      CHECK(has(BuildItem::Factory));
   }
 }
 
@@ -270,6 +284,17 @@ TEST_CASE("factory unit choice")
   air.heavy = 5;
   CHECK(chooseFactoryUnit(0, 4, 0, air, true, true) == FactoryUnit::Goliath);       // air seen and Armory ready
   CHECK(chooseFactoryUnit(0, 4, 0, air, true, false) != FactoryUnit::Goliath);      // no Armory: no goliaths
+  CHECK(chooseFactoryUnit(0, 4, 0, none, true, true) == FactoryUnit::Goliath);      // Armory: some goliaths against ground too
+  CHECK(chooseFactoryUnit(5, 11, 6, none, true, true) == FactoryUnit::SiegeTank);   // ...about a quarter
+}
+
+TEST_CASE("starport unit choice")
+{
+  CHECK(chooseStarportUnit(0, 0, 0, 1, false, false) == StarportUnit::Wraith);        // nothing unlocked yet
+  CHECK(chooseStarportUnit(2, 0, 0, 1, true, false) == StarportUnit::ScienceVessel);  // a vessel for detection first
+  CHECK(chooseStarportUnit(2, 1, 0, 1, true, false) == StarportUnit::Wraith);         // vessel cap reached
+  CHECK(chooseStarportUnit(1, 2, 0, 2, true, true) == StarportUnit::Battlecruiser);
+  CHECK(chooseStarportUnit(1, 2, 2, 2, true, true) == StarportUnit::Wraith);          // a Wraith per Battlecruiser
 }
 
 TEST_CASE("a build step waits for its supply unless supply stopped growing")
