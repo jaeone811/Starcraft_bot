@@ -376,8 +376,20 @@ namespace bb
     }
   }
 
+  double ProductionManager::ownArmyStrength() const
+  {
+    // Combined like the enemy's (Planning::combineStrength); a plain sum made our
+    // army look many times weaker than the enemy's.
+    std::vector<double> own;
+    for (Unit u : Broodwar->self()->getUnits())
+      if (isOurArmyType(u->getType()) && u->isCompleted())
+        own.push_back(unitStrengthNow(u));
+    return combineStrength(own);
+  }
+
   const BaseLocation* ProductionManager::nextExpansion() const
   {
+    const double army = ownArmyStrength();
     // Free base closest to the main (the natural first): no Command Center of ours,
     // no enemy building seen there, not an unchecked start location, reachable by ground.
     const Position main = ctx_.map->mainPosition();
@@ -392,13 +404,25 @@ namespace bb
         taken = taken || (u->getType().isResourceDepot() && u->getDistance(b.center) < 6 * 32);
       for (const auto& [id, e] : ctx_.info->enemyBuildings())
         taken = taken || e.position.getApproxDistance(b.center) < 12 * 32;
-      // Not where enemy fighting units were seen in the last minute (they killed
-      // the Command Center being built there and every SCV sent after it).
+      // Not where enemy fighting units were seen in the last minute that our army
+      // could not handle (they killed the Command Center being built there and every
+      // SCV sent after it). Any enemy at all kept the natural waiting from 7:30 to
+      // 11:45 on one base: Zerglings poking the Bunker 14 tiles away counted.
       const bool takenBefore = taken;
+      std::vector<double> seen;
       for (const auto& [id, e] : ctx_.info->enemyUnits())
-        taken = taken || (!e.type.isWorker() && canAttackGround(e.type) && ctx_.frame - e.lastSeenFrame < 24 * 60 &&
-                          e.position.getApproxDistance(b.center) < 15 * 32);
+        if (!e.type.isWorker() && canAttackGround(e.type) && ctx_.frame - e.lastSeenFrame < 24 * 60 &&
+            e.position.getApproxDistance(b.center) < 15 * 32)
+          seen.push_back(typeStrength(e.type));
+      const double seenStrength = combineStrength(seen);
+      taken = taken || baseContested(seenStrength, army);
       const bool contestedOnly = taken && !takenBefore;
+      if (contestedOnly && i == ctx_.map->naturalIndex() && ctx_.frame >= nextContestedLogFrame_)
+      {
+        ctx_.log.info("Production", concat("natural contested: enemies seen there (", static_cast<int>(seenStrength),
+                                           ") are more than half our army (", static_cast<int>(army), "); waiting"));
+        nextContestedLogFrame_ = ctx_.frame + 24 * 60;
+      }
       if (b.isStartLocation && b.depotTile != ctx_.map->mainTile() && ctx_.info->startStatus(b.depotTile) != StartStatus::Empty)
         taken = true;
       // Something we can see stands on the spot (enemy units, a building we did not
@@ -470,13 +494,7 @@ namespace bb
                                    ctx_.config.workersPerMineralPatch, ctx_.config.maxWorkers);
     ex.lastExpansionFrame = lastExpansionFrame_;
     ex.underThreat = ctx_.strategy->seriousThreat();
-    // Combined like the enemy's (Planning::combineStrength); a plain sum made our
-    // army look many times weaker than the enemy's.
-    std::vector<double> own;
-    for (Unit u : self->getUnits())
-      if (isOurArmyType(u->getType()) && u->isCompleted())
-        own.push_back(unitStrengthNow(u));
-    ex.ownArmyStrength = combineStrength(own);
+    ex.ownArmyStrength = ownArmyStrength();
     ex.knownEnemyStrength = ctx_.info->knownEnemyArmyStrength();
     const ExpansionParams ep{ ctx_.config.maxBases, ctx_.config.expandEarliestFrame, ctx_.config.expandAtWorkers };
     const BaseLocation* next = ctx_.buildings->onCooldown(cc) ? nullptr : nextExpansion();

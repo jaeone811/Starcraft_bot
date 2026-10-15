@@ -273,6 +273,11 @@ namespace bb
     return enemyAirStrength > 0.0 && ownAntiAirStrength < enemyAirStrength;
   }
 
+  bool baseContested(double enemyStrengthSeenThere, double ownArmyStrength)
+  {
+    return enemyStrengthSeenThere > 0.0 && enemyStrengthSeenThere * 2.0 > ownArmyStrength;
+  }
+
   // ---------------------------------------------------------------- focus fire
   int chooseTarget(const std::vector<TargetInfo>& candidates, int focusFireLevel)
   {

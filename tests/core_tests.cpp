@@ -474,6 +474,14 @@ TEST_CASE("anti-air: strength counts only what can shoot the enemy")
   CHECK(!helpsAgainstAir(ResearchItem::VehicleWeapons1));
 }
 
+TEST_CASE("expansion: a base is contested only by enemies the army cannot handle")
+{
+  CHECK(!baseContested(0.0, 0.0));          // nobody seen there
+  CHECK(baseContested(500.0, 0.0));         // no army to guard it
+  CHECK(!baseContested(500.0, 20000.0));    // two Zerglings next to a 20-unit army
+  CHECK(baseContested(12000.0, 20000.0));   // the enemy army stands there
+}
+
 TEST_CASE("budget: reserveFirst saves up even at the greedy levels")
 {
   Budget greedy(100, 0, 10, false);

@@ -46,6 +46,7 @@ namespace bb
     int fightingUnits() const;
     void buildBunker(Budget& budget);
     const BaseLocation* nextExpansion() const;
+    double ownArmyStrength() const;     // finished army, combined (Planning::combineStrength)
 
     BotContext& ctx_;
     std::string lastPlan_;
@@ -57,6 +58,7 @@ namespace bb
     int machineShopRetryFrame_ = 0;
     int stalledSinceFrame_ = -1;
     int lastExpansionFrame_ = -1;
+    mutable int nextContestedLogFrame_ = 0;
     bool loggedEarlyDefense_ = false;
     bool holdTech_ = false;
     bool loggedHoldTech_ = false;

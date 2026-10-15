@@ -215,6 +215,10 @@ namespace bb
   double mixedDamagePerFrame(double groundDpf, double airDpf, double enemyAirFraction);
   // Known enemy air attackers outmatch what we have that can shoot them.
   bool antiAirShort(double enemyAirStrength, double ownAntiAirStrength);
+  // A free base is contested when the enemy fighters seen there in the last minute
+  // are more than half our army: the army guards a Command Center being built, so
+  // a Zergling or two poking the Bunker next to the natural is no reason to wait.
+  bool baseContested(double enemyStrengthSeenThere, double ownArmyStrength);
 
   // ---------------------------------------------------------------- focus fire
   struct TargetInfo
