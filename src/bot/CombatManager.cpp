@@ -173,6 +173,74 @@ namespace bb
     }
   }
 
+  void CombatManager::chaseWorkerHarass()
+  {
+    // An enemy worker that attacks our SCVs in a base is chased by three SCVs from
+    // nearby (UAlbertaBot's scouting Probe killed four SCVs, three of them while
+    // they built the first Barracks, and nothing answered it). They stop once it is
+    // dead, has left the base (15 tiles from every Command Center) or after 20 s.
+    constexpr int kChasers = 3;
+    auto nearestDepot = [](Position p) {
+      int best = std::numeric_limits<int>::max();
+      for (Unit d : Broodwar->self()->getUnits())
+        if (d->getType().isResourceDepot())
+          best = std::min(best, d->getDistance(p));
+      return best;
+    };
+    for (auto it = chasers_.begin(); it != chasers_.end();)
+      it = isValid(Broodwar->getUnit(*it)) ? std::next(it) : chasers_.erase(it);
+
+    Unit harasser = harasserId_ >= 0 ? Broodwar->getUnit(harasserId_) : nullptr;
+    if (harasser && (!harasser->exists() || !harasser->isVisible() || nearestDepot(harasser->getPosition()) > 15 * kTile ||
+                     ctx_.frame - harassSinceFrame_ > 24 * 20))
+    {
+      ctx_.log.info("Combat", concat("enemy worker harass over (", harasser->exists() ? "left or chase too long" : "killed", ")"));
+      harasser = nullptr;
+      harasserId_ = -1;
+      releaseChasers();
+    }
+    if (!harasser)
+      for (Player enemy : Broodwar->enemies())
+        for (Unit e : enemy->getUnits())
+        {
+          if (harasser || !e->exists() || !e->isVisible() || !e->getType().isWorker() || nearestDepot(e->getPosition()) > 12 * kTile)
+            continue;
+          const Unit target = e->getOrderTarget();
+          const bool attacksOurs = e->isAttacking() || e->isStartingAttack() ||
+                                   (e->getOrder() == Orders::AttackUnit && target && target->getPlayer() == Broodwar->self());
+          if (attacksOurs)
+          {
+            harasser = e;
+            harasserId_ = e->getID();
+            harassSinceFrame_ = ctx_.frame;
+            ctx_.log.info("Combat", concat("enemy ", e->getType().c_str(), " attacks our SCVs at ", e->getTilePosition().x, ",",
+                                           e->getTilePosition().y, ": SCVs chase it"));
+          }
+        }
+    if (!harasser)
+      return;
+    while (static_cast<int>(chasers_.size()) < kChasers)
+    {
+      Unit scv = ctx_.workers->acquireWorker(harasser->getPosition(), WorkerRole::Defend);
+      if (!scv)
+        break;
+      chasers_.insert(scv->getID());
+    }
+    for (int id : chasers_)
+      ctx_.commander->attackUnit(Broodwar->getUnit(id), harasser);
+  }
+
+  void CombatManager::releaseChasers()
+  {
+    for (int id : chasers_)
+    {
+      Unit w = Broodwar->getUnit(id);
+      if (isValid(w))
+        ctx_.workers->release(w);
+    }
+    chasers_.clear();
+  }
+
   void CombatManager::layMines()
   {
     // Vultures with Spider Mines:
@@ -370,6 +438,7 @@ namespace bb
   {
     collectArmy();
     manageBunker();
+    chaseWorkerHarass();
     layMines();
     useScans();
 

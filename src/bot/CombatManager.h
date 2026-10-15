@@ -40,6 +40,8 @@ namespace bb
 
     void collectArmy();
     void manageBunker();
+    void chaseWorkerHarass();
+    void releaseChasers();
     void layMines();
     void repairBunker(BWAPI::Unit bunker);
     void releaseRepairers();
@@ -78,6 +80,9 @@ namespace bb
     std::set<int> repairers_;           // SCVs repairing the Bunker
     bool holdingAtBunker_ = false;
     int nextRepairLogFrame_ = 0;
+    int harasserId_ = -1;                // enemy worker attacking our SCVs in a base
+    int harassSinceFrame_ = 0;
+    std::set<int> chasers_;             // SCVs sent after it
     struct MineLayer { int since = 0; int until = 0; };
     std::map<int, MineLayer> mineLayers_;   // Vultures planting a mine (kept out of the army meanwhile)
     std::map<int, int> nextMineFrame_;      // Vulture id -> frame it may lay a combat mine again

@@ -217,6 +217,14 @@ namespace bb
     if (!ctx_.config.earlyBunker || ctx_.frame >= 24 * 600 || planned(bunker) > 0 || ctx_.buildings->onCooldown(bunker) ||
         self->completedUnitCount(UnitTypes::Terran_Barracks) == 0)
       return;
+    // Not into a fight: two Bunkers started while zealots stood at the spot were
+    // killed unfinished (200 minerals and two SCVs' time during a rush).
+    for (Unit e : ctx_.info->visibleEnemiesNear(ctx_.map->bunkerSpot(), 10 * 32))
+      if (!e->getType().isWorker() && !e->isFlying() && canAttackGround(e->getType()))
+      {
+        lastPlan_ += "(enemy at bunker spot) ";
+        return;
+      }
     if (budget.tryReserve(costOf(bunker)))
     {
       ctx_.log.info("Production", "Bunker at the main ramp against early attacks");
@@ -306,6 +314,8 @@ namespace bb
 
   void ProductionManager::followBuildOrder(Budget& budget)
   {
+    if (ctx_.workers->workerCount() == 0)
+      return;   // nothing can be built (the stall release logged twice per frame after the last SCV died)
     const int supplyUi = Broodwar->self()->supplyUsed() / 2;
     const bool stalled = supplyStalled();
     bool released = false;
