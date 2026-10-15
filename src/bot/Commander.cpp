@@ -166,6 +166,19 @@ namespace bb
     return issue(bunker, { CommandKind::UnloadAll, -1, 0, 0, 0 }, cooldown, "unload-all", [&] { return bunker->unloadAll(); });
   }
 
+  bool Commander::repair(Unit worker, Unit target, int cooldown)
+  {
+    if (!isValid(worker) || !isValid(target))
+      return false;
+    if (worker->getOrder() == Orders::Repair && worker->getOrderTarget() == target)
+    {
+      ctx_.history.noteSuppressed();
+      lastSuppressed_ = true;
+      return false;   // already repairing it
+    }
+    return issue(worker, { CommandKind::Repair, target->getID(), 0, 0, 0 }, cooldown, "repair", [&] { return worker->repair(target); });
+  }
+
   bool Commander::stop(Unit u, int cooldown)
   {
     return issue(u, { CommandKind::Stop, -1, 0, 0, 0 }, cooldown, "stop", [&] { return u->stop(); });

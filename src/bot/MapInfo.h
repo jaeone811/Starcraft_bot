@@ -43,8 +43,8 @@ namespace bb
     BWAPI::Position mainPosition() const;
     int naturalIndex() const { return natural_; }             // -1 if none was found
     const BaseLocation* natural() const;
-    // Where the army waits: the top of the main's ramp, and once the natural is ours,
-    // in front of the natural.
+    // Where the army waits: the main's entrance (right behind our Bunker there once it
+    // stands), and once the natural is ours, in front of the natural.
     BWAPI::Position rallyPoint() const;
     BWAPI::TilePosition mainChoke() const { return mainChoke_; } // the main's entrance (narrowest point on the way out); None if not found
     BWAPI::Position bunkerSpot() const { return bunkerSpot_; }   // just inside the ramp, covering it
@@ -72,6 +72,8 @@ namespace bb
     BWAPI::TilePosition mainChoke_ = BWAPI::TilePositions::None;
     BWAPI::Position bunkerSpot_ = BWAPI::Positions::None;
     BWAPI::Position naturalRally_ = BWAPI::Positions::None;
+    BWAPI::Position bunkerRally_ = BWAPI::Positions::None;
+    int bunkerRallyFor_ = -1;   // id of the Bunker bunkerRally_ belongs to
     bool naturalOwned_ = false;
     int mainEntranceDistance_ = -1;
   public:

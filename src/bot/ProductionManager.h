@@ -58,6 +58,7 @@ namespace bb
     int stalledSinceFrame_ = -1;
     int lastExpansionFrame_ = -1;
     bool loggedEarlyDefense_ = false;
+    bool holdTech_ = false;   // research and tech buildings wait: the early army (or the defense) comes first
     int loggedStallStep_ = -1;
   };
 }

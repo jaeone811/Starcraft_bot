@@ -95,12 +95,23 @@ namespace bb
 
     const bool armyFirst = ctx_.strategy->baseUnderThreat() && ctx_.config.armyFirstWhenThreatened;
     // Every level: until the early army is there, it is bought before tech and
-    // research (but after workers). The level sets how big that army is.
-    const bool earlyDefense = !armyFirst && fightingUnits() < earlyDefenseTarget(ctx_.frame, ctx_.config.earlyDefenseArmy);
+    // research (but after workers). The level sets how big that army is; the levels
+    // that use what they scout also want at least the enemy army they have seen.
+    const int enemyArmySeen = ctx_.config.enemyInfoUsage >= 1 ? ctx_.info->knownEnemyCombatUnits() : 0;
+    const int earlyTarget = earlyDefenseTarget(ctx_.frame, ctx_.config.earlyDefenseArmy, enemyArmySeen);
+    const bool earlyDefense = !armyFirst && fightingUnits() < earlyTarget;
     if (earlyDefense && !loggedEarlyDefense_)
-      ctx_.log.info("Production", concat("early defense: ", fightingUnits(), " fighting units, want ",
-                                         earlyDefenseTarget(ctx_.frame, ctx_.config.earlyDefenseArmy), " - army before tech until 8:00"));
+      ctx_.log.info("Production", concat("early defense: ", fightingUnits(), " fighting units, want ", earlyTarget,
+                                         " (enemy army seen ", enemyArmySeen, ") - army before tech until 8:00"));
     loggedEarlyDefense_ = loggedEarlyDefense_ || earlyDefense;
+    // Ordering alone did not hold the money: while every Barracks was busy, research
+    // took it (Stim, Siege Mode, U-238, +1 between 4:44 and 6:27) and only 8 units
+    // met the zealots at 6:45 in two games. Now research, the Comsat and the tech
+    // buildings wait until the early army is there.
+    if (holdTech_ != (earlyDefense || armyFirst))
+      ctx_.log.info("Production", holdTech_ ? std::string("early army is there: tech and research continue")
+                                            : std::string("tech and research wait for the army"));
+    holdTech_ = earlyDefense || armyFirst;
     planSupply(budget);
     ensureCommandCenter(budget);
     buildDetection(budget);
@@ -290,6 +301,11 @@ namespace bb
       const UnitType type = toUnitType(step.item);
       if (planned(type) >= want)
         continue;              // already have / building it
+      if (holdTech_ && !makesEarlyArmy(step.item))
+      {
+        lastPlan_ += concat("(after army:", toString(step.item), ") ");
+        continue;              // tech waits until the early army is there
+      }
       if (!buildStepDue(supplyUi, step.supply, stalled, released))
         break;                 // later steps wait for their supply count
       if (supplyUi < step.supply)
@@ -496,6 +512,8 @@ namespace bb
 
   void ProductionManager::doResearch(Budget& budget)
   {
+    if (holdTech_)
+      return;
     for (ResearchItem item : ctx_.config.research)
     {
       if (isResearchDone(item) || isResearchInProgress(item))
@@ -536,6 +554,8 @@ namespace bb
     if (!ctx_.config.useComsatScan || self->allUnitCount(comsat) > 0 ||
         self->completedUnitCount(UnitTypes::Terran_Academy) < 1 || ctx_.frame < comsatRetryFrame_)
       return;
+    if (holdTech_ && !ctx_.info->hiddenAttackerSeen())
+      return;   // after the early army, unless something hidden is attacking
     for (Unit cc : self->getUnits())
     {
       if (cc->getType() != UnitTypes::Terran_Command_Center || !idleProducer(cc) || cc->getAddon())

@@ -288,6 +288,21 @@ namespace bb
     }
   }
 
+  bool makesEarlyArmy(BuildItem item)
+  {
+    switch (item)
+    {
+    case BuildItem::SupplyDepot:
+    case BuildItem::Barracks:
+    case BuildItem::Refinery:
+    case BuildItem::Academy:
+    case BuildItem::Factory:
+      return true;
+    default:
+      return false;
+    }
+  }
+
   const char* toString(BuildItem item)
   {
     switch (item)

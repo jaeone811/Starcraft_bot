@@ -40,6 +40,8 @@ namespace bb
 
     void collectArmy();
     void manageBunker();
+    void repairBunker(BWAPI::Unit bunker);
+    void releaseRepairers();
     void useScans();
     void gather();
     void attack();
@@ -70,6 +72,9 @@ namespace bb
     int safeSinceFrame_ = -1;
     std::set<int> bunkerCrew_;          // marines sent into the Bunker (kept out of the army)
     bool bunkerReleased_ = false;
+    std::map<int, int> crewSince_;      // marine id -> frame it was sent to the Bunker
+    std::set<int> notCrew_;             // marines that did not reach the Bunker (e.g. boxed in)
+    std::set<int> repairers_;           // SCVs repairing the Bunker
     int ignoreThreatUntilFrame_ = 0;   // a threat too far from every base is not chased for a while
     int regroupStartFrame_ = 0;
     int nextRegroupAllowedFrame_ = 0;

@@ -379,13 +379,35 @@ TEST_CASE("budget: greedy lets cheaper items through, strict saves up")
 
 TEST_CASE("early defense army grows until 6:00 and ends at 8:00")
 {
-  CHECK_EQ(earlyDefenseTarget(24 * 120, 10), 0);
-  CHECK_EQ(earlyDefenseTarget(24 * 180, 10), 0);
-  CHECK_EQ(earlyDefenseTarget(24 * 270, 10), 5);
-  CHECK_EQ(earlyDefenseTarget(24 * 360, 10), 10);
-  CHECK_EQ(earlyDefenseTarget(24 * 479, 10), 10);
-  CHECK_EQ(earlyDefenseTarget(24 * 480, 10), 0);
-  CHECK_EQ(earlyDefenseTarget(24 * 360, 0), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 120, 10, 0), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 180, 10, 0), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 270, 10, 0), 5);
+  CHECK_EQ(earlyDefenseTarget(24 * 360, 10, 0), 10);
+  CHECK_EQ(earlyDefenseTarget(24 * 479, 10, 0), 10);
+  CHECK_EQ(earlyDefenseTarget(24 * 480, 10, 0), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 360, 0, 0), 0);
+}
+
+TEST_CASE("early defense answers the enemy army that was seen")
+{
+  CHECK_EQ(earlyDefenseTarget(24 * 150, 10, 3), 3);   // zealots seen before 3:00
+  CHECK_EQ(earlyDefenseTarget(24 * 270, 10, 8), 8);   // more than the ramp
+  CHECK_EQ(earlyDefenseTarget(24 * 270, 10, 2), 5);   // the ramp is higher
+  CHECK_EQ(earlyDefenseTarget(24 * 480, 10, 8), 0);   // over after 8:00
+}
+
+TEST_CASE("only what makes the early army is built while it is short")
+{
+  CHECK(makesEarlyArmy(BuildItem::SupplyDepot));
+  CHECK(makesEarlyArmy(BuildItem::Barracks));
+  CHECK(makesEarlyArmy(BuildItem::Refinery));
+  CHECK(makesEarlyArmy(BuildItem::Academy));
+  CHECK(makesEarlyArmy(BuildItem::Factory));
+  CHECK(!makesEarlyArmy(BuildItem::EngineeringBay));
+  CHECK(!makesEarlyArmy(BuildItem::CommandCenter));
+  CHECK(!makesEarlyArmy(BuildItem::Armory));
+  CHECK(!makesEarlyArmy(BuildItem::Starport));
+  CHECK(!makesEarlyArmy(BuildItem::ScienceFacility));
 }
 
 TEST_CASE("budget: reserveFirst saves up even at the greedy levels")

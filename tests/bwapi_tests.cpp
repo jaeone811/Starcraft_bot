@@ -64,6 +64,13 @@ TEST_CASE("tech tree assumptions")
   // Tanks: Factory (needs Barracks) + Machine Shop; Siege Mode is researched at the Machine Shop.
   CHECK(UnitTypes::Terran_Factory.requiredUnits().count(UnitTypes::Terran_Barracks) == 1);
   CHECK(UnitTypes::Terran_Machine_Shop.isAddon());
+  // BuildingManager's add-on column: 2x2 at the right edge, bottom-aligned.
+  CHECK_EQ(UnitTypes::Terran_Machine_Shop.tileWidth(), 2);
+  CHECK_EQ(UnitTypes::Terran_Machine_Shop.tileHeight(), 2);
+  CHECK_EQ(UnitTypes::Terran_Factory.tileWidth(), 4);
+  CHECK_EQ(UnitTypes::Terran_Factory.tileHeight(), 3);
+  CHECK(UnitTypes::Terran_Factory.canBuildAddon());
+  CHECK(!UnitTypes::Terran_Barracks.canBuildAddon());
   CHECK(UnitTypes::Terran_Machine_Shop.whatBuilds().first == UnitTypes::Terran_Factory);
   CHECK(UnitTypes::Terran_Siege_Tank_Tank_Mode.whatBuilds().first == UnitTypes::Terran_Factory);
   CHECK(UnitTypes::Terran_Siege_Tank_Tank_Mode.requiredUnits().count(UnitTypes::Terran_Machine_Shop) == 1);

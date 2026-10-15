@@ -10,7 +10,7 @@ namespace bb
   enum class CommandKind
   {
     Move, AttackMove, AttackUnit, Gather, ReturnCargo, Build, RightClickUnit,
-    Train, Research, Upgrade, UseTech, Stop, SetRally, Siege, Unsiege, Load, UnloadAll
+    Train, Research, Upgrade, UseTech, Stop, SetRally, Siege, Unsiege, Load, UnloadAll, Repair
   };
 
   struct CommandKey

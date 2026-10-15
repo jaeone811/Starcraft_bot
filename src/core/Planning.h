@@ -45,8 +45,9 @@ namespace bb
   // ---------------------------------------------------------------- early defense
   // Fighting units we want to have by `frame` so an early attack (the built-in
   // Protoss sends zealots around 6:30) meets an army: none before 3:00, rising to
-  // `armyBySixMinutes` at 6:00, held until 8:00, nothing after.
-  int earlyDefenseTarget(int frame, int armyBySixMinutes);
+  // `armyBySixMinutes` at 6:00, held until 8:00, nothing after. Until 8:00 it is at
+  // least the enemy army we have seen (`enemyArmySeen`), even before 3:00.
+  int earlyDefenseTarget(int frame, int armyBySixMinutes, int enemyArmySeen);
 
   // ---------------------------------------------------------------- expansion
   struct ExpansionInputs

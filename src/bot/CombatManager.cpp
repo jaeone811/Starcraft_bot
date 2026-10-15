@@ -5,6 +5,7 @@
 #include "InformationManager.h"
 #include "MapInfo.h"
 #include "Planning.h"
+#include "WorkerManager.h"
 
 #include <algorithm>
 #include <limits>
@@ -122,7 +123,10 @@ namespace bb
       it = (!isValid(m) || (!m->isLoaded() && !bunker)) ? bunkerCrew_.erase(it) : std::next(it);
     }
     if (!bunker)
+    {
+      releaseRepairers();
       return;
+    }
     if (!bunkerReleased_ && (ctx_.frame >= 24 * 600 || shooterCount(army_) >= 30))
     {
       bunkerReleased_ = true;
@@ -133,27 +137,82 @@ namespace bb
       if (!bunker->getLoadedUnits().empty())
         ctx_.commander->unloadAll(bunker);
       bunkerCrew_.clear();
+      releaseRepairers();
       return;
     }
+    repairBunker(bunker);
     // Fill it from the marines at home (never from a wave that is out).
     while (bunkerCrew_.size() < 4)
     {
       Unit best = nullptr;
       for (Unit u : army_)
         if (u->getType() == UnitTypes::Terran_Marine && !wave_.count(u->getID()) && !bunkerCrew_.count(u->getID()) &&
-            (!best || u->getDistance(bunker) < best->getDistance(bunker)))
+            !notCrew_.count(u->getID()) && (!best || u->getDistance(bunker) < best->getDistance(bunker)))
           best = u;
       if (!best)
         break;
       bunkerCrew_.insert(best->getID());
+      crewSince_[best->getID()] = ctx_.frame;
       army_.erase(std::remove(army_.begin(), army_.end(), best), army_.end());
     }
-    for (int id : bunkerCrew_)
+    for (auto it = bunkerCrew_.begin(); it != bunkerCrew_.end();)
     {
-      Unit m = Broodwar->getUnit(id);
+      Unit m = Broodwar->getUnit(*it);
+      if (isValid(m) && !m->isLoaded() && ctx_.frame - crewSince_[*it] > 24 * 20)
+      {
+        // A marine boxed in behind a Barracks was the closest one and stayed in the
+        // crew all game, so the Bunker held 3.
+        ctx_.log.info("Combat", concat("Marine#", *it, " did not reach the Bunker in 20 s: another marine goes in"));
+        notCrew_.insert(*it);
+        it = bunkerCrew_.erase(it);
+        continue;
+      }
       if (isValid(m) && !m->isLoaded())
         ctx_.commander->enterBunker(m, bunker);
+      ++it;
     }
+  }
+
+  void CombatManager::repairBunker(Unit bunker)
+  {
+    // SCVs repair the Bunker while ground enemies are at it. In two games zealots
+    // took a full Bunker in seconds at 6:45 while every SCV kept mining. The SCVs go
+    // back to mining once it is whole again or nothing is near it.
+    constexpr int kRepairers = 3;
+    constexpr int kRepairRadius = 8 * kTile;
+    for (auto it = repairers_.begin(); it != repairers_.end();)
+      it = isValid(Broodwar->getUnit(*it)) ? std::next(it) : repairers_.erase(it);
+    bool enemyNear = false;
+    for (Unit e : ctx_.info->visibleEnemiesNear(bunker->getPosition(), kRepairRadius))
+      enemyNear = enemyNear || (!e->isFlying() && !e->getType().isWorker() && canAttackGround(e->getType()));
+    if (!enemyNear || bunker->getHitPoints() >= bunker->getType().maxHitPoints() || Broodwar->self()->minerals() < 10)
+    {
+      releaseRepairers();
+      return;
+    }
+    while (static_cast<int>(repairers_.size()) < kRepairers)
+    {
+      Unit scv = ctx_.workers->acquireWorker(bunker->getPosition(), WorkerRole::Repair);
+      if (!scv)
+        break;
+      if (repairers_.empty())
+        ctx_.log.info("Combat", concat("Bunker under attack (", bunker->getHitPoints(), "/", bunker->getType().maxHitPoints(),
+                                       " hp): SCVs repair it"));
+      repairers_.insert(scv->getID());
+    }
+    for (int id : repairers_)
+      ctx_.commander->repair(Broodwar->getUnit(id), bunker);
+  }
+
+  void CombatManager::releaseRepairers()
+  {
+    for (int id : repairers_)
+    {
+      Unit w = Broodwar->getUnit(id);
+      if (isValid(w))
+        ctx_.workers->release(w);
+    }
+    repairers_.clear();
   }
 
   Position CombatManager::groupCenter(const std::vector<Unit>& units) const

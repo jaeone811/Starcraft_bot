@@ -206,7 +206,9 @@ namespace bb
 
   Position MapInfo::rallyPoint() const
   {
-    return naturalOwned_ && naturalRally_.isValid() ? naturalRally_ : rally_;
+    if (naturalOwned_ && naturalRally_.isValid())
+      return naturalRally_;
+    return bunkerRally_.isValid() ? bunkerRally_ : rally_;
   }
 
   std::vector<char> MapInfo::blockedTiles() const
@@ -420,6 +422,37 @@ namespace bb
         ctx_.log.info("Map", owned ? concat("natural is ours: rally moves to ", naturalRally_.x, ",", naturalRally_.y)
                                    : std::string("natural lost: rally back at the main ramp"));
       naturalOwned_ = owned;
+    }
+    // The army waits right behind our Bunker at the entrance, so attackers at the
+    // Bunker are in range of both. The Bunker once stood 7 tiles from the rally and
+    // the zealots took it alone.
+    Unit bunker = nullptr;
+    if (bunkerSpot_.isValid())
+      for (Unit u : Broodwar->self()->getUnits())
+        if (u->getType() == UnitTypes::Terran_Bunker && u->isCompleted() && u->getDistance(bunkerSpot_) <= 12 * 32 &&
+            (!bunker || u->getDistance(bunkerSpot_) < bunker->getDistance(bunkerSpot_)))
+          bunker = u;
+    const int bunkerId = bunker ? bunker->getID() : -1;
+    if (bunkerId != bunkerRallyFor_)
+    {
+      bunkerRallyFor_ = bunkerId;
+      bunkerRally_ = Positions::None;
+      if (bunker)
+      {
+        const Position from = bunker->getPosition();
+        const Position main = mainPosition();
+        const double len = std::max(1.0, from.getDistance(main));
+        for (int d = 64; d <= 128 && !bunkerRally_.isValid(); d += 16)
+        {
+          const Position p(from.x + static_cast<int>((main.x - from.x) * d / len), from.y + static_cast<int>((main.y - from.y) * d / len));
+          if (p.isValid() && walkableAt(p) && groundReachable(main, p))
+            bunkerRally_ = p;
+        }
+      }
+      if (bunkerRally_.isValid())
+        ctx_.log.info("Map", concat("rally right behind the Bunker at ", bunkerRally_.x, ",", bunkerRally_.y));
+      else if (bunkerId < 0)
+        ctx_.log.info("Map", "no Bunker at the entrance: rally back at the entrance");
     }
     for (auto& b : bases_)
       if (Broodwar->isVisible(b.depotTile))

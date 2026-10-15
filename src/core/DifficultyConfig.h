@@ -39,6 +39,9 @@ namespace bb
   };
 
   const char* toString(BuildItem item);
+  // What the early army needs: supply, production, gas and the Academy (firebats,
+  // medics). The rest waits while the early army is short.
+  bool makesEarlyArmy(BuildItem item);
   const char* toString(ResearchItem item);
 
   // One step of a build order: build `item` once our supply (UI units, not the

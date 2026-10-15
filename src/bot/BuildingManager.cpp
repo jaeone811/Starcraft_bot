@@ -49,6 +49,19 @@ namespace bb
       return { t.x, t.y, type.tileWidth() + (type.canBuildAddon() ? 2 : 0), type.tileHeight() };
     }
 
+    // A Factory's (or Starport's) add-on column is buildable: Broodwar->canBuildHere
+    // does not look at it, and a Machine Shop once failed with Unbuildable_Location.
+    bool addonSpaceFree(TilePosition t, UnitType type)
+    {
+      if (!type.canBuildAddon())
+        return true;
+      for (int x = t.x + type.tileWidth(); x < t.x + type.tileWidth() + 2; ++x)
+        for (int y = t.y + type.tileHeight() - 2; y < t.y + type.tileHeight(); ++y)
+          if (!TilePosition(x, y).isValid() || !Broodwar->isBuildable(x, y, true))
+            return false;
+      return true;
+    }
+
     bool rectsOverlap(const TileRect& a, const TileRect& b, int margin)
     {
       return a.x - margin < b.x + b.w && b.x - margin < a.x + a.w && a.y - margin < b.y + b.h && b.y - margin < a.y + a.h;
@@ -183,7 +196,7 @@ namespace bb
     return rectsOverlap(r, TileRect{ choke.x, choke.y, 1, 1 }, 3);
   }
 
-  bool BuildingManager::keepsExitsOpen(const Task& task, TilePosition tile) const
+  bool BuildingManager::keepsExitsOpen(const Task& task, TilePosition tile, bool behindEntrance) const
   {
     // A Barracks or Factory (with its add-on) keeps a free one-tile ring, and nothing
     // else is built in the ring of one. Without it a Factory built next to the map
@@ -194,7 +207,7 @@ namespace bb
     // Behind the entrance (closer to the main than it is), so the Bunker at the
     // entrance covers them; one game had Barracks and Factories in front of it.
     const int entrance = ctx_.map->mainEntranceDistance();
-    if (entrance > 0 && !task.type.isResourceDepot() && task.type != UnitTypes::Terran_Missile_Turret &&
+    if (behindEntrance && entrance > 0 && !task.type.isResourceDepot() && task.type != UnitTypes::Terran_Missile_Turret &&
         TilePosition(r.x + r.w / 2, r.y + r.h / 2).getApproxDistance(ctx_.map->mainTile()) > entrance - 2)
       return false;
     for (Unit u : Broodwar->self()->getUnits())
@@ -250,26 +263,59 @@ namespace bb
       {
         TilePosition tile = Broodwar->getBuildLocation(type, task.desired, 12);
         if (tile.isValid() && tile != TilePositions::None && !overlapsOtherTask(task, tile) && !recentlyBlocked(tile) &&
-            tile.getApproxDistance(task.desired) <= 12 && !blocksRamp(task, tile) && (!spaced || keepsExitsOpen(task, tile)))
+            tile.getApproxDistance(task.desired) <= 12 && !blocksRamp(task, tile) && (!spaced || keepsExitsOpen(task, tile, true)))
           return tile;
       }
       return TilePositions::None;
     }
-    for (bool spaced : { true, false })
-      for (int i = 0; i < (spaced ? n : 9); ++i)
+    // Every legal tile around the main, nearest to the Command Center first. 17
+    // sampled spots found nothing with free exits once the main filled up, and the
+    // fallback then put a Barracks where its first marine stayed boxed in all game.
+    // Pass 1 wants everything; pass 2 lets a building stand outside the entrance but
+    // keeps the ring around Barracks/Factories open; pass 3 takes any legal tile.
+    const TilePosition centre = ctx_.map->mainTile();
+    const int radius = std::max(ctx_.map->mainEntranceDistance(), 16) + 4;
+    std::vector<TilePosition> legal;
+    for (int dy = -radius; dy <= radius; ++dy)
+      for (int dx = -radius; dx <= radius; ++dx)
       {
-        TilePosition desired = anchor + offsets[(task.placementAttempts + i) % (spaced ? n : 9)];
-        desired.makeValid();
-        TilePosition tile = Broodwar->getBuildLocation(type, desired, 40);
-        if (!tile.isValid() || tile == TilePositions::None || overlapsOtherTask(task, tile) || recentlyBlocked(tile) ||
-            blocksRamp(task, tile))
+        const TilePosition t(centre.x + dx, centre.y + dy);
+        if (dx * dx + dy * dy > radius * radius || !t.isValid() || !Broodwar->canBuildHere(t, type) || !addonSpaceFree(t, type) ||
+            overlapsOtherTask(task, t) || recentlyBlocked(t) || blocksRamp(task, t))
           continue;
-        if (spaced && !keepsExitsOpen(task, tile))
-          continue;
-        if (!spaced)
-          ctx_.log.info("Build", concat("no spot with free exits for ", type.c_str(), ": using ", tile.x, ",", tile.y));
-        return tile;
+        legal.push_back(t);
       }
+    auto distance2 = [&](TilePosition t) {
+      const int x = t.x + type.tileWidth() / 2 - anchor.x, y = t.y + type.tileHeight() / 2 - anchor.y;
+      return x * x + y * y;
+    };
+    std::sort(legal.begin(), legal.end(), [&](TilePosition a, TilePosition b) {
+      const int da = distance2(a), db = distance2(b);
+      return da != db ? da < db : (a.y != b.y ? a.y < b.y : a.x < b.x);
+    });
+    for (int pass = 0; pass < 3; ++pass)
+      for (TilePosition t : legal)
+      {
+        if (pass < 2 && !keepsExitsOpen(task, t, pass == 0))
+          continue;
+        if (pass == 1)
+          ctx_.log.info("Build", concat("no spot behind the entrance for ", type.c_str(), ": using ", t.x, ",", t.y));
+        if (pass == 2)
+          ctx_.log.info("Build", concat("no spot with free exits for ", type.c_str(), ": using ", t.x, ",", t.y));
+        return t;
+      }
+    // The main is full: anywhere BWAPI finds, further out.
+    for (int i = 0; i < n; ++i)
+    {
+      TilePosition desired = anchor + offsets[(task.placementAttempts + i) % n];
+      desired.makeValid();
+      TilePosition tile = Broodwar->getBuildLocation(type, desired, 40);
+      if (!tile.isValid() || tile == TilePositions::None || overlapsOtherTask(task, tile) || recentlyBlocked(tile) ||
+          blocksRamp(task, tile))
+        continue;
+      ctx_.log.info("Build", concat("main is full for ", type.c_str(), ": using ", tile.x, ",", tile.y));
+      return tile;
+    }
     return TilePositions::None;
   }
 

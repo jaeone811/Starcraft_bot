@@ -305,7 +305,7 @@ namespace bb
         handleMineralWorker(w);
       else if (w.role == WorkerRole::Gas)
         handleGasWorker(w);
-      // Build and Scout workers are driven by their owners.
+      // Build, Scout and Repair workers are driven by their owners.
     }
   }
 

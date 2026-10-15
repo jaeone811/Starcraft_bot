@@ -48,14 +48,17 @@ namespace bb
     return std::clamp(target, 0, std::max(0, maxWorkers));
   }
 
-  int earlyDefenseTarget(int frame, int armyBySixMinutes)
+  int earlyDefenseTarget(int frame, int armyBySixMinutes, int enemyArmySeen)
   {
     constexpr int kStart = 24 * 180, kFull = 24 * 360, kEnd = 24 * 480;
-    if (armyBySixMinutes <= 0 || frame < kStart || frame >= kEnd)
+    if (armyBySixMinutes <= 0 || frame >= kEnd)
       return 0;
+    int ramp = 0;
     if (frame >= kFull)
-      return armyBySixMinutes;
-    return static_cast<int>(std::ceil(static_cast<double>(armyBySixMinutes) * (frame - kStart) / (kFull - kStart)));
+      ramp = armyBySixMinutes;
+    else if (frame >= kStart)
+      ramp = static_cast<int>(std::ceil(static_cast<double>(armyBySixMinutes) * (frame - kStart) / (kFull - kStart)));
+    return std::max(ramp, enemyArmySeen);
   }
 
   bool shouldExpand(const ExpansionInputs& in, const ExpansionParams& p)

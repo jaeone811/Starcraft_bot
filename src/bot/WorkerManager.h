@@ -12,7 +12,7 @@
 
 namespace bb
 {
-  enum class WorkerRole { Minerals, Gas, Build, Scout };
+  enum class WorkerRole { Minerals, Gas, Build, Scout, Repair };
 
   class WorkerManager
   {
