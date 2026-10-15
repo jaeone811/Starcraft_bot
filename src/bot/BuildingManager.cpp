@@ -255,6 +255,19 @@ namespace bb
     return TilePositions::None;
   }
 
+  bool BuildingManager::swapBusyBuilder(Task& task)
+  {
+    // Unit_Busy is about the SCV, not the spot (one stuck SCV refused six depot orders
+    // in a row and the depot failed): take another SCV, keep the spot.
+    if (Broodwar->getLastError() != Errors::Unit_Busy || !isValid(task.builder))
+      return false;
+    ctx_.log.info("Build", concat("task #", task.id, " SCV#", task.builder->getID(), " refuses the build order (Unit_Busy); using another SCV"));
+    ctx_.workers->avoidAsBuilder(task.builder, ctx_.frame + 24 * 60);
+    releaseBuilder(task);
+    ++ctx_.metrics.buildRetries;
+    return true;
+  }
+
   void BuildingManager::releaseBuilder(Task& task)
   {
     if (task.builder)
@@ -346,6 +359,8 @@ namespace bb
         task.reissues = 0;
         ctx_.log.debug("Build", concat("task #", task.id, " SCV#", task.builder->getID(), " sent to ", task.tile.x, ",", task.tile.y));
       }
+      else if (!ctx_.commander->lastWasSuppressed() && swapBusyBuilder(task))
+        return;
       else if (!ctx_.commander->lastWasSuppressed())
       {
         // The spot is not valid any more; try somewhere else, but not forever
@@ -405,6 +420,11 @@ namespace bb
         const bool sent = ctx_.commander->build(task.builder, task.type, task.tile);
         if (sent)
           ++task.reissues;
+        else if (!ctx_.commander->lastWasSuppressed() && swapBusyBuilder(task))
+        {
+          task.state = State::WaitingForBuilder;
+          task.stateFrame = ctx_.frame;
+        }
         else if (!ctx_.commander->lastWasSuppressed())
         {
           task.tile = TilePositions::None;

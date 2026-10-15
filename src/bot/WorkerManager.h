@@ -26,6 +26,9 @@ namespace bb
     // Takes the most suitable mineral worker near `near`; nullptr if none is free.
     BWAPI::Unit acquireWorker(BWAPI::Position near, WorkerRole role);
     void release(BWAPI::Unit worker);
+    // A worker that refused a build order (Unit_Busy) is not chosen as a builder again
+    // until `untilFrame`; it was picked as the closest one every time before.
+    void avoidAsBuilder(BWAPI::Unit worker, int untilFrame);
 
     int workerCount() const { return static_cast<int>(workers_.size()); }
     int countRole(WorkerRole role) const;
@@ -60,6 +63,7 @@ namespace bb
     BotContext& ctx_;
     std::map<int, WorkerData> workers_;
     std::map<int, int> mineralLoad_;
+    std::map<int, int> avoidAsBuilderUntil_;   // worker id -> frame
     std::vector<Base> bases_;
     std::vector<BWAPI::Unit> depots_;
     int mineralPatches_ = 0;

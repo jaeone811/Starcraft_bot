@@ -61,6 +61,7 @@ namespace bb
     void startConstructionCheck(Task& task);
     void fail(Task& task, const char* reason);
     void releaseBuilder(Task& task);
+    bool swapBusyBuilder(Task& task);
 
     BotContext& ctx_;
     std::vector<Task> tasks_;

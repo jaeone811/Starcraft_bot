@@ -317,6 +317,12 @@ namespace bb
     {
       if (w.role != WorkerRole::Minerals || !isValid(w.unit) || !w.unit->isCompleted() || w.unit->isConstructing())
         continue;
+      if (role == WorkerRole::Build)
+      {
+        auto avoid = avoidAsBuilderUntil_.find(id);
+        if (avoid != avoidAsBuilderUntil_.end() && ctx_.frame < avoid->second)
+          continue;
+      }
       int score = near.isValid() ? w.unit->getDistance(near) : 0;
       if (w.unit->isCarryingMinerals())
         score += 64; // prefer workers that are not about to deliver
@@ -331,6 +337,12 @@ namespace bb
     setTarget(*best, nullptr);
     best->role = role;
     return best->unit;
+  }
+
+  void WorkerManager::avoidAsBuilder(Unit worker, int untilFrame)
+  {
+    if (worker)
+      avoidAsBuilderUntil_[worker->getID()] = untilFrame;
   }
 
   void WorkerManager::release(Unit worker)
