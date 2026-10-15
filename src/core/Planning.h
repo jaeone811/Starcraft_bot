@@ -35,6 +35,10 @@ namespace bb
 
   // ---------------------------------------------------------------- economy
   int workerTarget(int mineralPatches, int refineries, double workersPerPatch, int maxWorkers);
+  // SCVs trained beyond the current bases' need once the next base is near: from
+  // 90 s before the level's earliest expansion while bases < maxBases. Workers sat
+  // at 18 for six minutes before the natural was taken.
+  int workersInAdvance(int bases, int maxBases, int frame, int expandEarliestFrame);
 
   // A build-order step waits until supply reaches its count. When supply has stopped
   // growing for good (worker target reached, nothing in production) the next step is

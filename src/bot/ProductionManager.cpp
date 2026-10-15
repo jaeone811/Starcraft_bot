@@ -111,12 +111,18 @@ namespace bb
     // buildings wait until the early army is there.
     // The army keeps pace with a rising target, so this switches every few seconds
     // (22 log lines in one game): only the first wait is logged.
-    const bool hold = earlyDefense || armyFirst;
+    // Under threat only while the army is smaller than the early army: zealots kept
+    // coming one or two at a time for five minutes and Stim waited until 9:38.
+    const bool hold = earlyDefense || (armyFirst && fightingUnits() < ctx_.config.earlyDefenseArmy);
     if (hold && !loggedHoldTech_)
       ctx_.log.info("Production", "tech and research wait for the army (logged once)");
     loggedHoldTech_ = loggedHoldTech_ || hold;
     holdTech_ = hold;
-    ctx_.workers->setGasCap(hold ? earlyGasNeed() : -1);
+    // Only until the first Factory is started: after that the mech units need gas,
+    // and with the cap on all game (zealots kept the base threatened) Factories,
+    // Machine Shops and tanks waited for gas that Firebats and Medics took.
+    const bool factoryStarted = Broodwar->self()->allUnitCount(UnitTypes::Terran_Factory) > 0;
+    ctx_.workers->setGasCap(hold && !factoryStarted ? earlyGasNeed() : -1);
     planSupply(budget);
     ensureCommandCenter(budget);
     buildDetection(budget);
@@ -166,8 +172,12 @@ namespace bb
   {
     Player self = Broodwar->self();
     const UnitType scv = UnitTypes::Terran_SCV;
-    const int target = workerTarget(ctx_.workers->mineralPatchesAtBases(), ctx_.workers->gasRefineries(),
+    const int baseTarget = workerTarget(ctx_.workers->mineralPatchesAtBases(), ctx_.workers->gasRefineries(),
                                      ctx_.config.workersPerMineralPatch, ctx_.config.maxWorkers);
+    // Not while the early army is short (a rush is on): then every mineral goes there.
+    const int advance = holdTech_ ? 0 : workersInAdvance(planned(UnitTypes::Terran_Command_Center), ctx_.config.maxBases, ctx_.frame,
+                                                         ctx_.config.expandEarliestFrame);
+    const int target = std::min(baseTarget + advance, ctx_.config.maxWorkers);
     int current = self->allUnitCount(scv);
     for (Unit cc : self->getUnits())
     {

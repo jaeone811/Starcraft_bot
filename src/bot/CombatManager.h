@@ -77,6 +77,7 @@ namespace bb
     std::set<int> notCrew_;             // marines that did not reach the Bunker (e.g. boxed in)
     std::set<int> repairers_;           // SCVs repairing the Bunker
     bool holdingAtBunker_ = false;
+    int nextRepairLogFrame_ = 0;
     struct MineLayer { int since = 0; int until = 0; };
     std::map<int, MineLayer> mineLayers_;   // Vultures planting a mine (kept out of the army meanwhile)
     std::map<int, int> nextMineFrame_;      // Vulture id -> frame it may lay a combat mine again

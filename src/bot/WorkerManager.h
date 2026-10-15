@@ -74,6 +74,7 @@ namespace bb
     int refineries_ = 0;
     bool gasPaused_ = false;
     int gasCap_ = -1;
+    int nextGasSwitchFrame_ = 0;
     int lastRebalanceFrame_ = 0;
   };
 }

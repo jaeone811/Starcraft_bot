@@ -267,7 +267,9 @@ namespace bb
     bool enemyNear = false;
     for (Unit e : ctx_.info->visibleEnemiesNear(bunker->getPosition(), kRepairRadius))
       enemyNear = enemyNear || (!e->isFlying() && !e->getType().isWorker() && canAttackGround(e->getType()));
-    if (!enemyNear || bunker->getHitPoints() >= bunker->getType().maxHitPoints() || Broodwar->self()->minerals() < 10)
+    // Low minerals do not send them away: repair just waits for money. Releasing
+    // them then made them walk back and forth and the log repeat every second.
+    if (!enemyNear || bunker->getHitPoints() >= bunker->getType().maxHitPoints())
     {
       releaseRepairers();
       return;
@@ -277,9 +279,10 @@ namespace bb
       Unit scv = ctx_.workers->acquireWorker(bunker->getPosition(), WorkerRole::Repair);
       if (!scv)
         break;
-      if (repairers_.empty())
+      if (repairers_.empty() && ctx_.frame >= nextRepairLogFrame_)
         ctx_.log.info("Combat", concat("Bunker under attack (", bunker->getHitPoints(), "/", bunker->getType().maxHitPoints(),
                                        " hp): SCVs repair it"));
+      nextRepairLogFrame_ = ctx_.frame + 24 * 30;
       repairers_.insert(scv->getID());
     }
     for (int id : repairers_)
@@ -958,9 +961,11 @@ namespace bb
       holdingAtBunker_ = true;
       for (Unit u : army_)
       {
+        if (settledNear(u, behindBunker, 3 * kTile))
+          continue;
         if (isSupport(u))
           ctx_.commander->move(u, behindBunker);
-        else if (!settledNear(u, behindBunker, 3 * kTile))
+        else
           ctx_.commander->attackMove(u, behindBunker);
       }
       return;

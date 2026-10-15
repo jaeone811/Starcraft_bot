@@ -174,13 +174,18 @@ namespace bb
     // short on minerals during a zealot rush.
     const int high = gasCap_ >= 0 ? std::min(kGasBankHigh, gasCap_) : kGasBankHigh;
     const int low = gasCap_ >= 0 ? std::min(kGasBankLow, gasCap_ / 2) : kGasBankLow;
-    if (!gasPaused_ && gas >= high && mineralPatches_ > 0)
+    // At most one switch per 20 seconds: SCVs walking between gas and minerals mine
+    // nothing (the cap went on and off every ten seconds once).
+    const bool canSwitch = ctx_.frame >= nextGasSwitchFrame_;
+    if (canSwitch && !gasPaused_ && gas >= high && mineralPatches_ > 0)
     {
+      nextGasSwitchFrame_ = ctx_.frame + 24 * 20;
       gasPaused_ = true;
       ctx_.log.info("Workers", concat("gas bank ", gas, " is more than needed now (", high, "): gas workers move to minerals"));
     }
-    else if (gasPaused_ && (gas < low || mineralPatches_ == 0))
+    else if (canSwitch && gasPaused_ && (gas < low || mineralPatches_ == 0))
     {
+      nextGasSwitchFrame_ = ctx_.frame + 24 * 20;
       gasPaused_ = false;
       ctx_.log.info("Workers", concat("gas bank ", gas, ": mining gas again"));
     }

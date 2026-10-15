@@ -48,6 +48,12 @@ namespace bb
     return std::clamp(target, 0, std::max(0, maxWorkers));
   }
 
+  int workersInAdvance(int bases, int maxBases, int frame, int expandEarliestFrame)
+  {
+    constexpr int kAdvance = 6;
+    return bases < maxBases && frame >= expandEarliestFrame - 24 * 90 ? kAdvance : 0;
+  }
+
   int earlyDefenseTarget(int frame, int armyBySixMinutes, int enemyArmySeen, bool rushSeen)
   {
     constexpr int kStart = 24 * 180, kFull = 24 * 360, kEnd = 24 * 480;

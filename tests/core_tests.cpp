@@ -421,6 +421,13 @@ TEST_CASE("a seen rush wants the whole early army at once")
   CHECK(!rushSigns(late));            // two Gateways after 3:00 are normal
 }
 
+TEST_CASE("SCVs for the next base come before it")
+{
+  CHECK_EQ(workersInAdvance(1, 3, 24 * 300, 24 * 390), 6);   // 90 s before the earliest expansion
+  CHECK_EQ(workersInAdvance(1, 3, 24 * 200, 24 * 390), 0);   // too early
+  CHECK_EQ(workersInAdvance(3, 3, 24 * 600, 24 * 390), 0);   // all bases taken
+}
+
 TEST_CASE("levels 3-5 research Spider Mines, levels 1-2 do not")
 {
   for (int level = 1; level <= 5; ++level)
