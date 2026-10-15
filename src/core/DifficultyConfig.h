@@ -64,6 +64,12 @@ namespace bb
     int supply;
   };
 
+  // The build order against Protoss (Liquipedia's TvP openings: one Barracks, an
+  // early Factory, Siege Tanks hold the Dragoons): the first Factory takes the place
+  // of the second Barracks, and with room for two Factories the next Barracks
+  // becomes the second one. Build orders without a Factory stay as they are.
+  std::vector<BuildStep> factoryFirst(const std::vector<BuildStep>& base, int maxFactories);
+
   struct DifficultyConfig
   {
     int level = 3;

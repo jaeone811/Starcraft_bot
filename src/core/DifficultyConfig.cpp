@@ -304,6 +304,35 @@ namespace bb
     }
   }
 
+  std::vector<BuildStep> factoryFirst(const std::vector<BuildStep>& base, int maxFactories)
+  {
+    std::vector<BuildStep> out(base);
+    auto nth = [&out](BuildItem item, int n) {
+      int seen = 0;
+      for (int i = 0; i < static_cast<int>(out.size()); ++i)
+        if (out[i].item == item && ++seen == n)
+          return i;
+      return -1;
+    };
+    const int factory = nth(BuildItem::Factory, 1);
+    if (factory < 0 || maxFactories <= 0)
+      return out;
+    const int secondBarracks = nth(BuildItem::Barracks, 2);
+    if (secondBarracks >= 0 && secondBarracks < factory)
+    {
+      out[secondBarracks].item = BuildItem::Factory;
+      out.erase(out.begin() + factory);
+    }
+    if (maxFactories >= 2 && nth(BuildItem::Factory, 2) < 0)
+      for (int i = nth(BuildItem::Factory, 1) + 1; i < static_cast<int>(out.size()); ++i)
+        if (out[i].item == BuildItem::Barracks)
+        {
+          out[i].item = BuildItem::Factory;
+          break;
+        }
+    return out;
+  }
+
   bool extendsRange(ResearchItem item)
   {
     return item == ResearchItem::SiegeMode || item == ResearchItem::U238Shells;

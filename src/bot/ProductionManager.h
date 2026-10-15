@@ -46,6 +46,7 @@ namespace bb
     int fightingUnits() const;
     void buildBunker(Budget& budget);
     const BaseLocation* nextExpansion() const;
+    bool rangeResearchFirst() const;    // Siege Mode / U-238 first (heavy ranged enemies, or Protoss)
     double ownArmyStrength() const;     // finished army, combined (Planning::combineStrength)
 
     BotContext& ctx_;
@@ -63,6 +64,9 @@ namespace bb
     bool holdTech_ = false;
     bool loggedHoldTech_ = false;
     bool loggedRangeFirst_ = false;
+    std::vector<BuildStep> buildOrder_;  // the configured one, or factoryFirst() against Protoss
+    bool buildOrderSet_ = false;
+    bool factoryFirst_ = false;
     bool rush_ = false;       // an early attack is expected (seen by the scout, levels that use what they see)
     int earlyGasNeed() const;   // research and tech buildings wait: the early army (or the defense) comes first
     int loggedStallStep_ = -1;

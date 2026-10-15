@@ -93,6 +93,24 @@ namespace bb
                   self->supplyTotal() - self->supplyUsed(), ctx_.config.strictPriority);
     lastPlan_.clear();
 
+    // Against Protoss the levels that counter what they know open Factory first:
+    // Dragoons cut down the Marines of the infantry opening (three Barracks, Stim
+    // first) and broke the Bunker from out of range, game after game.
+    const bool protoss = ctx_.config.enemyInfoUsage >= 1 && ctx_.info->enemyRace() == Races::Protoss;
+    if (!buildOrderSet_ || protoss != factoryFirst_)
+    {
+      buildOrder_ = protoss ? factoryFirst(ctx_.config.buildOrder, ctx_.config.maxFactories) : ctx_.config.buildOrder;
+      if (protoss)
+      {
+        std::string steps;
+        for (const auto& s : buildOrder_)
+          steps += concat(toString(s.item), "@", s.supply, " ");
+        ctx_.log.info("Production", concat("against Protoss: Factory before the second Barracks: ", steps));
+      }
+      factoryFirst_ = protoss;
+      buildOrderSet_ = true;
+    }
+
     const bool armyFirst = ctx_.strategy->seriousThreat() && ctx_.config.armyFirstWhenThreatened;
     // Every level: until the early army is there, it is bought before tech and
     // research (but after workers). The level sets how big that army is; the levels
@@ -130,6 +148,10 @@ namespace bb
       trainArmy(budget);
     trainWorkers(budget);
     buildBunker(budget);
+    // Siege Mode before the next Marines: the first Siege Tank holds Dragoons that
+    // the Marines cannot (Siege Mode waited until 8:13 behind the early army).
+    if (rangeResearchFirst())
+      doResearch(budget);
     if (earlyDefense)
       trainArmy(budget);
     followBuildOrder(budget);
@@ -338,7 +360,7 @@ namespace bb
     const bool stalled = supplyStalled();
     bool released = false;
     std::map<BuildItem, int> wanted;
-    for (const auto& step : ctx_.config.buildOrder)
+    for (const auto& step : buildOrder_)
     {
       const int want = ++wanted[step.item];
       const UnitType type = toUnitType(step.item);
@@ -355,7 +377,10 @@ namespace bb
         lastPlan_ += "(after army:Refinery) ";
         continue;
       }
-      const bool rushBarracks = rush_ && step.item == BuildItem::Barracks && want <= 2;
+      // Factory first against Protoss: the second Barracks comes early only once
+      // Zealots are coming (Dragoons are the Factory's job).
+      const bool rushBarracks = rush_ && step.item == BuildItem::Barracks && want <= 2 &&
+                                (!factoryFirst_ || ctx_.info->recentMeleeUnits() >= 2);
       if (!rushBarracks && !buildStepDue(supplyUi, step.supply, stalled, released))
         break;                 // later steps wait for their supply count
       if (supplyUi < step.supply)
@@ -622,7 +647,7 @@ namespace bb
     // Firebats/Medics.
     int need = UnitTypes::Terran_Machine_Shop.gasPrice() + 4 * UnitTypes::Terran_Firebat.gasPrice();
     std::map<BuildItem, int> wanted;
-    for (const auto& step : ctx_.config.buildOrder)
+    for (const auto& step : buildOrder_)
     {
       const int want = ++wanted[step.item];
       const UnitType type = toUnitType(step.item);
@@ -632,15 +657,20 @@ namespace bb
     return need;
   }
 
+  bool ProductionManager::rangeResearchFirst() const
+  {
+    return ctx_.info->enemyMix().heavy > 0 || factoryFirst_;
+  }
+
   void ProductionManager::doResearch(Budget& budget)
   {
     // Heavy ranged enemies (Dragoons, Tanks, Lurkers) outrange Marines and the
     // Bunker: Siege Mode and U-238 come first and do not wait for the early army.
     // Dragoons broke three Bunkers from out of range while Siege Mode waited until
     // 9:12 with a Tank standing since 5:44, and U-238 never started.
-    const bool rangeFirst = ctx_.info->enemyMix().heavy > 0;
+    const bool rangeFirst = rangeResearchFirst();
     if (rangeFirst && !loggedRangeFirst_)
-      ctx_.log.info("Production", "heavy ranged enemies seen: Siege Mode and U-238 first, even before the early army is complete");
+      ctx_.log.info("Production", "heavy ranged enemies (or Protoss): Siege Mode and U-238 first, even before the early army is complete");
     loggedRangeFirst_ = loggedRangeFirst_ || rangeFirst;
     if (holdTech_ && !rangeFirst)
       return;

@@ -474,6 +474,41 @@ TEST_CASE("anti-air: strength counts only what can shoot the enemy")
   CHECK(!helpsAgainstAir(ResearchItem::VehicleWeapons1));
 }
 
+TEST_CASE("build order: Factory first against Protoss")
+{
+  using B = BuildItem;
+  const std::vector<BuildStep> level4{ {B::Barracks, 11}, {B::Refinery, 12}, {B::Barracks, 15}, {B::Academy, 17},
+                                       {B::Factory, 19}, {B::Barracks, 20}, {B::EngineeringBay, 26}, {B::Barracks, 30},
+                                       {B::Armory, 50} };
+  const std::vector<BuildStep> p = factoryFirst(level4, 3);
+  CHECK_EQ(p.size(), level4.size() - 1);
+  CHECK(p[2].item == B::Factory);
+  CHECK_EQ(p[2].supply, 15);
+  CHECK(p[3].item == B::Academy);
+  CHECK(p[4].item == B::Factory);          // the Barracks@20 became the second Factory
+  CHECK_EQ(p[4].supply, 20);
+  CHECK(p[6].item == B::Barracks);         // the Barracks@30 stays
+  int barracks = 0, factories = 0;
+  for (const auto& s : p)
+  {
+    barracks += s.item == B::Barracks ? 1 : 0;
+    factories += s.item == B::Factory ? 1 : 0;
+  }
+  CHECK_EQ(barracks, 2);
+  CHECK_EQ(factories, 2);
+  // One Factory at most: only the swap.
+  const std::vector<BuildStep> level2{ {B::Barracks, 11}, {B::Refinery, 14}, {B::Barracks, 18}, {B::Academy, 22},
+                                       {B::Barracks, 30}, {B::Factory, 32} };
+  const std::vector<BuildStep> q = factoryFirst(level2, 1);
+  CHECK(q[2].item == B::Factory);
+  CHECK(q[4].item == B::Barracks);
+  CHECK_EQ(q.size(), level2.size() - 1);
+  // No Factory in the build order: unchanged.
+  const std::vector<BuildStep> level1{ {B::Barracks, 12}, {B::Refinery, 20}, {B::Barracks, 24} };
+  CHECK_EQ(factoryFirst(level1, 0).size(), level1.size());
+  CHECK(factoryFirst(level1, 0)[2].item == B::Barracks);
+}
+
 TEST_CASE("research: range first against heavy ranged enemies")
 {
   const std::vector<ResearchItem> list{ ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::SpiderMines,
