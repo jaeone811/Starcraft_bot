@@ -49,6 +49,8 @@ namespace bb
     BWAPI::Race enemyRace() const { return enemyRace_; }
     int recentMeleeUnits() const;          // remembered melee units (zealots, lings, ...)
     double knownEnemyArmyStrength() const; // remembered non-worker combat units + static defense
+    double knownEnemyAirStrength() const;  // remembered flyers that attack ground (Mutalisks, Wraiths, ...)
+    double knownEnemyAirFraction() const;  // their share of the remembered army's strength
     int knownEnemyCombatUnits() const;
     EnemyMix enemyMix() const;             // remembered enemy army by counter group
     EnemyMix expectedEnemyMix() const;     // enemyMix plus what the enemy race usually opens with, early on

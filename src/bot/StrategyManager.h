@@ -55,6 +55,11 @@ namespace bb
     // Share of the army Factories should build, adapted to the enemy army seen.
     double mechShare() const { return mechShare_; }
 
+    // Known enemy air attackers outmatch our Marines, Goliaths, Turrets and Bunkers:
+    // anti-air comes first (Goliaths keep their gas, no Firebats, research that does
+    // not help waits). Re-evaluated every few seconds.
+    bool antiAirShort() const { return antiAirShort_; }
+
   private:
     void detectThreats();
     void updateArmyMix();
@@ -68,5 +73,6 @@ namespace bb
     double mechShare_;
     double loggedMechShare_;
     int lastMixFrame_ = -10000;
+    bool antiAirShort_ = false;
   };
 }

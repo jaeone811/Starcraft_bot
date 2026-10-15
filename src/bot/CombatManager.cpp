@@ -69,13 +69,23 @@ namespace bb
 
     int valueOf(UnitType t) { return t.mineralPrice() + t.gasPrice(); }
 
-    double strengthOf(const std::vector<Unit>& units)
+    // Our strength against an enemy of which `enemyAir` (by strength) flies: only
+    // what can shoot flyers counts against them.
+    double strengthOf(const std::vector<Unit>& units, double enemyAir = 0.0)
     {
       std::vector<double> s;
       for (Unit u : units)
         if (u->exists())
-          s.push_back(unitStrengthNow(u));
+          s.push_back(unitStrengthNow(u, enemyAir));
       return combineStrength(s);
+    }
+
+    // Our finished Missile Turrets near `p` (they defend the base with the army).
+    void addTurretsNear(std::vector<Unit>& units, Position p, int radius)
+    {
+      for (Unit t : Broodwar->self()->getUnits())
+        if (t->getType() == UnitTypes::Terran_Missile_Turret && t->isCompleted() && t->getDistance(p) < radius)
+          units.push_back(t);
     }
 
     // Units that can shoot while backing off from melee attackers and from ranged
@@ -477,7 +487,9 @@ namespace bb
         for (int id : bunkerCrew_)
           if (Unit m = Broodwar->getUnit(id))
             home.push_back(m);
-        homeHolds = enemyStrengthOf(ctx_.strategy->baseThreats()) <= strengthOf(home) * 1.2;
+        addTurretsNear(home, ctx_.strategy->threatCenter(), 25 * kTile);
+        homeHolds = enemyStrengthOf(ctx_.strategy->baseThreats()) <=
+                    strengthOf(home, enemyAirFraction(ctx_.strategy->baseThreats())) * 1.2;
       }
       if (state_ == State::Gather && !army_.empty() && ctx_.frame >= ignoreThreatUntilFrame_ && !homeHolds)
       {
@@ -496,8 +508,9 @@ namespace bb
         for (int id : bunkerCrew_)
           if (Unit m = Broodwar->getUnit(id))
             home.push_back(m);
+        addTurretsNear(home, ctx_.strategy->threatCenter(), 25 * kTile);
         const double threat = enemyStrengthOf(ctx_.strategy->baseThreats());
-        const double defense = strengthOf(home);
+        const double defense = strengthOf(home, enemyAirFraction(ctx_.strategy->baseThreats()));
         if (threat > defense * 1.2 && groupCenter(waveUnits).getApproxDistance(ctx_.map->mainPosition()) > 30 * kTile)
         {
           ctx_.log.info("Combat", concat("base attack too strong for home (", static_cast<int>(threat), " vs ",
@@ -548,7 +561,9 @@ namespace bb
     AttackInputs in;
     in.armySize = shooterCount(army_);
     in.frame = ctx_.frame;
-    in.ownStrength = strengthOf(army_);
+    // Against the enemy army we know, flyers included: Firebats and Vultures do not
+    // count against its Mutalisks.
+    in.ownStrength = strengthOf(army_, ctx_.info->knownEnemyAirFraction());
     in.knownEnemyStrength = ctx_.info->knownEnemyArmyStrength();
     in.useStrengthEstimate = ctx_.config.enemyInfoUsage >= 2;
     AttackParams p;
@@ -615,7 +630,7 @@ namespace bb
       ctx_.metrics.firstAttackFrame = ctx_.frame;
     ctx_.log.info("Combat", concat("attack wave ", ctx_.metrics.attackWaves, ": ", waveStartSize_, " units (", marines, " marines, ",
                                    medics, " medics, ", firebats, " firebats, ", mech, " mech) -> ", target_.x, ",", target_.y, " [", targetReason_,
-                                   "] ownStrength=", static_cast<int>(strengthOf(army_)),
+                                   "] ownStrength=", static_cast<int>(strengthOf(army_, ctx_.info->knownEnemyAirFraction())),
                                    " knownEnemyStrength=", static_cast<int>(ctx_.info->knownEnemyArmyStrength()),
                                    " requiredSize=", ctx_.strategy->attackSize()));
   }
@@ -919,7 +934,8 @@ namespace bb
           localOwnUnits.push_back(u);
           break;
         }
-    const double localOwn = strengthOf(localOwnUnits);
+    const double localAir = enemyAirFraction(localEnemies);
+    const double localOwn = strengthOf(localOwnUnits, localAir);
     const double localEnemy = enemyStrengthOf(localEnemies);
 
     // Survivors are compared with every shooter sent (start + reinforcements), so a
@@ -928,7 +944,7 @@ namespace bb
     // not, nobody turns around: the rest is on its way into the same fight (a
     // 29-shooter wave once retreated because its first 2 units met a cannon, and
     // pulling the front back made the army walk back and forth).
-    const bool waveCanWin = !shouldRetreat(strengthOf(waveUnits), localEnemy, ctx_.config.retreatStrengthRatio, shooters,
+    const bool waveCanWin = !shouldRetreat(strengthOf(waveUnits, localAir), localEnemy, ctx_.config.retreatStrengthRatio, shooters,
                                            waveCommitted_, ctx_.config.retreatArmyFraction);
     if (!waveCanWin && shouldRetreat(localOwn, localEnemy, ctx_.config.retreatStrengthRatio, shooters, waveCommitted_,
                                      ctx_.config.retreatArmyFraction))
@@ -1118,14 +1134,39 @@ namespace bb
       bunkerManned = bunkerManned || (b->getType() == UnitTypes::Terran_Bunker && b->isCompleted() && !b->getLoadedUnits().empty() &&
                                       b->getDistance(behindBunker) <= 6 * kTile);
     const Position main = ctx_.map->mainPosition();
-    if (!bunkerReleased_ && bunkerManned && behindBunker.isValid() &&
-        threat.getApproxDistance(main) + 2 * kTile >= behindBunker.getApproxDistance(main))
+    // Flyers do not come through the entrance: the hold looks at the ground attack,
+    // and the units that shoot up go after flyers meanwhile (Mutalisks killed SCVs
+    // and buildings while the army waited behind the Bunker for Zerglings).
+    std::vector<Point> groundPts, airPts;
+    for (Unit e : ctx_.strategy->baseThreats())
+      if (e->exists())
+        (e->isFlying() ? airPts : groundPts).push_back(toPoint(e->getPosition()));
+    const Position groundThreat = groundPts.empty() ? Positions::None : toPosition(centroid(groundPts));
+    if (!bunkerReleased_ && bunkerManned && behindBunker.isValid() && groundThreat.isValid() &&
+        groundThreat.getApproxDistance(main) + 2 * kTile >= behindBunker.getApproxDistance(main))
     {
       if (!holdingAtBunker_)
         ctx_.log.info("Combat", "enemy at the Bunker: the army holds right behind it");
       holdingAtBunker_ = true;
+      const Position airThreat = airPts.empty() ? Positions::None : toPosition(centroid(airPts));
+      std::vector<Unit> antiAir;
+      if (airThreat.isValid())
+        for (Unit u : army_)
+          if (canAttackAir(u->getType()))
+            antiAir.push_back(u);
+      if (!antiAir.empty() && !loggedAirInBase_)
+        ctx_.log.info("Combat", concat("flyers in the base: ", antiAir.size(), " anti-air units go after them, the rest holds at the Bunker"));
+      loggedAirInBase_ = loggedAirInBase_ || !antiAir.empty();
+      const std::vector<Unit> airEnemies = airThreat.isValid() ? ctx_.info->visibleEnemiesNear(airThreat, kLocalRadius) : std::vector<Unit>{};
+      const double airOwn = strengthOf(antiAir, 1.0);
+      const double airEnemy = enemyStrengthOf(airEnemies);
       for (Unit u : army_)
       {
+        if (airThreat.isValid() && canAttackAir(u->getType()))
+        {
+          fight(u, airThreat, airOwn, airEnemy);
+          continue;
+        }
         if (settledNear(u, behindBunker, 3 * kTile))
           continue;
         if (isSupport(u))
@@ -1137,7 +1178,7 @@ namespace bb
     }
     holdingAtBunker_ = false;
     const std::vector<Unit> enemies = ctx_.info->visibleEnemiesNear(threat, kLocalRadius);
-    const double localOwn = strengthOf(army_);
+    const double localOwn = strengthOf(army_, enemyAirFraction(enemies));
     const double localEnemy = enemyStrengthOf(enemies);
     const Position center = groupCenter(army_);
     fightCenter_ = center;

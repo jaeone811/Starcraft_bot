@@ -210,6 +210,11 @@ namespace bb
   double unitStrength(int hitPoints, int shields, double damagePerFrame);
   // Lanchester square-law style sum: (sum of sqrt(strength))^2.
   double combineStrength(const std::vector<double>& unitStrengths);
+  // Damage per frame against an enemy group of which `enemyAirFraction` (by
+  // strength) flies: a Firebat counts for nothing against Mutalisks.
+  double mixedDamagePerFrame(double groundDpf, double airDpf, double enemyAirFraction);
+  // Known enemy air attackers outmatch what we have that can shoot them.
+  bool antiAirShort(double enemyAirStrength, double ownAntiAirStrength);
 
   // ---------------------------------------------------------------- focus fire
   struct TargetInfo

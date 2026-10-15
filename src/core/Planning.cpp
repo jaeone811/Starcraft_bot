@@ -262,6 +262,17 @@ namespace bb
     return sum * sum;
   }
 
+  double mixedDamagePerFrame(double groundDpf, double airDpf, double enemyAirFraction)
+  {
+    const double a = std::clamp(enemyAirFraction, 0.0, 1.0);
+    return (1.0 - a) * std::max(0.0, groundDpf) + a * std::max(0.0, airDpf);
+  }
+
+  bool antiAirShort(double enemyAirStrength, double ownAntiAirStrength)
+  {
+    return enemyAirStrength > 0.0 && ownAntiAirStrength < enemyAirStrength;
+  }
+
   // ---------------------------------------------------------------- focus fire
   int chooseTarget(const std::vector<TargetInfo>& candidates, int focusFireLevel)
   {

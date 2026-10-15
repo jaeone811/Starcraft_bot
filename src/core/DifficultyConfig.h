@@ -44,6 +44,10 @@ namespace bb
   // medics). The rest waits while the early army is short.
   bool makesEarlyArmy(BuildItem item);
   const char* toString(ResearchItem item);
+  // Research that makes our anti-air units better (Marines, Goliaths). The rest
+  // waits while enemy air outmatches our anti-air: Spider Mines, +1 vehicle weapons
+  // and Charon... took the gas that Goliaths needed against Mutalisks.
+  bool helpsAgainstAir(ResearchItem item);
 
   // One step of a build order: build `item` once our supply (UI units, not the
   // doubled BWAPI units) has reached `supply`. Each step adds one more building of

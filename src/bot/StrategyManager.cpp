@@ -33,6 +33,24 @@ namespace bb
     if (ctx_.frame - lastMixFrame_ < 24 * 5)
       return;
     lastMixFrame_ = ctx_.frame;
+
+    // Every level: the same rule; how fast the level scouts and how much it builds
+    // makes the difference. Five Mutalisks were seen at 6:44 and the Factories still
+    // made Vultures (Spider Mines, +1 and Charon took the gas), the army counted
+    // Firebats and Vultures against them, and every SCV died.
+    std::vector<double> antiAir;
+    for (Unit u : Broodwar->self()->getUnits())
+      if (u->isCompleted() && canAttackAir(u->getType()) && !u->getType().isWorker())
+        antiAir.push_back(unitStrengthNow(u, 1.0));
+    const double enemyAir = ctx_.info->knownEnemyAirStrength();
+    const double ownAir = combineStrength(antiAir);
+    const bool shortNow = bb::antiAirShort(enemyAir, ownAir);
+    if (shortNow != antiAirShort_)
+      ctx_.log.info("Strategy", concat(shortNow ? "enemy air outmatches our anti-air (" : "anti-air holds against the enemy air (",
+                                       static_cast<int>(enemyAir), " vs ", static_cast<int>(ownAir), ")",
+                                       shortNow ? ": Goliaths, Marines and Turrets first, other research waits" : ""));
+    antiAirShort_ = shortNow;
+
     const EnemyMix mix = ctx_.config.enemyInfoUsage >= 1 ? ctx_.info->expectedEnemyMix() : ctx_.info->enemyMix();
     const double target = targetMechShare(mix, ctx_.config.mechShare, ctx_.config.maxMechShare, ctx_.config.enemyInfoUsage >= 1);
     // Up at once, down slowly: the remembered enemy count drops whenever units die or
@@ -182,6 +200,8 @@ namespace bb
   {
     if (ctx_.config.enemyInfoUsage < 1 || ctx_.config.firebatRatioVsMelee <= 0.0)
       return 0.0;
+    if (antiAirShort_)
+      return 0.0;   // Firebats cannot shoot flyers: Marines while the enemy air is ahead
     // Early on, the race tells what is coming (zealots / lings): firebats from the start.
     const int melee = std::max(ctx_.info->recentMeleeUnits(), ctx_.info->expectedEnemyMix().melee);
     if (melee < 2)
@@ -231,9 +251,11 @@ namespace bb
     for (BWAPI::Unit e : threats_)
       if (e->exists() && canAttackGround(e->getType()))
         enemy.push_back(unitStrengthNow(e));
+    // Only what can shoot them: Vultures and Firebats do not stop Mutalisks.
+    const double air = enemyAirFraction(threats_);
     for (BWAPI::Unit u : BWAPI::Broodwar->self()->getUnits())
       if (isOurArmyType(u->getType()) && u->isCompleted())
-        own.push_back(unitStrengthNow(u));
+        own.push_back(unitStrengthNow(u, air));
     return combineStrength(enemy) * 2.0 > combineStrength(own);
   }
 }

@@ -35,10 +35,16 @@ namespace bb
   // Share of a weapon's damage a target of `size` takes (concussive / explosive vs size).
   double damageFactor(BWAPI::WeaponType weapon, BWAPI::UnitSizeType size);
   bool canAttackGround(BWAPI::UnitType type);
+  // Damage per frame against air units (Bunker: four Marines; Carrier: interceptors).
+  double airDamagePerFrame(BWAPI::UnitType type);
+  bool canAttackAir(BWAPI::UnitType type);
   // Strength of a unit type at full health; used for remembered (not visible) units.
   double typeStrength(BWAPI::UnitType type);
-  // Strength of a visible unit at its current health.
-  double unitStrengthNow(BWAPI::Unit unit);
+  // Strength of a visible unit at its current health, against an enemy group of
+  // which `enemyAirFraction` (by strength) flies.
+  double unitStrengthNow(BWAPI::Unit unit, double enemyAirFraction = 0.0);
+  // Share of the enemies' strength that flies (0 without flyers).
+  double enemyAirFraction(const std::vector<BWAPI::Unit>& enemies);
 
   bool isValid(BWAPI::Unit unit); // non-null and exists()
   bool isOurs(BWAPI::Unit unit);

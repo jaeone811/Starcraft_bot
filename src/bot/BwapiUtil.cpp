@@ -157,6 +157,24 @@ namespace bb
            w.damageCooldown();
   }
 
+  double airDamagePerFrame(UnitType type)
+  {
+    if (type == UnitTypes::Terran_Bunker)
+      return 4 * airDamagePerFrame(UnitTypes::Terran_Marine); // assume it is loaded
+    if (type == UnitTypes::Protoss_Carrier)
+      return groundDamagePerFrame(type);                       // interceptors hit air too
+    WeaponType w = type.airWeapon();
+    if (w == WeaponTypes::None || w == WeaponTypes::Unknown || w.damageCooldown() <= 0)
+      return 0.0;
+    return static_cast<double>(w.damageAmount()) * std::max(1, w.damageFactor()) * std::max(1, type.maxAirHits()) /
+           w.damageCooldown();
+  }
+
+  bool canAttackAir(UnitType type)
+  {
+    return airDamagePerFrame(type) > 0.0;
+  }
+
   bool canAttackGround(UnitType type)
   {
     return groundDamagePerFrame(type) > 0.0;
@@ -170,19 +188,38 @@ namespace bb
     return unitStrength(type.maxHitPoints(), type.maxShields(), dpf);
   }
 
-  double unitStrengthNow(Unit unit)
+  double unitStrengthNow(Unit unit, double enemyAirFraction)
   {
     if (!unit)
       return 0.0;
     UnitType type = unit->getType();
-    double dpf = groundDamagePerFrame(type);
+    double ground = groundDamagePerFrame(type);
+    double air = airDamagePerFrame(type);
     if (type == UnitTypes::Terran_Medic)
-      dpf = 0.5 * groundDamagePerFrame(UnitTypes::Terran_Marine);
+    {
+      ground = 0.5 * groundDamagePerFrame(UnitTypes::Terran_Marine);
+      air = 0.5 * airDamagePerFrame(UnitTypes::Terran_Marine);
+    }
     if (type.isWorker())
-      dpf *= 0.25; // workers rarely fight
+      ground *= 0.25; // workers rarely fight
     if (!unit->isCompleted())
       return 0.0;
-    return unitStrength(unit->getHitPoints(), unit->getShields(), dpf);
+    return unitStrength(unit->getHitPoints(), unit->getShields(), mixedDamagePerFrame(ground, air, enemyAirFraction));
+  }
+
+  double enemyAirFraction(const std::vector<Unit>& enemies)
+  {
+    double air = 0.0, all = 0.0;
+    for (Unit e : enemies)
+    {
+      if (!e || !e->exists() || !canAttackGround(e->getType()))
+        continue;
+      const double s = unitStrengthNow(e);
+      all += s;
+      if (e->isFlying())
+        air += s;
+    }
+    return all > 0.0 ? air / all : 0.0;
   }
 
   bool isValid(Unit unit)

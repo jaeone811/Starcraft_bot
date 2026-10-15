@@ -456,6 +456,24 @@ TEST_CASE("only what makes the early army is built while it is short")
   CHECK(!makesEarlyArmy(BuildItem::ScienceFacility));
 }
 
+TEST_CASE("anti-air: strength counts only what can shoot the enemy")
+{
+  // A Firebat (ground only) is worth nothing against flyers, a Goliath its air weapon.
+  CHECK_EQ(mixedDamagePerFrame(1.0, 0.0, 1.0), 0.0);
+  CHECK_EQ(mixedDamagePerFrame(1.0, 0.0, 0.0), 1.0);
+  CHECK_EQ(mixedDamagePerFrame(0.5, 1.0, 0.5), 0.75);
+  CHECK_EQ(mixedDamagePerFrame(1.0, 0.0, 2.0), 0.0);   // clamped
+  CHECK(!antiAirShort(0.0, 0.0));                     // no enemy air
+  CHECK(antiAirShort(5000.0, 1000.0));
+  CHECK(!antiAirShort(5000.0, 5000.0));
+  CHECK(helpsAgainstAir(ResearchItem::U238Shells));
+  CHECK(helpsAgainstAir(ResearchItem::CharonBoosters));
+  CHECK(helpsAgainstAir(ResearchItem::StimPacks));
+  CHECK(!helpsAgainstAir(ResearchItem::SpiderMines));
+  CHECK(!helpsAgainstAir(ResearchItem::SiegeMode));
+  CHECK(!helpsAgainstAir(ResearchItem::VehicleWeapons1));
+}
+
 TEST_CASE("budget: reserveFirst saves up even at the greedy levels")
 {
   Budget greedy(100, 0, 10, false);

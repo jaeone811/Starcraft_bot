@@ -128,6 +128,17 @@ TEST_CASE("tech tree assumptions")
   CHECK(damageFactor(UnitTypes::Terran_Firebat.groundWeapon(), UnitSizeTypes::Large) == 0.25);
   CHECK(damageFactor(UnitTypes::Terran_Marine.groundWeapon(), UnitSizeTypes::Large) == 1.0);
   CHECK_EQ(UnitTypes::Protoss_Dragoon.groundWeapon().maxRange(), 128);
+  // Anti-air: what can shoot Mutalisks.
+  CHECK(UnitTypes::Zerg_Mutalisk.isFlyer());
+  CHECK(canAttackGround(UnitTypes::Zerg_Mutalisk));
+  CHECK(canAttackAir(UnitTypes::Terran_Marine));
+  CHECK(canAttackAir(UnitTypes::Terran_Goliath));
+  CHECK(canAttackAir(UnitTypes::Terran_Missile_Turret));
+  CHECK(canAttackAir(UnitTypes::Terran_Bunker));
+  CHECK(!canAttackAir(UnitTypes::Terran_Firebat));
+  CHECK(!canAttackAir(UnitTypes::Terran_Vulture));
+  CHECK(!canAttackAir(UnitTypes::Terran_Siege_Tank_Tank_Mode));
+  CHECK(airDamagePerFrame(UnitTypes::Terran_Goliath) > groundDamagePerFrame(UnitTypes::Terran_Goliath));
   CHECK_EQ(UnitTypes::Terran_Siege_Tank_Tank_Mode.groundWeapon().maxRange(), 224);
   // Spider Mines: Machine Shop tech, laid at a position by Vultures (CombatManager::layMines).
   CHECK(toTechType(ResearchItem::SpiderMines) == TechTypes::Spider_Mines);

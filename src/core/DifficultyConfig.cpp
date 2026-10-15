@@ -304,6 +304,20 @@ namespace bb
     }
   }
 
+  bool helpsAgainstAir(ResearchItem item)
+  {
+    switch (item)
+    {
+    case ResearchItem::StimPacks:
+    case ResearchItem::U238Shells:
+    case ResearchItem::InfantryWeapons1:
+    case ResearchItem::CharonBoosters:
+      return true;
+    default:
+      return false;
+    }
+  }
+
   const char* toString(BuildItem item)
   {
     switch (item)

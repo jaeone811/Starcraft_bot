@@ -262,8 +262,13 @@ namespace bb
     // the whole army dies for nothing (difficulty 2 lost 19 units to Dark Templar and
     // killed none). Comsat scans stay a difficulty choice; Missile Turrets are the
     // answer that does not depend on it, so every level builds them once needed.
-    if (!ctx_.info->hiddenAttackerSeen())
+    // Enemy air attackers get the same Turrets: Mutalisks killed every SCV while the
+    // army was out (no Turret, an Engineering Bay standing since 5:52).
+    const bool hidden = ctx_.info->hiddenAttackerSeen();
+    const int air = ctx_.info->enemyMix().air;
+    if (!hidden && air < 2)
       return;
+    const char* why = hidden ? "hidden attackers" : "enemy air";
     Player self = Broodwar->self();
     const UnitType ebay = UnitTypes::Terran_Engineering_Bay;
     const UnitType turret = UnitTypes::Terran_Missile_Turret;
@@ -273,7 +278,7 @@ namespace bb
         return;
       if (budget.reserveFirst(costOf(ebay)))
       {
-        ctx_.log.info("Production", "hidden attackers: Engineering Bay for Missile Turrets");
+        ctx_.log.info("Production", concat(why, ": Engineering Bay for Missile Turrets"));
         ctx_.buildings->request(ebay);
         lastPlan_ += "ebay(detection) ";
       }
@@ -285,24 +290,29 @@ namespace bb
       return;
 
     // One turret by every Command Center (workers and production) and one at the
-    // rally point (the army). A turret detects 11 tiles around it. Never more turrets
-    // than spots, even if one could not be placed where it was wanted.
-    std::vector<TilePosition> spots;
+    // rally point (the army). A turret detects 11 tiles around it. Against six or
+    // more flyers a single turret by the mineral line dies alone: two there. Never
+    // more turrets than wanted, even if one could not be placed where it was wanted.
+    std::vector<std::pair<TilePosition, int>> spots;
+    const int perBase = air >= 6 ? 2 : 1;
     for (Unit depot : ctx_.workers->depots())
-      spots.push_back(depot->getTilePosition());
-    spots.push_back(TilePosition(ctx_.map->rallyPoint()));
-    if (planned(turret) >= static_cast<int>(spots.size()))
+      spots.emplace_back(depot->getTilePosition(), perBase);
+    spots.emplace_back(TilePosition(ctx_.map->rallyPoint()), 1);
+    int wanted = 0;
+    for (const auto& s : spots)
+      wanted += s.second;
+    if (planned(turret) >= wanted)
       return;
-    for (TilePosition spot : spots)
+    for (const auto& [spot, want] : spots)
     {
-      bool covered = false;
+      int near = 0;
       for (Unit u : self->getUnits())
-        covered = covered || (u->getType() == turret && u->getDistance(Position(spot)) < 7 * 32);
-      if (covered)
+        near += u->getType() == turret && u->getDistance(Position(spot)) < 7 * 32 ? 1 : 0;
+      if (near >= want)
         continue;
       if (budget.reserveFirst(costOf(turret)))
       {
-        ctx_.log.info("Production", concat("hidden attackers: Missile Turret near ", spot.x, ",", spot.y));
+        ctx_.log.info("Production", concat(why, ": Missile Turret near ", spot.x, ",", spot.y));
         ctx_.buildings->request(turret, spot);
         lastPlan_ += "turret ";
       }
@@ -554,7 +564,9 @@ namespace bb
     if (ctx_.config.mechShare > 0.0 && ctx_.info->enemyMix().air >= 2 && planned(armory) == 0 &&
         Broodwar->self()->completedUnitCount(factory) >= 1 && !ctx_.buildings->onCooldown(armory))
     {
-      if (budget.tryReserve({ armory.mineralPrice(), armory.gasPrice(), 0 }))
+      // Saved up for first while the enemy air is ahead of our anti-air.
+      const Cost cost{ armory.mineralPrice(), armory.gasPrice(), 0 };
+      if (ctx_.strategy->antiAirShort() ? budget.reserveFirst(cost) : budget.tryReserve(cost))
       {
         ctx_.log.info("Production", concat("enemy air units seen (", ctx_.info->enemyMix().air, "): adding an Armory for Goliaths"));
         ctx_.buildings->request(armory);
@@ -586,10 +598,17 @@ namespace bb
   {
     if (holdTech_)
       return;
+    // While enemy air outmatches our anti-air, only research that helps against it.
+    const bool airFirst = ctx_.strategy->antiAirShort();
     for (ResearchItem item : ctx_.config.research)
     {
       if (isResearchDone(item) || isResearchInProgress(item))
         continue;
+      if (airFirst && !helpsAgainstAir(item))
+      {
+        lastPlan_ += concat("(after anti-air:", toString(item), ") ");
+        continue;
+      }
       const UnitType where = researchBuilding(item);
       Unit building = nullptr;
       for (Unit u : Broodwar->self()->getUnits())
@@ -658,6 +677,14 @@ namespace bb
     trainStarports(budget);
     const double share = currentMechShare();
     const double target = ctx_.strategy->mechShare();
+    // Enemy air ahead of our anti-air: Marines first (the Factories make Goliaths
+    // once the Armory stands; a Vulture does not shoot up).
+    if (ctx_.strategy->antiAirShort())
+    {
+      trainInfantry(budget);
+      trainFactories(budget, target > 0.0);
+      return;
+    }
     if (target > 0.0 && share < target)
     {
       trainFactories(budget, true);
@@ -715,8 +742,11 @@ namespace bb
       const FactoryUnit choice = chooseFactoryUnit(vultures, tanks, goliaths, enemy, shopReady, armoryReady);
       UnitType type = choice == FactoryUnit::Goliath ? UnitTypes::Terran_Goliath
                     : choice == FactoryUnit::Vulture ? UnitTypes::Terran_Vulture : UnitTypes::Terran_Siege_Tank_Tank_Mode;
-      // Short on gas: the Vulture (minerals only) keeps the Factory busy.
-      if (type != UnitTypes::Terran_Vulture && budget.gas() < type.gasPrice())
+      // Short on gas: the Vulture (minerals only) keeps the Factory busy. Not a
+      // Goliath wanted against air: it waits for its gas (Vultures were made all
+      // game while Mutalisks killed the SCVs).
+      const bool goliathForAir = type == UnitTypes::Terran_Goliath && ctx_.strategy->antiAirShort();
+      if (type != UnitTypes::Terran_Vulture && budget.gas() < type.gasPrice() && !goliathForAir)
         type = UnitTypes::Terran_Vulture;
       if (!budget.tryReserve(costOf(type)))
       {

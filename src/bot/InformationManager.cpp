@@ -236,6 +236,28 @@ namespace bb
     return combineStrength(s);
   }
 
+  double InformationManager::knownEnemyAirStrength() const
+  {
+    std::vector<double> s;
+    for (const auto& [id, r] : units_)
+      if (r.type.isFlyer() && !r.type.isWorker() && canAttackGround(r.type))
+        s.push_back(typeStrength(r.type));
+    return combineStrength(s);
+  }
+
+  double InformationManager::knownEnemyAirFraction() const
+  {
+    double air = 0.0, all = 0.0;
+    for (const auto& [id, r] : units_)
+      if (!r.type.isWorker() && canAttackGround(r.type))
+      {
+        all += typeStrength(r.type);
+        if (r.type.isFlyer())
+          air += typeStrength(r.type);
+      }
+    return all > 0.0 ? air / all : 0.0;
+  }
+
   EnemyMix InformationManager::enemyMix() const
   {
     EnemyMix mix;
