@@ -304,6 +304,19 @@ namespace bb
     }
   }
 
+  bool extendsRange(ResearchItem item)
+  {
+    return item == ResearchItem::SiegeMode || item == ResearchItem::U238Shells;
+  }
+
+  std::vector<ResearchItem> researchOrder(const std::vector<ResearchItem>& list, bool rangeFirst)
+  {
+    std::vector<ResearchItem> out(list);
+    if (rangeFirst)
+      std::stable_partition(out.begin(), out.end(), [](ResearchItem i) { return extendsRange(i); });
+    return out;
+  }
+
   bool helpsAgainstAir(ResearchItem item)
   {
     switch (item)

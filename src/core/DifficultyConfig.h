@@ -48,6 +48,12 @@ namespace bb
   // waits while enemy air outmatches our anti-air: Spider Mines, +1 vehicle weapons
   // and Charon... took the gas that Goliaths needed against Mutalisks.
   bool helpsAgainstAir(ResearchItem item);
+  // Research that gives our units the range to answer heavy ranged enemies
+  // (Dragoons, Tanks, Lurkers): Siege Mode and U-238 Shells.
+  bool extendsRange(ResearchItem item);
+  // The research list with the range research first while heavy ranged enemies are
+  // known (otherwise unchanged).
+  std::vector<ResearchItem> researchOrder(const std::vector<ResearchItem>& list, bool rangeFirst);
 
   // One step of a build order: build `item` once our supply (UI units, not the
   // doubled BWAPI units) has reached `supply`. Each step adds one more building of

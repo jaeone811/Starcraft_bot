@@ -474,6 +474,20 @@ TEST_CASE("anti-air: strength counts only what can shoot the enemy")
   CHECK(!helpsAgainstAir(ResearchItem::VehicleWeapons1));
 }
 
+TEST_CASE("research: range first against heavy ranged enemies")
+{
+  const std::vector<ResearchItem> list{ ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::SpiderMines,
+                                        ResearchItem::U238Shells, ResearchItem::InfantryWeapons1 };
+  CHECK(researchOrder(list, false) == list);
+  const std::vector<ResearchItem> first = researchOrder(list, true);
+  CHECK(first[0] == ResearchItem::SiegeMode);
+  CHECK(first[1] == ResearchItem::U238Shells);
+  CHECK(first[2] == ResearchItem::StimPacks);
+  CHECK(first[3] == ResearchItem::SpiderMines);
+  CHECK(extendsRange(ResearchItem::U238Shells));
+  CHECK(!extendsRange(ResearchItem::StimPacks));
+}
+
 TEST_CASE("defense: no chase away from the base, no fight against a stronger enemy outside")
 {
   CHECK(!defenseOutmatched(1000.0, 0.0));

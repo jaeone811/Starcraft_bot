@@ -217,6 +217,14 @@ namespace bb
     if (!ctx_.config.earlyBunker || ctx_.frame >= 24 * 600 || planned(bunker) > 0 || ctx_.buildings->onCooldown(bunker) ||
         self->completedUnitCount(UnitTypes::Terran_Barracks) == 0)
       return;
+    // A Bunker lost while heavy ranged enemies are known is rebuilt only with U-238:
+    // without the range Dragoons broke three in a row from outside it.
+    if (self->deadUnitCount(bunker) > 0 && ctx_.info->enemyMix().heavy > 0 &&
+        self->getUpgradeLevel(UpgradeTypes::U_238_Shells) == 0)
+    {
+      lastPlan_ += "(bunker waits for U-238) ";
+      return;
+    }
     // Not into a fight: two Bunkers started while zealots stood at the spot were
     // killed unfinished (200 minerals and two SCVs' time during a rush).
     for (Unit e : ctx_.info->visibleEnemiesNear(ctx_.map->bunkerSpot(), 10 * 32))
@@ -626,14 +634,24 @@ namespace bb
 
   void ProductionManager::doResearch(Budget& budget)
   {
-    if (holdTech_)
+    // Heavy ranged enemies (Dragoons, Tanks, Lurkers) outrange Marines and the
+    // Bunker: Siege Mode and U-238 come first and do not wait for the early army.
+    // Dragoons broke three Bunkers from out of range while Siege Mode waited until
+    // 9:12 with a Tank standing since 5:44, and U-238 never started.
+    const bool rangeFirst = ctx_.info->enemyMix().heavy > 0;
+    if (rangeFirst && !loggedRangeFirst_)
+      ctx_.log.info("Production", "heavy ranged enemies seen: Siege Mode and U-238 first, even before the early army is complete");
+    loggedRangeFirst_ = loggedRangeFirst_ || rangeFirst;
+    if (holdTech_ && !rangeFirst)
       return;
     // While enemy air outmatches our anti-air, only research that helps against it.
     const bool airFirst = ctx_.strategy->antiAirShort();
-    for (ResearchItem item : ctx_.config.research)
+    for (ResearchItem item : researchOrder(ctx_.config.research, rangeFirst))
     {
       if (isResearchDone(item) || isResearchInProgress(item))
         continue;
+      if (holdTech_ && !extendsRange(item))
+        continue;   // the rest waits for the early army
       if (airFirst && !helpsAgainstAir(item))
       {
         lastPlan_ += concat("(after anti-air:", toString(item), ") ");
@@ -747,7 +765,14 @@ namespace bb
       // While a blocked add-on waits for its retry, the Factory builds Vultures / Goliaths.
       // Without the gas for it the Factory builds a Vulture meanwhile instead of
       // standing idle (three Factories made 4 Vultures in 5 minutes once).
-      if (!factory->getAddon() && ctx_.frame >= machineShopRetryFrame_)
+      // Not while enemies stand at the Factory: six Machine Shops were started and
+      // killed one after another while Dragoons were there.
+      bool enemyAtFactory = false;
+      for (Unit e : ctx_.info->visibleEnemiesNear(factory->getPosition(), 8 * 32))
+        enemyAtFactory = enemyAtFactory || (!e->getType().isWorker() && canAttackGround(e->getType()));
+      if (!factory->getAddon() && enemyAtFactory)
+        lastPlan_ += "(enemy at Factory: add-on waits) ";
+      if (!factory->getAddon() && !enemyAtFactory && ctx_.frame >= machineShopRetryFrame_)
       {
         const UnitType shop = UnitTypes::Terran_Machine_Shop;
         if (budget.tryReserve({ shop.mineralPrice(), shop.gasPrice(), 0 }))
