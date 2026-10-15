@@ -46,7 +46,7 @@ namespace bb
     // Where the army waits: the top of the main's ramp, and once the natural is ours,
     // in front of the natural.
     BWAPI::Position rallyPoint() const;
-    BWAPI::TilePosition mainChoke() const { return mainChoke_; } // last high-ground tile before the ramp; None if not found
+    BWAPI::TilePosition mainChoke() const { return mainChoke_; } // the main's entrance (narrowest point on the way out); None if not found
     BWAPI::Position bunkerSpot() const { return bunkerSpot_; }   // just inside the ramp, covering it
     const std::vector<BWAPI::TilePosition>& otherStartLocations() const { return otherStarts_; }
     const std::vector<SearchCell>& searchCells() const { return searchCells_; }
@@ -60,6 +60,7 @@ namespace bb
     void computeSearchCells();
     void computeChoke();
     std::vector<BWAPI::TilePosition> groundPath(BWAPI::TilePosition from, BWAPI::TilePosition to) const;
+    std::vector<char> blockedTiles() const;
 
     BotContext& ctx_;
     std::vector<BaseLocation> bases_;
@@ -72,5 +73,9 @@ namespace bb
     BWAPI::Position bunkerSpot_ = BWAPI::Positions::None;
     BWAPI::Position naturalRally_ = BWAPI::Positions::None;
     bool naturalOwned_ = false;
+    int mainEntranceDistance_ = -1;
+  public:
+    // Air distance (tiles) from the main's Command Center to its entrance; -1 if unknown.
+    int mainEntranceDistance() const { return mainEntranceDistance_; }
   };
 }

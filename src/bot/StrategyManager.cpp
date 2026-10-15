@@ -32,7 +32,7 @@ namespace bb
     if (ctx_.frame - lastMixFrame_ < 24 * 5)
       return;
     lastMixFrame_ = ctx_.frame;
-    const EnemyMix mix = ctx_.info->enemyMix();
+    const EnemyMix mix = ctx_.config.enemyInfoUsage >= 1 ? ctx_.info->expectedEnemyMix() : ctx_.info->enemyMix();
     const double target = targetMechShare(mix, ctx_.config.mechShare, ctx_.config.maxMechShare, ctx_.config.enemyInfoUsage >= 1);
     // Up at once, down slowly: the remembered enemy count drops whenever units die or
     // are forgotten, and the production plan should not flip with every skirmish.
@@ -181,7 +181,8 @@ namespace bb
   {
     if (ctx_.config.enemyInfoUsage < 1 || ctx_.config.firebatRatioVsMelee <= 0.0)
       return 0.0;
-    const int melee = ctx_.info->recentMeleeUnits();
+    // Early on, the race tells what is coming (zealots / lings): firebats from the start.
+    const int melee = std::max(ctx_.info->recentMeleeUnits(), ctx_.info->expectedEnemyMix().melee);
     if (melee < 2)
       return 0.0;
     if (ctx_.config.enemyInfoUsage == 1)

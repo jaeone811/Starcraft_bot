@@ -290,6 +290,26 @@ TEST_CASE("factory unit choice")
   CHECK(chooseFactoryUnit(5, 11, 6, none, true, true) == FactoryUnit::SiegeTank);   // ...about a quarter
 }
 
+TEST_CASE("race prior shapes the opening until the enemy army is seen")
+{
+  EnemyMix none;
+  const EnemyMix p = withRacePrior(none, EnemyRace::Protoss);
+  const EnemyMix z = withRacePrior(none, EnemyRace::Zerg);
+  const EnemyMix t = withRacePrior(none, EnemyRace::Terran);
+  CHECK(p.melee > 0 && z.melee > 0 && t.melee == 0);
+  // Mech share: highest against Protoss, lowest against Zerg/Terran bio.
+  CHECK(targetMechShare(p, 0.3, 0.7, true) > targetMechShare(z, 0.3, 0.7, true));
+  CHECK(targetMechShare(p, 0.3, 0.7, true) > targetMechShare(t, 0.3, 0.7, true));
+  // Against Protoss the first Factory unit is a Vulture (zealots), against Terran a tank.
+  CHECK(chooseFactoryUnit(0, 0, 0, p, true, false) == FactoryUnit::Vulture);
+  CHECK(chooseFactoryUnit(0, 0, 0, t, true, false) == FactoryUnit::SiegeTank);
+  // Once enough is seen, only what was seen counts.
+  EnemyMix seen;
+  seen.light = 6;
+  CHECK_EQ(withRacePrior(seen, EnemyRace::Protoss).melee, 0);
+  CHECK_EQ(withRacePrior(none, EnemyRace::Unknown).total(), 0);
+}
+
 TEST_CASE("starport unit choice")
 {
   CHECK(chooseStarportUnit(0, 0, 0, 1, false, false) == StarportUnit::Wraith);        // nothing unlocked yet

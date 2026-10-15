@@ -209,10 +209,9 @@ namespace bb
     return naturalOwned_ && naturalRally_.isValid() ? naturalRally_ : rally_;
   }
 
-  std::vector<TilePosition> MapInfo::groundPath(TilePosition from, TilePosition to) const
+  std::vector<char> MapInfo::blockedTiles() const
   {
-    // Breadth-first search over walkable tiles (static terrain, minerals and geysers
-    // blocked). Small enough for 256x256 maps at game start.
+    // Tiles a unit cannot stand on: static terrain, minerals and geysers.
     const int w = Broodwar->mapWidth(), h = Broodwar->mapHeight();
     std::vector<char> blocked(static_cast<size_t>(w) * h, 0);
     for (int y = 0; y < h; ++y)
@@ -236,6 +235,14 @@ namespace bb
       blockUnit(m);
     for (Unit g : Broodwar->getStaticGeysers())
       blockUnit(g);
+    return blocked;
+  }
+
+  std::vector<TilePosition> MapInfo::groundPath(TilePosition from, TilePosition to) const
+  {
+    // Breadth-first search over walkable tiles. Small enough for 256x256 maps at game start.
+    const int w = Broodwar->mapWidth(), h = Broodwar->mapHeight();
+    std::vector<char> blocked = blockedTiles();
     auto idx = [w](int x, int y) { return static_cast<size_t>(y) * w + x; };
     std::vector<int> parent(static_cast<size_t>(w) * h, -2);
     std::vector<TilePosition> queue;
@@ -289,32 +296,77 @@ namespace bb
       goal = bases_[natural_].depotTile;
     const TilePosition start(mainPosition());
     const std::vector<TilePosition> path = groundPath(start, goal);
+
     bunkerSpot_ = rally_;
     if (path.empty())
     {
       ctx_.log.info("Map", "no ground path out of the main found: rally point kept");
       return;
     }
+    // The entrance is where the way out is narrowest: clearance = distance to the
+    // nearest unwalkable tile. A height drop (a ramp) counts too, but Boxer's mains
+    // are on the same level as the rest, so 0.6.2's height test found nothing.
+    const int w = Broodwar->mapWidth(), h = Broodwar->mapHeight();
+    const std::vector<char> blocked = blockedTiles();
+    std::vector<int> clearance(blocked.size(), std::numeric_limits<int>::max());
+    std::vector<TilePosition> frontier;
+    for (int y = 0; y < h; ++y)
+      for (int x = 0; x < w; ++x)
+        if (blocked[static_cast<size_t>(y) * w + x] || x == 0 || y == 0 || x == w - 1 || y == h - 1)
+        {
+          clearance[static_cast<size_t>(y) * w + x] = 0;
+          frontier.push_back(TilePosition(x, y));
+        }
+    for (size_t q = 0; q < frontier.size(); ++q)
+    {
+      const TilePosition c = frontier[q];
+      const int d = clearance[static_cast<size_t>(c.y) * w + c.x];
+      for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx)
+        {
+          const int nx = c.x + dx, ny = c.y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h || clearance[static_cast<size_t>(ny) * w + nx] <= d + 1)
+            continue;
+          clearance[static_cast<size_t>(ny) * w + nx] = d + 1;
+          frontier.push_back(TilePosition(nx, ny));
+        }
+    }
     const int mainLevel = Broodwar->getGroundHeight(mainTile_) / 2;
-    int drop = -1;
+    const TilePosition natTile = natural_ >= 0 ? TilePosition(bases_[natural_].center) : TilePositions::None;
+    int choke = -1, narrowest = std::numeric_limits<int>::max();
     for (size_t k = 1; k < path.size(); ++k)
+    {
+      const int fromMain = path[k].getApproxDistance(start);
+      if (fromMain < 8)
+        continue;
+      if (fromMain > 40 || (natTile != TilePositions::None && path[k].getApproxDistance(natTile) < 8))
+        break;
       if (Broodwar->getGroundHeight(path[k]) / 2 < mainLevel)
       {
-        drop = static_cast<int>(k);
+        choke = static_cast<int>(k) - 1; // the top of a ramp down
         break;
       }
+      const int c = clearance[static_cast<size_t>(path[k].y) * w + path[k].x];
+      if (c < narrowest)
+      {
+        narrowest = c;
+        choke = static_cast<int>(k);
+      }
+    }
     auto at = [&](int k) { return path[static_cast<size_t>(std::clamp(k, 0, static_cast<int>(path.size()) - 1))]; };
     auto center = [](TilePosition t) { return Position(t.x * 32 + 16, t.y * 32 + 16); };
-    if (drop >= 4)
+    if (choke >= 4)
     {
-      mainChoke_ = at(drop - 1);
-      bunkerSpot_ = center(at(drop - 3));
-      rally_ = center(at(drop - 5));
-      ctx_.log.info("Map", concat("main ramp at ", mainChoke_.x, ",", mainChoke_.y, ": rally ", rally_.x, ",", rally_.y,
-                                  ", bunker near ", bunkerSpot_.x / 32, ",", bunkerSpot_.y / 32));
+      mainChoke_ = at(choke);
+      mainEntranceDistance_ = mainChoke_.getApproxDistance(start);
+      bunkerSpot_ = center(at(choke - 3));
+      rally_ = center(at(choke - 4));
+      ctx_.log.info("Map", concat("main entrance at ", mainChoke_.x, ",", mainChoke_.y, " (", narrowest == std::numeric_limits<int>::max() ? 0 : narrowest,
+                                  " tiles clearance): rally ", rally_.x / 32, ",", rally_.y / 32, ", bunker near ", bunkerSpot_.x / 32, ",",
+                                  bunkerSpot_.y / 32));
     }
     else
-      ctx_.log.info("Map", "the main has no ramp down on the way out: rally point kept");
+      ctx_.log.info("Map", "no entrance found on the way out of the main: rally point kept");
 
     // In front of the natural: the path tile closest to it, then 5 tiles further out.
     if (natural_ >= 0)

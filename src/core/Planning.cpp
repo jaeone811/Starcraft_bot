@@ -133,6 +133,21 @@ namespace bb
     return baseShare + (maxShare - baseShare) * std::clamp(score, 0.0, 1.0);
   }
 
+  EnemyMix withRacePrior(const EnemyMix& seen, EnemyRace race)
+  {
+    if (seen.total() >= 6 || race == EnemyRace::Unknown)
+      return seen;
+    EnemyMix m = seen;
+    switch (race)
+    {
+    case EnemyRace::Protoss: m.melee += 3; m.heavy += 2; break;
+    case EnemyRace::Zerg: m.melee += 2; m.light += 3; break;
+    case EnemyRace::Terran: m.light += 3; m.heavy += 2; break;
+    case EnemyRace::Unknown: break;
+    }
+    return m;
+  }
+
   FactoryUnit chooseFactoryUnit(int vultures, int tanks, int goliaths, const EnemyMix& enemy,
                                 bool hasMachineShop, bool armoryReady)
   {
@@ -150,7 +165,8 @@ namespace bb
       return armoryReady && enemy.air > 0 ? FactoryUnit::Goliath : FactoryUnit::Vulture;
     // Vultures beat melee units; otherwise they are a small cheap share next to tanks.
     const double vultureShare = 0.2 + 0.4 * static_cast<double>(enemy.melee) / total;
-    if (vultures < vultureShare * (built + 1) && tanks > 0)
+    // Against mostly melee (zealots, lings) a Vulture may come first.
+    if (vultures < vultureShare * (built + 1) && (tanks > 0 || 2 * enemy.melee >= total))
       return FactoryUnit::Vulture;
     return FactoryUnit::SiegeTank;
   }

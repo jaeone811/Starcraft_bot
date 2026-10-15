@@ -225,6 +225,14 @@ namespace bb
     return mix;
   }
 
+  EnemyMix InformationManager::expectedEnemyMix() const
+  {
+    const EnemyRace race = enemyRace_ == Races::Protoss ? EnemyRace::Protoss
+                         : enemyRace_ == Races::Zerg    ? EnemyRace::Zerg
+                         : enemyRace_ == Races::Terran  ? EnemyRace::Terran : EnemyRace::Unknown;
+    return withRacePrior(enemyMix(), race);
+  }
+
   int InformationManager::knownEnemyCombatUnits() const
   {
     int n = 0;

@@ -586,7 +586,7 @@ namespace bb
                 self->allUnitCount(UnitTypes::Terran_Siege_Tank_Siege_Mode);
     int goliaths = self->allUnitCount(UnitTypes::Terran_Goliath);
     const bool armoryReady = self->completedUnitCount(UnitTypes::Terran_Armory) > 0;
-    const EnemyMix enemy = ctx_.info->enemyMix();
+    const EnemyMix enemy = ctx_.config.enemyInfoUsage >= 1 ? ctx_.info->expectedEnemyMix() : ctx_.info->enemyMix();
     for (Unit factory : self->getUnits())
     {
       if (factory->getType() != UnitTypes::Terran_Factory || !factory->isCompleted())

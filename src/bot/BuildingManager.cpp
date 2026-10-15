@@ -191,6 +191,12 @@ namespace bb
     const TileRect r = footprint(tile, task.type);
     if (producesGroundUnits(task.type) && !ringOpen(r))
       return false;
+    // Behind the entrance (closer to the main than it is), so the Bunker at the
+    // entrance covers them; one game had Barracks and Factories in front of it.
+    const int entrance = ctx_.map->mainEntranceDistance();
+    if (entrance > 0 && !task.type.isResourceDepot() && task.type != UnitTypes::Terran_Missile_Turret &&
+        TilePosition(r.x + r.w / 2, r.y + r.h / 2).getApproxDistance(ctx_.map->mainTile()) > entrance - 2)
+      return false;
     for (Unit u : Broodwar->self()->getUnits())
       if (producesGroundUnits(u->getType()) && !u->isLifted() && rectsOverlap(r, footprint(u->getTilePosition(), u->getType()), 1))
         return false;

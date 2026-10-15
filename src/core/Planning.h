@@ -131,6 +131,12 @@ namespace bb
   // moves towards `maxShare` the more the enemy army is melee, heavy or air.
   double targetMechShare(const EnemyMix& enemy, double baseShare, double maxShare, bool adapt);
 
+  // Before much of the enemy army has been seen, plan for what that race usually
+  // opens with (Protoss: zealots then dragoons; Zerg: lings then hydras; Terran:
+  // marines then tanks), so the first units fit the opponent.
+  enum class EnemyRace { Unknown, Protoss, Zerg, Terran };
+  EnemyMix withRacePrior(const EnemyMix& seen, EnemyRace race);
+
   // What an idle Factory should build next.
   enum class FactoryUnit { Vulture, SiegeTank, Goliath };
   FactoryUnit chooseFactoryUnit(int vultures, int tanks, int goliaths, const EnemyMix& enemy,

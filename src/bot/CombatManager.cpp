@@ -231,7 +231,21 @@ namespace bb
     if (ctx_.strategy->baseUnderThreat())
     {
       lastThreatFrame_ = ctx_.frame;
-      if (state_ == State::Gather && !army_.empty() && ctx_.frame >= ignoreThreatUntilFrame_)
+      // An army holding out on the map only comes home when the units near home and
+      // the Bunker cannot deal with the attack themselves.
+      bool homeHolds = false;
+      if (state_ == State::Gather && holdPoint_.isValid())
+      {
+        std::vector<Unit> home;
+        for (Unit u : army_)
+          if (u->getDistance(ctx_.strategy->threatCenter()) < 25 * kTile)
+            home.push_back(u);
+        for (int id : bunkerCrew_)
+          if (Unit m = Broodwar->getUnit(id))
+            home.push_back(m);
+        homeHolds = enemyStrengthOf(ctx_.strategy->baseThreats()) <= strengthOf(home) * 1.2;
+      }
+      if (state_ == State::Gather && !army_.empty() && ctx_.frame >= ignoreThreatUntilFrame_ && !homeHolds)
       {
         state_ = State::Defend;
         stateFrame_ = ctx_.frame;
@@ -240,12 +254,22 @@ namespace bb
       }
       else if (state_ == State::Attack && ctx_.config.recallArmyToDefend && ctx_.strategy->baseThreats().size() >= 2)
       {
-        std::vector<Unit> waveUnits;
+        // Only when what is at home (units not in the wave, the Bunker crew) cannot
+        // hold: one game recalled four waves for raids of 1-3 units.
+        std::vector<Unit> waveUnits, home;
         for (Unit u : army_)
-          if (wave_.count(u->getID()))
-            waveUnits.push_back(u);
-        if (groupCenter(waveUnits).getApproxDistance(ctx_.map->mainPosition()) > 30 * kTile)
+          (wave_.count(u->getID()) ? waveUnits : home).push_back(u);
+        for (int id : bunkerCrew_)
+          if (Unit m = Broodwar->getUnit(id))
+            home.push_back(m);
+        const double threat = enemyStrengthOf(ctx_.strategy->baseThreats());
+        const double defense = strengthOf(home);
+        if (threat > defense * 1.2 && groupCenter(waveUnits).getApproxDistance(ctx_.map->mainPosition()) > 30 * kTile)
+        {
+          ctx_.log.info("Combat", concat("base attack too strong for home (", static_cast<int>(threat), " vs ",
+                                         static_cast<int>(defense), "): recalling the wave"));
           endWave("recalled to defend the base", State::Defend);
+        }
       }
     }
 

@@ -51,6 +51,7 @@ namespace bb
     double knownEnemyArmyStrength() const; // remembered non-worker combat units + static defense
     int knownEnemyCombatUnits() const;
     EnemyMix enemyMix() const;             // remembered enemy army by counter group
+    EnemyMix expectedEnemyMix() const;     // enemyMix plus what the enemy race usually opens with, early on
     // An enemy that attacks while hidden (Dark Templar, Lurker, cloaked Ghost/Wraith)
     // has been seen this game: we need detection.
     bool hiddenAttackerSeen() const { return hiddenAttackerFrame_ >= 0; }
