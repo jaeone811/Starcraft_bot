@@ -133,6 +133,7 @@ namespace bb
     }
 
     computeRally();
+    computeSearchCells();
 
     ctx_.log.info("Map", concat("map=", Broodwar->mapFileName(), " size=", Broodwar->mapWidth(), "x", Broodwar->mapHeight(),
                                 " startLocations=", Broodwar->getStartLocations().size(), " bases=", bases_.size(),
@@ -201,10 +202,38 @@ namespace bb
     }
   }
 
+  void MapInfo::computeSearchCells()
+  {
+    // 8x8-tile squares; in each the walkable point closest to its middle that the
+    // main can reach by ground (islands and cliffs without a way up are skipped).
+    constexpr int kCell = 8;
+    const Position main = mainPosition();
+    for (int cy = 0; cy < Broodwar->mapHeight(); cy += kCell)
+      for (int cx = 0; cx < Broodwar->mapWidth(); cx += kCell)
+      {
+        bool found = false;
+        for (int r = 0; r <= kCell / 2 && !found; ++r)
+          for (int dy = -r; dy <= r && !found; ++dy)
+            for (int dx = -r; dx <= r && !found; ++dx)
+            {
+              const Position p(((cx + kCell / 2 + dx) * 32) + 16, ((cy + kCell / 2 + dy) * 32) + 16);
+              if (p.isValid() && walkableAt(p) && groundReachable(main, p))
+              {
+                searchCells_.push_back({ p, -1 });
+                found = true;
+              }
+            }
+      }
+    ctx_.log.info("Map", concat(searchCells_.size(), " search cells for hidden buildings"));
+  }
+
   void MapInfo::update()
   {
     for (auto& b : bases_)
       if (Broodwar->isVisible(b.depotTile))
         b.lastSeenFrame = ctx_.frame;
+    for (auto& c : searchCells_)
+      if (Broodwar->isVisible(TilePosition(c.point)))
+        c.lastSeenFrame = ctx_.frame;
   }
 }

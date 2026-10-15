@@ -151,6 +151,29 @@ namespace bb
         best = AttackTarget{ b.center, "search expansion" };
       }
     }
+    if (best)
+      return best;
+
+    // 5. Every base was looked at in the last minute and nothing is known: the enemy
+    //    hides buildings away from the bases. Sweep the map, the part not seen for
+    //    the longest first (nearest among equals). One level 4 game spent 8 minutes
+    //    cycling through the same four empty bases with a maxed army.
+    int oldestCell = std::numeric_limits<int>::max();
+    int bestCellDist = std::numeric_limits<int>::max();
+    for (const auto& c : ctx_.map->searchCells())
+    {
+      if (c.lastSeenFrame >= 0 && ctx_.frame - c.lastSeenFrame < 24 * 90)
+        continue;
+      if (!usable(c.point))
+        continue;
+      const int d = from.getApproxDistance(c.point);
+      if (c.lastSeenFrame < oldestCell || (c.lastSeenFrame == oldestCell && d < bestCellDist))
+      {
+        oldestCell = c.lastSeenFrame;
+        bestCellDist = d;
+        best = AttackTarget{ c.point, "search map" };
+      }
+    }
     return best;
   }
 

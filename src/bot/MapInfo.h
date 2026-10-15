@@ -21,6 +21,14 @@ namespace bb
     int lastSeenFrame = -1;                                     // last frame the depot tile was visible
   };
 
+  // A square of the map for searching hidden buildings: a ground-reachable point
+  // in it and the last frame that point was visible.
+  struct SearchCell
+  {
+    BWAPI::Position point;
+    int lastSeenFrame = -1;
+  };
+
   class MapInfo
   {
   public:
@@ -37,6 +45,7 @@ namespace bb
     const BaseLocation* natural() const;
     BWAPI::Position rallyPoint() const { return rally_; }      // where the army waits
     const std::vector<BWAPI::TilePosition>& otherStartLocations() const { return otherStarts_; }
+    const std::vector<SearchCell>& searchCells() const { return searchCells_; }
 
     // Ground connection between two points (uses BWAPI's static region data).
     bool groundReachable(BWAPI::Position from, BWAPI::Position to) const;
@@ -44,6 +53,7 @@ namespace bb
   private:
     BWAPI::TilePosition findDepotTile(const std::vector<BWAPI::Position>& resources, BWAPI::Position resourceCenter) const;
     void computeRally();
+    void computeSearchCells();
 
     BotContext& ctx_;
     std::vector<BaseLocation> bases_;
@@ -51,5 +61,6 @@ namespace bb
     BWAPI::TilePosition mainTile_ = BWAPI::TilePositions::None;
     int natural_ = -1;
     BWAPI::Position rally_;
+    std::vector<SearchCell> searchCells_;
   };
 }
