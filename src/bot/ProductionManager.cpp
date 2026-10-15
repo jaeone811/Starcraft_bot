@@ -184,8 +184,8 @@ namespace bb
 
   void ProductionManager::buildBunker(Budget& budget)
   {
-    // One Bunker at the rally point (the army's waiting spot on the way out of the
-    // main) once a Barracks is up; CombatManager puts 4 marines in it.
+    // One Bunker just inside the main's ramp once a Barracks is up; CombatManager
+    // puts 4 marines in it.
     const UnitType bunker = UnitTypes::Terran_Bunker;
     Player self = Broodwar->self();
     if (!ctx_.config.earlyBunker || ctx_.frame >= 24 * 600 || planned(bunker) > 0 || ctx_.buildings->onCooldown(bunker) ||
@@ -193,8 +193,8 @@ namespace bb
       return;
     if (budget.tryReserve(costOf(bunker)))
     {
-      ctx_.log.info("Production", "Bunker at the rally point against early attacks");
-      ctx_.buildings->request(bunker, TilePosition(ctx_.map->rallyPoint()));
+      ctx_.log.info("Production", "Bunker at the main ramp against early attacks");
+      ctx_.buildings->request(bunker, TilePosition(ctx_.map->bunkerSpot()));
       lastPlan_ += "bunker ";
     }
     else

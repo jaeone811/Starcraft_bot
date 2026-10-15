@@ -43,7 +43,11 @@ namespace bb
     BWAPI::Position mainPosition() const;
     int naturalIndex() const { return natural_; }             // -1 if none was found
     const BaseLocation* natural() const;
-    BWAPI::Position rallyPoint() const { return rally_; }      // where the army waits
+    // Where the army waits: the top of the main's ramp, and once the natural is ours,
+    // in front of the natural.
+    BWAPI::Position rallyPoint() const;
+    BWAPI::TilePosition mainChoke() const { return mainChoke_; } // last high-ground tile before the ramp; None if not found
+    BWAPI::Position bunkerSpot() const { return bunkerSpot_; }   // just inside the ramp, covering it
     const std::vector<BWAPI::TilePosition>& otherStartLocations() const { return otherStarts_; }
     const std::vector<SearchCell>& searchCells() const { return searchCells_; }
 
@@ -54,6 +58,8 @@ namespace bb
     BWAPI::TilePosition findDepotTile(const std::vector<BWAPI::Position>& resources, BWAPI::Position resourceCenter) const;
     void computeRally();
     void computeSearchCells();
+    void computeChoke();
+    std::vector<BWAPI::TilePosition> groundPath(BWAPI::TilePosition from, BWAPI::TilePosition to) const;
 
     BotContext& ctx_;
     std::vector<BaseLocation> bases_;
@@ -62,5 +68,9 @@ namespace bb
     int natural_ = -1;
     BWAPI::Position rally_;
     std::vector<SearchCell> searchCells_;
+    BWAPI::TilePosition mainChoke_ = BWAPI::TilePositions::None;
+    BWAPI::Position bunkerSpot_ = BWAPI::Positions::None;
+    BWAPI::Position naturalRally_ = BWAPI::Positions::None;
+    bool naturalOwned_ = false;
   };
 }

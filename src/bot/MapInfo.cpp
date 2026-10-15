@@ -3,6 +3,7 @@
 #include "BwapiUtil.h"
 #include "Planning.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -133,6 +134,7 @@ namespace bb
     }
 
     computeRally();
+    computeChoke();
     computeSearchCells();
 
     ctx_.log.info("Map", concat("map=", Broodwar->mapFileName(), " size=", Broodwar->mapWidth(), "x", Broodwar->mapHeight(),
@@ -202,6 +204,133 @@ namespace bb
     }
   }
 
+  Position MapInfo::rallyPoint() const
+  {
+    return naturalOwned_ && naturalRally_.isValid() ? naturalRally_ : rally_;
+  }
+
+  std::vector<TilePosition> MapInfo::groundPath(TilePosition from, TilePosition to) const
+  {
+    // Breadth-first search over walkable tiles (static terrain, minerals and geysers
+    // blocked). Small enough for 256x256 maps at game start.
+    const int w = Broodwar->mapWidth(), h = Broodwar->mapHeight();
+    std::vector<char> blocked(static_cast<size_t>(w) * h, 0);
+    for (int y = 0; y < h; ++y)
+      for (int x = 0; x < w; ++x)
+      {
+        bool ok = true;
+        for (int i = 1; i <= 2 && ok; ++i)
+          for (int j = 1; j <= 2 && ok; ++j)
+            ok = Broodwar->isWalkable(x * 4 + i, y * 4 + j);
+        blocked[static_cast<size_t>(y) * w + x] = ok ? 0 : 1;
+      }
+    auto blockUnit = [&](Unit r) {
+      const TilePosition t = r->getInitialTilePosition();
+      const UnitType type = r->getInitialType();
+      for (int y = t.y; y < t.y + type.tileHeight(); ++y)
+        for (int x = t.x; x < t.x + type.tileWidth(); ++x)
+          if (x >= 0 && y >= 0 && x < w && y < h)
+            blocked[static_cast<size_t>(y) * w + x] = 1;
+    };
+    for (Unit m : Broodwar->getStaticMinerals())
+      blockUnit(m);
+    for (Unit g : Broodwar->getStaticGeysers())
+      blockUnit(g);
+    auto idx = [w](int x, int y) { return static_cast<size_t>(y) * w + x; };
+    std::vector<int> parent(static_cast<size_t>(w) * h, -2);
+    std::vector<TilePosition> queue;
+    if (!from.isValid() || !to.isValid())
+      return {};
+    blocked[idx(from.x, from.y)] = 0;
+    blocked[idx(to.x, to.y)] = 0;
+    parent[idx(from.x, from.y)] = -1;
+    queue.push_back(from);
+    for (size_t q = 0; q < queue.size(); ++q)
+    {
+      const TilePosition c = queue[q];
+      if (c == to)
+        break;
+      for (int dy = -1; dy <= 1; ++dy)
+        for (int dx = -1; dx <= 1; ++dx)
+        {
+          const int nx = c.x + dx, ny = c.y + dy;
+          if ((dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= w || ny >= h || blocked[idx(nx, ny)] || parent[idx(nx, ny)] != -2)
+            continue;
+          if (dx != 0 && dy != 0 && (blocked[idx(c.x + dx, c.y)] || blocked[idx(c.x, c.y + dy)]))
+            continue; // no corner cutting
+          parent[idx(nx, ny)] = static_cast<int>(idx(c.x, c.y));
+          queue.push_back(TilePosition(nx, ny));
+        }
+    }
+    if (parent[idx(to.x, to.y)] == -2)
+      return {};
+    std::vector<TilePosition> path;
+    for (int i = static_cast<int>(idx(to.x, to.y)); i >= 0; i = parent[static_cast<size_t>(i)])
+      path.push_back(TilePosition(i % w, i / w));
+    std::reverse(path.begin(), path.end());
+    return path;
+  }
+
+  void MapInfo::computeChoke()
+  {
+    // The way out of the main: walk the ground path towards the enemy and take the
+    // last tile that is still on the main's height level. The army waits a few
+    // tiles inside it and the early Bunker covers it (the user: "defend the
+    // entrance with the Bunker", not deep in the main behind the Barracks).
+    TilePosition goal = TilePositions::None;
+    int bestDist = std::numeric_limits<int>::max();
+    for (TilePosition t : otherStarts_)
+      if (mainTile_.getApproxDistance(t) < bestDist)
+      {
+        bestDist = mainTile_.getApproxDistance(t);
+        goal = t;
+      }
+    if (goal == TilePositions::None && natural_ >= 0)
+      goal = bases_[natural_].depotTile;
+    const TilePosition start(mainPosition());
+    const std::vector<TilePosition> path = groundPath(start, goal);
+    bunkerSpot_ = rally_;
+    if (path.empty())
+    {
+      ctx_.log.info("Map", "no ground path out of the main found: rally point kept");
+      return;
+    }
+    const int mainLevel = Broodwar->getGroundHeight(mainTile_) / 2;
+    int drop = -1;
+    for (size_t k = 1; k < path.size(); ++k)
+      if (Broodwar->getGroundHeight(path[k]) / 2 < mainLevel)
+      {
+        drop = static_cast<int>(k);
+        break;
+      }
+    auto at = [&](int k) { return path[static_cast<size_t>(std::clamp(k, 0, static_cast<int>(path.size()) - 1))]; };
+    auto center = [](TilePosition t) { return Position(t.x * 32 + 16, t.y * 32 + 16); };
+    if (drop >= 4)
+    {
+      mainChoke_ = at(drop - 1);
+      bunkerSpot_ = center(at(drop - 3));
+      rally_ = center(at(drop - 5));
+      ctx_.log.info("Map", concat("main ramp at ", mainChoke_.x, ",", mainChoke_.y, ": rally ", rally_.x, ",", rally_.y,
+                                  ", bunker near ", bunkerSpot_.x / 32, ",", bunkerSpot_.y / 32));
+    }
+    else
+      ctx_.log.info("Map", "the main has no ramp down on the way out: rally point kept");
+
+    // In front of the natural: the path tile closest to it, then 5 tiles further out.
+    if (natural_ >= 0)
+    {
+      const TilePosition nat(bases_[natural_].center);
+      int best = -1, bestD = std::numeric_limits<int>::max();
+      for (size_t k = 0; k < path.size(); ++k)
+        if (path[k].getApproxDistance(nat) < bestD)
+        {
+          bestD = path[k].getApproxDistance(nat);
+          best = static_cast<int>(k);
+        }
+      naturalRally_ = bestD <= 12 ? center(at(best + 5)) : bases_[natural_].center;
+    }
+  }
+
   void MapInfo::computeSearchCells()
   {
     // 8x8-tile squares; in each the walkable point closest to its middle that the
@@ -229,6 +358,17 @@ namespace bb
 
   void MapInfo::update()
   {
+    if (natural_ >= 0)
+    {
+      bool owned = false;
+      for (Unit u : Broodwar->self()->getUnits())
+        owned = owned || (u->getType().isResourceDepot() && u->isCompleted() &&
+                          u->getTilePosition().getApproxDistance(bases_[natural_].depotTile) <= 2);
+      if (owned != naturalOwned_)
+        ctx_.log.info("Map", owned ? concat("natural is ours: rally moves to ", naturalRally_.x, ",", naturalRally_.y)
+                                   : std::string("natural lost: rally back at the main ramp"));
+      naturalOwned_ = owned;
+    }
     for (auto& b : bases_)
       if (Broodwar->isVisible(b.depotTile))
         b.lastSeenFrame = ctx_.frame;

@@ -355,13 +355,17 @@ namespace bb
 
   void CombatManager::holdPosition(Position p)
   {
-    // The wave won its fights and found nothing more: it waits where it is for the
-    // next target and the reinforcements, instead of walking back across the map
-    // and out again. Home (the rally point) again after a retreat or to defend.
-    if (p.isValid() && ctx_.map->groundReachable(ctx_.map->rallyPoint(), p))
+    // The army waits there for the next target and the reinforcements, instead of
+    // walking back across the map and out again. The spot is where a ground unit
+    // of ours stands (the group center can be on a cliff; in 0.6.1 it never held).
+    Unit closest = nullptr;
+    for (Unit u : army_)
+      if (!u->isFlying() && (!closest || u->getDistance(p) < closest->getDistance(p)))
+        closest = u;
+    if (closest && ctx_.map->groundReachable(ctx_.map->rallyPoint(), closest->getPosition()))
     {
-      holdPoint_ = p;
-      ctx_.log.info("Combat", concat("army holds at ", p.x, ",", p.y, " instead of walking home"));
+      holdPoint_ = closest->getPosition();
+      ctx_.log.info("Combat", concat("army holds at ", holdPoint_.x, ",", holdPoint_.y, " instead of walking home"));
     }
   }
 
@@ -369,6 +373,11 @@ namespace bb
   {
     if (next != State::Gather)
       holdPoint_ = Positions::None;
+    if (next == State::Retreat)
+    {
+      retreatFrom_ = groupCenter(army_);
+      safeSinceFrame_ = -1;
+    }
     ctx_.strategy->onWaveEnd(waveLost_, waveKilled_, waveValueLost_, waveValueKilled_, reason);
     wave_.clear();
     state_ = next;
@@ -705,18 +714,36 @@ namespace bb
 
   void CombatManager::retreat()
   {
+    // Pull back only as far as needed: towards home, but stop once nothing that can
+    // hurt us has been near for a few seconds and we got at least 10 tiles away. The
+    // army then regroups there with the reinforcements instead of in the main.
     const Position rally = ctx_.map->rallyPoint();
     const int rallyRadius = groupRadiusTiles(kRallyRadiusTiles, static_cast<int>(army_.size())) * kTile;
     for (Unit u : army_)
       if (!settledNear(u, rally, rallyRadius) && !packUp(*ctx_.commander, u))
         ctx_.commander->move(u, rally);
     const Position center = groupCenter(army_);
-    if (army_.empty() || center.getApproxDistance(rally) < 6 * kTile || ctx_.frame - stateFrame_ > 24 * 25)
+    bool threatened = false;
+    for (Unit e : ctx_.info->visibleEnemiesNear(center, 14 * kTile))
+      threatened = threatened || (canAttackGround(e->getType()) && !e->getType().isWorker());
+    if (threatened)
+      safeSinceFrame_ = -1;
+    else if (safeSinceFrame_ < 0)
+      safeSinceFrame_ = ctx_.frame;
+    const bool safe = safeSinceFrame_ >= 0 && ctx_.frame - safeSinceFrame_ >= 24 * 3 && retreatFrom_.isValid() &&
+                      center.getApproxDistance(retreatFrom_) >= 10 * kTile;
+    if (army_.empty() || center.getApproxDistance(rally) < 6 * kTile || safe || ctx_.frame - stateFrame_ > 24 * 25)
     {
       state_ = State::Gather;
       stateFrame_ = ctx_.frame;
       nextAttackAllowedFrame_ = ctx_.frame + 24 * 15;
-      ctx_.log.info("Combat", "retreat finished; gathering");
+      if (safe && center.getApproxDistance(rally) > 15 * kTile)
+      {
+        ctx_.log.info("Combat", "retreat stops: out of danger");
+        holdPosition(center);
+      }
+      else
+        ctx_.log.info("Combat", "retreat finished; gathering");
     }
   }
 

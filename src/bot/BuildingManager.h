@@ -56,6 +56,7 @@ namespace bb
     BWAPI::TilePosition findLocation(const Task& task) const;
     bool overlapsOtherTask(const Task& task, BWAPI::TilePosition tile) const;
     bool keepsExitsOpen(const Task& task, BWAPI::TilePosition tile) const;
+    bool blocksRamp(const Task& task, BWAPI::TilePosition tile) const;
     bool recentlyBlocked(BWAPI::TilePosition tile) const;
     void updateTask(Task& task, bool& remove);
     void startConstructionCheck(Task& task);

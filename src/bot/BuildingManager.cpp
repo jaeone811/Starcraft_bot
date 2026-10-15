@@ -172,6 +172,17 @@ namespace bb
     return false;
   }
 
+  bool BuildingManager::blocksRamp(const Task& task, TilePosition tile) const
+  {
+    // Nothing but the Bunker within 3 tiles of the top of the main's ramp: the way
+    // out stays open and nothing stands in front of the Bunker.
+    const TilePosition choke = ctx_.map->mainChoke();
+    if (task.type == UnitTypes::Terran_Bunker || !choke.isValid() || choke == TilePositions::None)
+      return false;
+    const TileRect r = footprint(tile, task.type);
+    return rectsOverlap(r, TileRect{ choke.x, choke.y, 1, 1 }, 3);
+  }
+
   bool BuildingManager::keepsExitsOpen(const Task& task, TilePosition tile) const
   {
     // A Barracks or Factory (with its add-on) keeps a free one-tile ring, and nothing
@@ -233,7 +244,7 @@ namespace bb
       {
         TilePosition tile = Broodwar->getBuildLocation(type, task.desired, 12);
         if (tile.isValid() && tile != TilePositions::None && !overlapsOtherTask(task, tile) && !recentlyBlocked(tile) &&
-            tile.getApproxDistance(task.desired) <= 12 && (!spaced || keepsExitsOpen(task, tile)))
+            tile.getApproxDistance(task.desired) <= 12 && !blocksRamp(task, tile) && (!spaced || keepsExitsOpen(task, tile)))
           return tile;
       }
       return TilePositions::None;
@@ -244,7 +255,8 @@ namespace bb
         TilePosition desired = anchor + offsets[(task.placementAttempts + i) % (spaced ? n : 9)];
         desired.makeValid();
         TilePosition tile = Broodwar->getBuildLocation(type, desired, 40);
-        if (!tile.isValid() || tile == TilePositions::None || overlapsOtherTask(task, tile) || recentlyBlocked(tile))
+        if (!tile.isValid() || tile == TilePositions::None || overlapsOtherTask(task, tile) || recentlyBlocked(tile) ||
+            blocksRamp(task, tile))
           continue;
         if (spaced && !keepsExitsOpen(task, tile))
           continue;
