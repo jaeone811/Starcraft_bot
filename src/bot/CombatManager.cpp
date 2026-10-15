@@ -179,7 +179,7 @@ namespace bb
     if (ctx_.strategy->baseUnderThreat())
     {
       lastThreatFrame_ = ctx_.frame;
-      if (state_ == State::Gather && !army_.empty())
+      if (state_ == State::Gather && !army_.empty() && ctx_.frame >= ignoreThreatUntilFrame_)
       {
         state_ = State::Defend;
         stateFrame_ = ctx_.frame;
@@ -285,6 +285,7 @@ namespace bb
     lastProgressCheckFrame_ = ctx_.frame;
     noProgressChecks_ = 0;
     regrouping_ = false;
+    fallingBack_ = false;
     nextRegroupAllowedFrame_ = 0;
     regroups_ = 0;
     sieges_ = 0;
@@ -504,11 +505,14 @@ namespace bb
         if (seenEnemies.insert(e->getID()).second)
           localEnemies.push_back(e);
     std::vector<Unit> localOwnUnits;
+    std::set<int> inContact;
     for (Unit u : waveUnits)
       for (Unit e : localEnemies)
         if (u->getDistance(e) < kJoinFightRadius)
         {
           localOwnUnits.push_back(u);
+          if (u->getDistance(e) < kLocalRadius)
+            inContact.insert(u->getID());
           break;
         }
     const double localOwn = strengthOf(localOwnUnits);
@@ -516,8 +520,24 @@ namespace bb
 
     // Survivors are compared with every shooter sent (start + reinforcements), so a
     // wave that keeps being refilled still pulls back once it has lost most of them.
+    // When only the front of a strung-out wave is outmatched but the whole wave is
+    // not, the front falls back to the others instead of the wave going home (a
+    // 29-shooter wave once retreated because its first 2 units met a cannon).
+    bool fallBack = false;
     if (shouldRetreat(localOwn, localEnemy, ctx_.config.retreatStrengthRatio, shooters, waveCommitted_,
-                      ctx_.config.retreatArmyFraction))
+                      ctx_.config.retreatArmyFraction) &&
+        !shouldRetreat(strengthOf(waveUnits), localEnemy, ctx_.config.retreatStrengthRatio, shooters, waveCommitted_,
+                       ctx_.config.retreatArmyFraction))
+    {
+      fallBack = true;
+      if (!fallingBack_)
+        ctx_.log.info("Combat", concat("front falls back to the wave: ", inContact.size(), " units in contact (",
+                                       static_cast<int>(localOwn), " vs enemy ", static_cast<int>(localEnemy), "), wave ",
+                                       static_cast<int>(strengthOf(waveUnits))));
+    }
+    fallingBack_ = fallBack;
+    if (!fallBack && shouldRetreat(localOwn, localEnemy, ctx_.config.retreatStrengthRatio, shooters, waveCommitted_,
+                                   ctx_.config.retreatArmyFraction))
     {
       ctx_.log.info("Combat", concat("retreating: wave ", shooters, "/", waveCommitted_, " shooters, local strength ",
                                      static_cast<int>(localOwn), " (", localOwnUnits.size(), " units) vs enemy ",
@@ -616,6 +636,8 @@ namespace bb
     {
       if (isMedic(u))
         moveMedic(u, center);
+      else if (fallBack && inContact.count(u->getID()) && !(isSiegeTank(u->getType()) && updateSiege(u) != TankMode::Mobile))
+        ctx_.commander->move(u, center);
       else if (regrouping_ && u->getDistance(target_) < centerToTarget)
       {
         if (u->isMoving())
@@ -656,11 +678,18 @@ namespace bb
       return;
     }
     const Position threat = ctx_.strategy->threatCenter();
-    if (threat.getApproxDistance(ctx_.map->mainPosition()) > 35 * kTile && army_.size() > 0)
+    // Do not chase far away from home. Home is every Command Center, also one being
+    // built: measured from the main only, an attacked third base was never defended
+    // (and the state flipped Gather/Defend every few frames).
+    int homeDistance = threat.getApproxDistance(ctx_.map->mainPosition());
+    for (Unit u : Broodwar->self()->getUnits())
+      if (u->getType().isResourceDepot())
+        homeDistance = std::min(homeDistance, threat.getApproxDistance(u->getPosition()));
+    if (homeDistance > 35 * kTile && army_.size() > 0)
     {
-      // Do not chase far away from home.
       state_ = State::Gather;
       stateFrame_ = ctx_.frame;
+      ignoreThreatUntilFrame_ = ctx_.frame + 24 * 5;
       return;
     }
     const std::vector<Unit> enemies = ctx_.info->visibleEnemiesNear(threat, kLocalRadius);

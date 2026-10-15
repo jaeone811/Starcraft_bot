@@ -295,6 +295,10 @@ namespace bb
         taken = taken || e.position.getApproxDistance(b.center) < 12 * 32;
       if (b.isStartLocation && b.depotTile != ctx_.map->mainTile() && ctx_.info->startStatus(b.depotTile) != StartStatus::Empty)
         taken = true;
+      // Something we can see stands on the spot (enemy units, a building we did not
+      // recognise): another base. The third base on Boxer once failed this way twice.
+      if (!taken && Broodwar->isExplored(b.depotTile) && !Broodwar->canBuildHere(b.depotTile, UnitTypes::Terran_Command_Center))
+        taken = true;
       if (taken || !ctx_.map->groundReachable(main, b.center))
         continue;
       const int d = i == ctx_.map->naturalIndex() ? 0 : main.getApproxDistance(b.center);

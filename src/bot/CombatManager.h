@@ -63,6 +63,8 @@ namespace bb
     int lastThreatFrame_ = -10000;
     int readySinceFrame_ = -1;  // first frame the attack conditions held in Gather
     bool regrouping_ = false;
+    bool fallingBack_ = false;
+    int ignoreThreatUntilFrame_ = 0;   // a threat too far from every base is not chased for a while
     int regroupStartFrame_ = 0;
     int nextRegroupAllowedFrame_ = 0;
     bool loggedNoTarget_ = false;
