@@ -24,6 +24,8 @@ namespace bb
     // Returns false if the type is on a failure cooldown.
     bool request(BWAPI::UnitType type, BWAPI::TilePosition desired = BWAPI::TilePositions::None);
     bool onCooldown(BWAPI::UnitType type) const;
+    // A building site where SCVs were killed or attacked on the way: avoided for a while.
+    bool siteDangerous(BWAPI::Position p) const;
 
     // Tasks that have not started construction yet (their cost is reserved).
     int notStarted(BWAPI::UnitType type) const;
@@ -52,6 +54,8 @@ namespace bb
       int reissues = 0;        // build orders repeated while Assigned
       bool loggedUnexplored = false;
       int dangerSince = -1;    // frame enemies were first seen at the site while waiting (-1: none)
+      int builderTrouble = 0;  // builders killed or attacked on the way to a far site
+      int pathDangerUntil = -1; // no new builder before this frame (the last one was attacked on the way)
     };
 
     BWAPI::TilePosition findLocation(const Task& task) const;
@@ -59,6 +63,10 @@ namespace bb
     bool keepsExitsOpen(const Task& task, BWAPI::TilePosition tile, bool behindEntrance) const;
     bool blocksRamp(const Task& task, BWAPI::TilePosition tile) const;
     bool recentlyBlocked(BWAPI::TilePosition tile) const;
+    bool nearArmySpot(const Task& task, BWAPI::TilePosition tile) const;
+    bool farFromOurBases(BWAPI::Position site) const;
+    // Two builders lost on the way: the task fails and the site is avoided.
+    bool builderTroubleGivesUp(Task& task, BWAPI::Position site, bool& remove);
     bool enemiesAtSite(BWAPI::Position p) const;
     bool waitForSafeSite(Task& task, BWAPI::Position site, bool& remove);
     void updateTask(Task& task, bool& remove);
@@ -71,6 +79,7 @@ namespace bb
     std::vector<Task> tasks_;
     std::map<int, int> cooldownUntil_; // unit type id -> frame
     std::vector<std::pair<BWAPI::TilePosition, int>> blockedTiles_; // spot -> avoid until frame
+    std::vector<std::pair<BWAPI::Position, int>> dangerousSites_;   // site -> avoid until frame
     int nextId_ = 1;
   };
 }

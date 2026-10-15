@@ -21,6 +21,8 @@ namespace bb
     constexpr int kMaxBuildReissues = 4;           // build orders re-sent to an SCV that did not start
     constexpr int kBlockedTileFrames = 24 * 180;   // a spot where construction did not start is avoided this long
     constexpr int kExploreTimeout = 24 * 120;      // walking to an unexplored spot
+    constexpr int kDangerousSiteFrames = 24 * 180; // a site where builders were lost is avoided this long
+    constexpr int kFarSiteTiles = 15;              // a site this far from every Command Center of ours is "far"
 
     bool rectsOverlap(TilePosition a, UnitType ta, TilePosition b, UnitType tb, int margin)
     {
@@ -230,6 +232,67 @@ namespace bb
     return true;
   }
 
+  bool BuildingManager::siteDangerous(Position p) const
+  {
+    for (const auto& [site, until] : dangerousSites_)
+      if (ctx_.frame < until && site.getApproxDistance(p) < 10 * 32)
+        return true;
+    return false;
+  }
+
+  bool BuildingManager::farFromOurBases(Position site) const
+  {
+    for (Unit u : Broodwar->self()->getUnits())
+      if (u->getType().isResourceDepot() && u->isCompleted() && u->getDistance(site) <= kFarSiteTiles * 32)
+        return false;
+    return true;
+  }
+
+  bool BuildingManager::builderTroubleGivesUp(Task& task, Position site, bool& remove)
+  {
+    // A far site where two builders were killed or attacked on the way is given up
+    // and avoided for 3 minutes: 25 SCVs walked one after another to a center base
+    // next to the enemy's third and died on the way.
+    if (task.builderTrouble < 2)
+      return false;
+    dangerousSites_.push_back({ site, ctx_.frame + kDangerousSiteFrames });
+    ctx_.log.info("Build", concat("task #", task.id, " ", task.type.c_str(), ": ", task.builderTrouble,
+                                  " builders lost or attacked on the way; site ", site.x / 32, ",", site.y / 32,
+                                  " avoided for 3 minutes"));
+    fail(task, "builders lost on the way");
+    remove = true;
+    return true;
+  }
+
+  bool BuildingManager::nearArmySpot(const Task& task, TilePosition tile) const
+  {
+    // The Bunker, the spot right behind it where the army waits and the rally point
+    // stay clear: Barracks and Factories built after the Bunker went right behind it
+    // (the Bunker in front of their doors, the army squeezed between them), and a
+    // depot did not start for 1.5 minutes where the army stood.
+    const UnitType type = task.type;
+    if (type == UnitTypes::Terran_Bunker || type == UnitTypes::Terran_Missile_Turret || type.isResourceDepot() || type.isRefinery())
+      return false;
+    const TileRect r = footprint(tile, type);
+    bool bunkerStands = false;
+    for (Unit u : Broodwar->self()->getUnits())
+      if (u->getType() == UnitTypes::Terran_Bunker)
+      {
+        bunkerStands = true;
+        if (rectsOverlap(r, footprint(u->getTilePosition(), u->getType()), 3))
+          return true;
+      }
+    auto near = [&](Position p, int margin) {
+      if (!p.isValid() || p == Positions::None)
+        return false;
+      const TilePosition t(p);
+      return rectsOverlap(r, TileRect{ t.x, t.y, 1, 1 }, margin);
+    };
+    if (!bunkerStands && near(ctx_.map->bunkerSpot(), 3))
+      return true;
+    return near(ctx_.map->bunkerRally(), 2) || near(ctx_.map->rallyPoint(), 2);
+  }
+
   bool BuildingManager::recentlyBlocked(TilePosition tile) const
   {
     for (const auto& [t, until] : blockedTiles_)
@@ -334,7 +397,8 @@ namespace bb
       {
         const TilePosition t(centre.x + dx, centre.y + dy);
         if (dx * dx + dy * dy > radius * radius || !t.isValid() || !Broodwar->canBuildHere(t, type) || !addonSpaceFree(t, type) ||
-            overlapsOtherTask(task, t) || recentlyBlocked(t) || blocksRamp(task, t) || takesAddonSpot(t, type))
+            overlapsOtherTask(task, t) || recentlyBlocked(t) || blocksRamp(task, t) || takesAddonSpot(t, type) ||
+            nearArmySpot(task, t))
           continue;
         legal.push_back(t);
       }
@@ -346,14 +410,21 @@ namespace bb
       const int da = distance2(a), db = distance2(b);
       return da != db ? da < db : (a.y != b.y ? a.y < b.y : a.x < b.x);
     });
-    for (int pass = 0; pass < 3; ++pass)
+    // Pass 2 stays on the main's plateau (its ground height): the next spot by
+    // distance can be down the ramp, in front of the Bunker.
+    const int mainHeight = Broodwar->getGroundHeight(ctx_.map->mainTile());
+    for (int pass = 0; pass < 4; ++pass)
       for (TilePosition t : legal)
       {
-        if (pass < 2 && !keepsExitsOpen(task, t, pass == 0))
+        if (pass < 3 && !keepsExitsOpen(task, t, pass == 0))
+          continue;
+        if (pass == 1 && Broodwar->getGroundHeight(t) != mainHeight)
           continue;
         if (pass == 1)
-          ctx_.log.info("Build", concat("no spot behind the entrance for ", type.c_str(), ": using ", t.x, ",", t.y));
+          ctx_.log.info("Build", concat("no spot behind the entrance for ", type.c_str(), ": using ", t.x, ",", t.y, " on the main plateau"));
         if (pass == 2)
+          ctx_.log.info("Build", concat("no spot on the main plateau for ", type.c_str(), ": using ", t.x, ",", t.y));
+        if (pass == 3)
           ctx_.log.info("Build", concat("no spot with free exits for ", type.c_str(), ": using ", t.x, ",", t.y));
         return t;
       }
@@ -364,7 +435,7 @@ namespace bb
       desired.makeValid();
       TilePosition tile = Broodwar->getBuildLocation(type, desired, 40);
       if (!tile.isValid() || tile == TilePositions::None || overlapsOtherTask(task, tile) || recentlyBlocked(tile) ||
-          blocksRamp(task, tile))
+          blocksRamp(task, tile) || nearArmySpot(task, tile))
         continue;
       ctx_.log.info("Build", concat("main is full for ", type.c_str(), ": using ", tile.x, ",", tile.y));
       return tile;
@@ -441,6 +512,8 @@ namespace bb
       }
       if (waitForSafeSite(task, buildingCenter(task.tile, task.type), remove))
         return;
+      if (ctx_.frame < task.pathDangerUntil)
+        return;   // the last builder was attacked on the way
       if (!isValid(task.builder))
       {
         task.builder = ctx_.workers->acquireWorker(buildingCenter(task.tile, task.type), WorkerRole::Build);
@@ -510,6 +583,7 @@ namespace bb
         waitForSafeSite(task, buildingCenter(task.tile, task.type), remove);
         return;
       }
+      const Position site = buildingCenter(task.tile, task.type);
       if (!isValid(task.builder))
       {
         ctx_.log.info("Build", concat("task #", task.id, " lost its builder; choosing another"));
@@ -517,6 +591,26 @@ namespace bb
         task.state = State::WaitingForBuilder;
         task.stateFrame = ctx_.frame;
         ++ctx_.metrics.buildRetries;
+        if (farFromOurBases(site))
+        {
+          ++task.builderTrouble;
+          task.pathDangerUntil = ctx_.frame + 24 * 30;
+          builderTroubleGivesUp(task, site, remove);
+        }
+        return;
+      }
+      // Attacked on the way to a far site: back home, and the next builder waits
+      // 30 s. Near home the army is there to clear the way.
+      if (task.builder->isUnderAttack() && task.builder->getDistance(site) > 6 * 32 && farFromOurBases(site))
+      {
+        ++task.builderTrouble;
+        ctx_.log.info("Build", concat("task #", task.id, " SCV#", task.builder->getID(), " attacked on the way to ", task.type.c_str(),
+                                      ": turning back"));
+        releaseBuilder(task);
+        task.state = State::WaitingForBuilder;
+        task.stateFrame = ctx_.frame;
+        task.pathDangerUntil = ctx_.frame + 24 * 30;
+        builderTroubleGivesUp(task, site, remove);
         return;
       }
       // Travel time plus a margin; SCVs move ~5 pixels per frame.

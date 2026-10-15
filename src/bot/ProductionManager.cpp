@@ -408,6 +408,18 @@ namespace bb
       // could not handle (they killed the Command Center being built there and every
       // SCV sent after it). Any enemy at all kept the natural waiting from 7:30 to
       // 11:45 on one base: Zerglings poking the Bunker 14 tiles away counted.
+      // Not on the enemy's side: a base nearer to a known enemy building than to our
+      // nearest Command Center (a center base next to the enemy's third took 25 SCVs).
+      if (i != ctx_.map->naturalIndex())
+      {
+        int ours = std::numeric_limits<int>::max(), theirs = std::numeric_limits<int>::max();
+        for (Unit u : Broodwar->self()->getUnits())
+          if (u->getType().isResourceDepot())
+            ours = std::min(ours, u->getPosition().getApproxDistance(b.center));
+        for (const auto& [id, e] : ctx_.info->enemyBuildings())
+          theirs = std::min(theirs, e.position.getApproxDistance(b.center));
+        taken = taken || theirs < ours;
+      }
       const bool takenBefore = taken;
       std::vector<double> seen;
       for (const auto& [id, e] : ctx_.info->enemyUnits())
@@ -415,7 +427,7 @@ namespace bb
             e.position.getApproxDistance(b.center) < 15 * 32)
           seen.push_back(typeStrength(e.type));
       const double seenStrength = combineStrength(seen);
-      taken = taken || baseContested(seenStrength, army);
+      taken = taken || baseContested(seenStrength, army) || ctx_.buildings->siteDangerous(b.center);
       const bool contestedOnly = taken && !takenBefore;
       if (contestedOnly && i == ctx_.map->naturalIndex() && ctx_.frame >= nextContestedLogFrame_)
       {
