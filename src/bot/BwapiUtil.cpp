@@ -120,6 +120,11 @@ namespace bb
       ++mix.light;
   }
 
+  bool isDropTransport(UnitType type)
+  {
+    return type == UnitTypes::Protoss_Shuttle || type == UnitTypes::Terran_Dropship;
+  }
+
   bool isSiegeTank(UnitType type)
   {
     return type == UnitTypes::Terran_Siege_Tank_Tank_Mode || type == UnitTypes::Terran_Siege_Tank_Siege_Mode;

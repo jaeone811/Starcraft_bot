@@ -29,6 +29,7 @@ namespace bb
   // Counts one enemy unit type into the melee / heavy / light / air groups.
   void addToEnemyMix(EnemyMix& mix, BWAPI::UnitType type);
   bool isMeleeType(BWAPI::UnitType type);    // enemy units firebats are good against
+  bool isDropTransport(BWAPI::UnitType type); // Shuttle / Dropship: may carry a Reaver, Tanks, ...
 
   // Damage per frame against ground units (special cases for Bunker, Carrier, Reaver).
   double groundDamagePerFrame(BWAPI::UnitType type);

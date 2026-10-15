@@ -474,6 +474,18 @@ TEST_CASE("anti-air: strength counts only what can shoot the enemy")
   CHECK(!helpsAgainstAir(ResearchItem::VehicleWeapons1));
 }
 
+TEST_CASE("geometry: stepping away from a Scarab's target")
+{
+  const Point p = awayFrom({ 100, 100 }, { 70, 100 }, 96);
+  CHECK_EQ(p.x, 196);
+  CHECK_EQ(p.y, 100);
+  const Point q = awayFrom({ 100, 100 }, { 100, 100 }, 96);   // on the spot: sideways
+  CHECK_EQ(q.x, 196);
+  const Point r = awayFrom({ 0, 0 }, { 30, 40 }, 50);
+  CHECK_EQ(r.x, -30);
+  CHECK_EQ(r.y, -40);
+}
+
 TEST_CASE("expansion: a base is contested only by enemies the army cannot handle")
 {
   CHECK(!baseContested(0.0, 0.0));          // nobody seen there

@@ -88,6 +88,12 @@ namespace bb
         // BWAPI reports hidden enemy units next to ours with isDetected() == false
         // (the level 3 games scanned Lurkers this way).
         const UnitType type = u->getType();
+        // The first of each kind is logged: a game was lost to Reavers that the log
+        // never named.
+        if (u->exists() && !type.isBuilding() && !type.isWorker() && !ignoredType(type) &&
+            typesSeen_.insert(type.getID()).second)
+          ctx_.log.info("Info", concat("enemy unit first seen: ", type.c_str(), " at ", u->getTilePosition().x, ",",
+                                       u->getTilePosition().y));
         const bool hidden = type.hasPermanentCloak() || type == UnitTypes::Zerg_Lurker || u->isCloaked() || u->isBurrowed();
         if (hiddenAttackerFrame_ < 0 && u->exists() && hidden && !type.isWorker() && canAttackGround(type))
         {

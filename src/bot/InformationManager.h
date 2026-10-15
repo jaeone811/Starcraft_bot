@@ -11,6 +11,7 @@
 
 #include <map>
 #include <optional>
+#include <set>
 #include <vector>
 
 namespace bb
@@ -73,6 +74,7 @@ namespace bb
     BWAPI::Race enemyRace_ = BWAPI::Races::Unknown;
     bool loggedInference_ = false;
     int hiddenAttackerFrame_ = -1;
+    std::set<int> typesSeen_;           // enemy unit types logged once when first seen
     int rushFrame_ = -1;
   };
 }

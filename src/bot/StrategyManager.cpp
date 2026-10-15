@@ -228,7 +228,10 @@ namespace bb
         if (!e->exists() || !e->isVisible())
           continue;
         const UnitType t = e->getType();
-        const bool dangerous = (canAttackGround(t) && !t.isWorker() && !t.isBuilding()) || (t.isWorker() && e->isAttacking());
+        // A Shuttle or Dropship near our buildings is about to drop (a Reaver in the
+        // mineral line killed eight SCVs): shoot it before it unloads.
+        const bool dangerous = (canAttackGround(t) && !t.isWorker() && !t.isBuilding()) || (t.isWorker() && e->isAttacking()) ||
+                               isDropTransport(t);
         if (!dangerous)
           continue;
         for (const Position& p : ours)

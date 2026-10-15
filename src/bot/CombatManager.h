@@ -46,6 +46,8 @@ namespace bb
     void repairBunker(BWAPI::Unit bunker);
     void releaseRepairers();
     void useScans();
+    void dodgeScarabs();
+    bool dodging(BWAPI::Unit u) const;
     void gather();
     void attack();
     void retreat();
@@ -84,6 +86,9 @@ namespace bb
     int kiteSteps_ = 0;                 // back-off steps from melee units (reported per wave)
     BWAPI::Position guardedBase_ = BWAPI::Positions::None;
     bool loggedAirInBase_ = false;      // "flyers in the base" logged once
+    std::map<int, int> dodgeUntil_;     // unit id -> frame it may take orders again (Scarab dodge)
+    int dodges_ = 0;                    // units that stepped aside from Scarabs (reported per wave)
+    int nextDodgeLogFrame_ = 0;
     int harasserId_ = -1;                // enemy worker attacking our SCVs in a base
     int harassSinceFrame_ = 0;
     std::set<int> chasers_;             // SCVs sent after it

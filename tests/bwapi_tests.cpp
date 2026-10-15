@@ -128,6 +128,13 @@ TEST_CASE("tech tree assumptions")
   CHECK(damageFactor(UnitTypes::Terran_Firebat.groundWeapon(), UnitSizeTypes::Large) == 0.25);
   CHECK(damageFactor(UnitTypes::Terran_Marine.groundWeapon(), UnitSizeTypes::Large) == 1.0);
   CHECK_EQ(UnitTypes::Protoss_Dragoon.groundWeapon().maxRange(), 128);
+  // Reavers: the Scarab is its own unit; the Shuttle carries the Reaver.
+  CHECK(UnitTypes::Protoss_Scarab != UnitTypes::None);
+  CHECK(groundDamagePerFrame(UnitTypes::Protoss_Reaver) > groundDamagePerFrame(UnitTypes::Protoss_Dragoon));
+  CHECK(isDropTransport(UnitTypes::Protoss_Shuttle));
+  CHECK(UnitTypes::Protoss_Shuttle.isFlyer());
+  CHECK(!canAttackGround(UnitTypes::Protoss_Shuttle));
+  CHECK(UnitTypes::Protoss_Shuttle.spaceProvided() >= UnitTypes::Protoss_Reaver.spaceRequired());
   // Anti-air: what can shoot Mutalisks.
   CHECK(UnitTypes::Zerg_Mutalisk.isFlyer());
   CHECK(canAttackGround(UnitTypes::Zerg_Mutalisk));

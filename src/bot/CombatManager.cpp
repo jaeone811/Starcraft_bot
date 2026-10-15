@@ -464,6 +464,52 @@ namespace bb
       }
   }
 
+  bool CombatManager::dodging(Unit u) const
+  {
+    auto it = dodgeUntil_.find(u->getID());
+    return it != dodgeUntil_.end() && ctx_.frame < it->second;
+  }
+
+  void CombatManager::dodgeScarabs()
+  {
+    // Every level: a Scarab does 100 damage to everything within about two tiles of
+    // the unit it flies at; Reavers cut down our clumped army a group at a time.
+    // Our units next to that unit step 3 tiles straight away from it for half a
+    // second; the target itself keeps fighting (the Scarab follows it anyway).
+    constexpr int kSplash = 2 * kTile + 8;
+    for (auto it = dodgeUntil_.begin(); it != dodgeUntil_.end();)
+      it = ctx_.frame >= it->second ? dodgeUntil_.erase(it) : std::next(it);
+    for (Player enemy : Broodwar->enemies())
+      for (Unit s : enemy->getUnits())
+      {
+        if (!s->exists() || s->getType() != UnitTypes::Protoss_Scarab)
+          continue;
+        Unit target = s->getOrderTarget() ? s->getOrderTarget() : s->getTarget();
+        if (!isValid(target) || target->getPlayer() != Broodwar->self())
+          continue;
+        const Position hit = target->getPosition();
+        int moved = 0;
+        for (Unit u : army_)
+        {
+          if (u == target || u->isFlying() || u->getType() == UnitTypes::Terran_Siege_Tank_Siege_Mode || dodging(u) ||
+              u->getDistance(hit) > kSplash)
+            continue;
+          const Position dest = toPosition(awayFrom(toPoint(u->getPosition()), toPoint(hit), 3 * kTile));
+          if (!dest.isValid())
+            continue;
+          ctx_.commander->move(u, dest, 4);
+          dodgeUntil_[u->getID()] = ctx_.frame + 12;
+          ++moved;
+        }
+        dodges_ += moved;
+        if (moved > 0 && ctx_.frame >= nextDodgeLogFrame_)
+        {
+          ctx_.log.info("Combat", concat("Scarab at ", target->getType().c_str(), ": ", moved, " units next to it step aside"));
+          nextDodgeLogFrame_ = ctx_.frame + 24 * 30;
+        }
+      }
+  }
+
   void CombatManager::update()
   {
     collectArmy();
@@ -471,6 +517,7 @@ namespace bb
     chaseWorkerHarass();
     layMines();
     useScans();
+    dodgeScarabs();
 
     if (ctx_.strategy->baseUnderThreat())
     {
@@ -545,6 +592,8 @@ namespace bb
     int nearRally = 0;
     for (Unit u : army_)
     {
+      if (dodging(u))
+        continue;
       if ((isSiegeTank(u->getType()) && updateSiege(u) != TankMode::Mobile) || settledNear(u, rally, rallyRadius))
       {
         ++nearRally;
@@ -666,8 +715,10 @@ namespace bb
     stateFrame_ = ctx_.frame;
     regrouping_ = false;
     ctx_.log.info("Combat", concat("wave over: ", reason, " -> ", stateName(), " (regrouped ", regroups_, " times, sieged ", sieges_,
-                                   " times, ", kiteSteps_, " back-off steps from melee/outranged units)"));
+                                   " times, ", kiteSteps_, " back-off steps from melee/outranged units, ", dodges_,
+                                   " Scarab dodges)"));
     kiteSteps_ = 0;
+    dodges_ = 0;
   }
 
   bool CombatManager::pickNewTarget(Position from)
@@ -734,6 +785,8 @@ namespace bb
     const UnitType type = u->getType();
     const bool hitsAir = type.airWeapon() != WeaponTypes::None;
     const bool sieged = type == UnitTypes::Terran_Siege_Tank_Siege_Mode;
+    if (dodging(u))
+      return;   // stepping aside from a Scarab
     if (isSiegeTank(type) && updateSiege(u) == TankMode::Switching)
       return;
 
@@ -825,13 +878,15 @@ namespace bb
       for (Unit e : enemies)
       {
         TargetInfo t;
-        t.canAttackUs = canAttackGround(e->getType());
+        // A Shuttle or Dropship counts as what it may carry (a Reaver).
+        const bool transport = isDropTransport(e->getType());
+        t.canAttackUs = canAttackGround(e->getType()) || transport;
         t.isBuilding = e->getType().isBuilding();
         t.isWorker = e->getType().isWorker();
         t.hitPoints = e->getHitPoints() + e->getShields();
         const int maxHp = std::max(1, e->getType().maxHitPoints() + e->getType().maxShields());
         t.hpFraction = static_cast<double>(t.hitPoints) / maxHp;
-        t.damagePerFrame = groundDamagePerFrame(e->getType());
+        t.damagePerFrame = transport ? groundDamagePerFrame(UnitTypes::Protoss_Reaver) : groundDamagePerFrame(e->getType());
         t.distance = u->getDistance(e);
         t.inRange = u->isInWeaponRange(e);
         t.ourDamageFactor = damageFactor(e->isFlying() ? type.airWeapon() : type.groundWeapon(), e->getType().size());
@@ -1167,7 +1222,7 @@ namespace bb
           fight(u, airThreat, airOwn, airEnemy);
           continue;
         }
-        if (settledNear(u, behindBunker, 3 * kTile))
+        if (dodging(u) || settledNear(u, behindBunker, 3 * kTile))
           continue;
         if (isSupport(u))
           ctx_.commander->move(u, behindBunker);

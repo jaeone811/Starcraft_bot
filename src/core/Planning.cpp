@@ -352,6 +352,15 @@ namespace bb
     return clusters;
   }
 
+  Point awayFrom(Point unit, Point danger, int distance)
+  {
+    const double dx = unit.x - danger.x, dy = unit.y - danger.y;
+    const double len = std::sqrt(dx * dx + dy * dy);
+    if (len < 1.0)
+      return { unit.x + distance, unit.y };
+    return { unit.x + static_cast<int>(dx * distance / len), unit.y + static_cast<int>(dy * distance / len) };
+  }
+
   Point centroid(const std::vector<Point>& points)
   {
     if (points.empty())

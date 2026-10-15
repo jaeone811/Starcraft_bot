@@ -248,6 +248,8 @@ namespace bb
   std::vector<std::vector<int>> clusterPoints(const std::vector<Point>& points, int maxLinkDistance);
 
   Point centroid(const std::vector<Point>& points);
+  // `distance` away from `danger`, straight out from it (sideways if on the spot).
+  Point awayFrom(Point unit, Point danger, int distance);
   int countWithin(const std::vector<Point>& points, Point center, int radius);
 
   // Radius in tiles within which a group of `units` counts as standing together.
