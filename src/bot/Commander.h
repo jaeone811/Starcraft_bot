@@ -33,6 +33,8 @@ namespace bb
     bool stop(BWAPI::Unit u, int cooldown = 24);
     bool siege(BWAPI::Unit tank, int cooldown = 48);
     bool unsiege(BWAPI::Unit tank, int cooldown = 48);
+    bool enterBunker(BWAPI::Unit u, BWAPI::Unit bunker, int cooldown = 48);
+    bool unloadAll(BWAPI::Unit bunker, int cooldown = 48);
 
     void forget(BWAPI::Unit u);
     // True if the last call was dropped as a duplicate (not sent, not a failure).

@@ -76,6 +76,8 @@ namespace bb
     // ---- Resource allocation ----------------------------------------------
     bool strictPriority = false;         // save up for a blocked higher-priority item
     bool armyFirstWhenThreatened = false;// when our base is attacked, army beats workers/buildings
+    int earlyDefenseArmy = 0;            // fighting units wanted by 6:00; below Planning::earlyDefenseTarget the army is bought before tech
+    bool earlyBunker = false;            // a Bunker at the rally point with 4 marines until the early game is over
 
     // ---- Scouting / information -------------------------------------------
     int scoutAtSupply = 0;               // 0 = only the frame fallback triggers the scout

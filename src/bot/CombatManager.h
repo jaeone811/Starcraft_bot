@@ -39,6 +39,7 @@ namespace bb
     TankMode updateSiege(BWAPI::Unit tank);
 
     void collectArmy();
+    void manageBunker();
     void useScans();
     void gather();
     void attack();
@@ -64,6 +65,8 @@ namespace bb
     int readySinceFrame_ = -1;  // first frame the attack conditions held in Gather
     bool regrouping_ = false;
     bool fallingBack_ = false;
+    std::set<int> bunkerCrew_;          // marines sent into the Bunker (kept out of the army)
+    bool bunkerReleased_ = false;
     int ignoreThreatUntilFrame_ = 0;   // a threat too far from every base is not chased for a while
     int regroupStartFrame_ = 0;
     int nextRegroupAllowedFrame_ = 0;

@@ -103,8 +103,57 @@ namespace bb
   {
     army_.clear();
     for (Unit u : Broodwar->self()->getUnits())
-      if (isOurArmyType(u->getType()) && u->isCompleted() && u->exists() && !u->isLoaded())
+      if (isOurArmyType(u->getType()) && u->isCompleted() && u->exists() && !u->isLoaded() && !bunkerCrew_.count(u->getID()))
         army_.push_back(u);
+  }
+
+  void CombatManager::manageBunker()
+  {
+    // Early game: 4 marines sit in the Bunker at the rally point and shoot from
+    // there. Once the early game is over (10:00) or the army is big, they come out
+    // and join it again.
+    Unit bunker = nullptr;
+    for (Unit u : Broodwar->self()->getUnits())
+      if (u->getType() == UnitTypes::Terran_Bunker && u->isCompleted())
+        bunker = u;
+    for (auto it = bunkerCrew_.begin(); it != bunkerCrew_.end();)
+    {
+      Unit m = Broodwar->getUnit(*it);
+      it = (!isValid(m) || (!m->isLoaded() && !bunker)) ? bunkerCrew_.erase(it) : std::next(it);
+    }
+    if (!bunker)
+      return;
+    if (!bunkerReleased_ && (ctx_.frame >= 24 * 600 || shooterCount(army_) >= 30))
+    {
+      bunkerReleased_ = true;
+      ctx_.log.info("Combat", concat("early game over: ", bunker->getLoadedUnits().size(), " marines leave the Bunker"));
+    }
+    if (bunkerReleased_)
+    {
+      if (!bunker->getLoadedUnits().empty())
+        ctx_.commander->unloadAll(bunker);
+      bunkerCrew_.clear();
+      return;
+    }
+    // Fill it from the marines at home (never from a wave that is out).
+    while (bunkerCrew_.size() < 4)
+    {
+      Unit best = nullptr;
+      for (Unit u : army_)
+        if (u->getType() == UnitTypes::Terran_Marine && !wave_.count(u->getID()) && !bunkerCrew_.count(u->getID()) &&
+            (!best || u->getDistance(bunker) < best->getDistance(bunker)))
+          best = u;
+      if (!best)
+        break;
+      bunkerCrew_.insert(best->getID());
+      army_.erase(std::remove(army_.begin(), army_.end(), best), army_.end());
+    }
+    for (int id : bunkerCrew_)
+    {
+      Unit m = Broodwar->getUnit(id);
+      if (isValid(m) && !m->isLoaded())
+        ctx_.commander->enterBunker(m, bunker);
+    }
   }
 
   Position CombatManager::groupCenter(const std::vector<Unit>& units) const
@@ -176,6 +225,7 @@ namespace bb
   void CombatManager::update()
   {
     collectArmy();
+    manageBunker();
     useScans();
 
     if (ctx_.strategy->baseUnderThreat())

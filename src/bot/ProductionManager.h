@@ -43,6 +43,8 @@ namespace bb
     bool requirementsMet(BWAPI::UnitType type) const;
     bool freeGeyserAvailable() const;
     bool supplyStalled();
+    int fightingUnits() const;
+    void buildBunker(Budget& budget);
     const BaseLocation* nextExpansion() const;
 
     BotContext& ctx_;
@@ -55,6 +57,7 @@ namespace bb
     int machineShopRetryFrame_ = 0;
     int stalledSinceFrame_ = -1;
     int lastExpansionFrame_ = -1;
+    bool loggedEarlyDefense_ = false;
     int loggedStallStep_ = -1;
   };
 }

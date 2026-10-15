@@ -57,6 +57,8 @@ TEST_CASE("higher difficulty never plays worse on the tuned axes")
     CHECK(hi.airShare >= lo.airShare);
     CHECK(hi.maxScienceVessels >= lo.maxScienceVessels);
     CHECK(hi.useBattlecruisers >= lo.useBattlecruisers);
+    CHECK(hi.earlyDefenseArmy >= lo.earlyDefenseArmy);
+    CHECK(hi.earlyBunker >= lo.earlyBunker);
     CHECK(hi.expandEarliestFrame <= lo.expandEarliestFrame);
   }
 }
@@ -353,6 +355,17 @@ TEST_CASE("budget: greedy lets cheaper items through, strict saves up")
   Budget supplyBlocked(500, 0, 0, true);
   CHECK(!supplyBlocked.tryReserve({ 50, 0, 2 }));    // supply problem: do not hoard money
   CHECK(supplyBlocked.tryReserve({ 100, 0, 0 }));    // the depot can still be bought
+}
+
+TEST_CASE("early defense army grows until 6:00 and ends at 8:00")
+{
+  CHECK_EQ(earlyDefenseTarget(24 * 120, 10), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 180, 10), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 270, 10), 5);
+  CHECK_EQ(earlyDefenseTarget(24 * 360, 10), 10);
+  CHECK_EQ(earlyDefenseTarget(24 * 479, 10), 10);
+  CHECK_EQ(earlyDefenseTarget(24 * 480, 10), 0);
+  CHECK_EQ(earlyDefenseTarget(24 * 360, 0), 0);
 }
 
 TEST_CASE("budget: reserveFirst saves up even at the greedy levels")

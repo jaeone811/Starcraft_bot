@@ -32,6 +32,8 @@ namespace bb
       c.maxConcurrentDepots = 1;
       c.strictPriority = false;
       c.armyFirstWhenThreatened = false;
+      c.earlyDefenseArmy = 4;
+      c.earlyBunker = false;
       c.scoutAtSupply = 0;
       c.scoutAtFrame = minutes(5);
       c.inferEnemyStartByElimination = false;
@@ -83,6 +85,8 @@ namespace bb
       c.maxConcurrentDepots = 1;
       c.strictPriority = false;
       c.armyFirstWhenThreatened = false;
+      c.earlyDefenseArmy = 6;
+      c.earlyBunker = false;
       c.scoutAtSupply = 15;
       c.scoutAtFrame = minutes(4);
       c.inferEnemyStartByElimination = true;
@@ -134,6 +138,8 @@ namespace bb
       c.maxConcurrentDepots = 1;
       c.strictPriority = true;
       c.armyFirstWhenThreatened = true;
+      c.earlyDefenseArmy = 8;
+      c.earlyBunker = true;
       c.scoutAtSupply = 12;
       c.scoutAtFrame = minutes(3);
       c.inferEnemyStartByElimination = true;
@@ -189,6 +195,8 @@ namespace bb
       c.maxConcurrentDepots = 2;
       c.strictPriority = true;
       c.armyFirstWhenThreatened = true;
+      c.earlyDefenseArmy = 10;
+      c.earlyBunker = true;
       c.scoutAtSupply = 10;
       c.scoutAtFrame = minutes(2);
       c.inferEnemyStartByElimination = true;
@@ -246,6 +254,8 @@ namespace bb
       c.maxConcurrentDepots = 3;
       c.strictPriority = true;
       c.armyFirstWhenThreatened = true;
+      c.earlyDefenseArmy = 10;
+      c.earlyBunker = true;
       c.scoutAtSupply = 9;
       c.scoutAtFrame = minutes(2);
       c.inferEnemyStartByElimination = true;
@@ -339,7 +349,8 @@ namespace bb
        << " bases<=" << c.maxBases << " expand>=" << c.expandEarliestFrame << "f@" << c.expandAtWorkers << "workers";
     ss << "\n  supply: lookahead=" << c.supplyLookaheadFrames << " fixedMargin=" << c.supplyFixedMargin
        << " maxConcurrentDepots=" << c.maxConcurrentDepots << " marginOnBlock=+" << c.supplyMarginIncreaseOnBlock;
-    ss << "\n  allocation: strictPriority=" << c.strictPriority << " armyFirstWhenThreatened=" << c.armyFirstWhenThreatened;
+    ss << "\n  allocation: strictPriority=" << c.strictPriority << " armyFirstWhenThreatened=" << c.armyFirstWhenThreatened
+       << " earlyDefenseArmy=" << c.earlyDefenseArmy << " earlyBunker=" << c.earlyBunker;
     ss << "\n  scouting: atSupply=" << c.scoutAtSupply << " atFrame=" << c.scoutAtFrame
        << " inferByElimination=" << c.inferEnemyStartByElimination << " observeFrames=" << c.scoutObserveFrames
        << " rescout=" << c.rescoutAfterDeath << " infoUsage=" << c.enemyInfoUsage;

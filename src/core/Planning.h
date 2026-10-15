@@ -42,6 +42,12 @@ namespace bb
   // Only the first waiting step is released, so the order stays in sequence.
   bool buildStepDue(int supplyUsed, int stepSupply, bool supplyStalled, bool earlierStepReleased);
 
+  // ---------------------------------------------------------------- early defense
+  // Fighting units we want to have by `frame` so an early attack (the built-in
+  // Protoss sends zealots around 6:30) meets an army: none before 3:00, rising to
+  // `armyBySixMinutes` at 6:00, held until 8:00, nothing after.
+  int earlyDefenseTarget(int frame, int armyBySixMinutes);
+
   // ---------------------------------------------------------------- expansion
   struct ExpansionInputs
   {

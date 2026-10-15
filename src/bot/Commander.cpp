@@ -40,7 +40,7 @@ namespace bb
     // unreachable target). Report it once per streak so it shows up in validation.
     const bool producerCommand = key.kind == CommandKind::Train || key.kind == CommandKind::Research ||
                                  key.kind == CommandKind::Upgrade || key.kind == CommandKind::SetRally ||
-                                 key.kind == CommandKind::UseTech;
+                                 key.kind == CommandKind::UseTech || key.kind == CommandKind::UnloadAll;
     if (!producerCommand && inARow == 8)
     {
       ++ctx_.metrics.unitStuckEvents;
@@ -152,6 +152,18 @@ namespace bb
   {
     return issue(building, { CommandKind::SetRally, -1, p.x, p.y, 0 }, cooldown, "set-rally",
                  [&] { return building->setRallyPoint(p); });
+  }
+
+  bool Commander::enterBunker(Unit u, Unit bunker, int cooldown)
+  {
+    if (!isValid(bunker))
+      return false;
+    return issue(u, { CommandKind::Load, bunker->getID(), 0, 0, 0 }, cooldown, "enter-bunker", [&] { return u->rightClick(bunker); });
+  }
+
+  bool Commander::unloadAll(Unit bunker, int cooldown)
+  {
+    return issue(bunker, { CommandKind::UnloadAll, -1, 0, 0, 0 }, cooldown, "unload-all", [&] { return bunker->unloadAll(); });
   }
 
   bool Commander::stop(Unit u, int cooldown)

@@ -113,6 +113,9 @@ TEST_CASE("tech tree assumptions")
   CHECK(researchBuilding(ResearchItem::VehiclePlating1) == UnitTypes::Terran_Armory);
   CHECK(researchBuilding(ResearchItem::CharonBoosters) == UnitTypes::Terran_Machine_Shop);
   CHECK(UpgradeTypes::Charon_Boosters.whatsRequired(1) == UnitTypes::Terran_Armory);
+  // The early Bunker needs only a Barracks and holds 4 marines.
+  CHECK(UnitTypes::Terran_Bunker.requiredUnits().count(UnitTypes::Terran_Barracks) == 1);
+  CHECK_EQ(UnitTypes::Terran_Bunker.spaceProvided(), 4);
   // Other mech: Vultures need only a Factory (and no gas), Goliaths an Armory and hit air.
   CHECK(UnitTypes::Terran_Vulture.whatBuilds().first == UnitTypes::Terran_Factory);
   CHECK(UnitTypes::Terran_Vulture.requiredUnits().count(UnitTypes::Terran_Machine_Shop) == 0);

@@ -94,17 +94,28 @@ namespace bb
     lastPlan_.clear();
 
     const bool armyFirst = ctx_.strategy->baseUnderThreat() && ctx_.config.armyFirstWhenThreatened;
+    // Every level: until the early army is there, it is bought before tech and
+    // research (but after workers). The level sets how big that army is.
+    const bool earlyDefense = !armyFirst && fightingUnits() < earlyDefenseTarget(ctx_.frame, ctx_.config.earlyDefenseArmy);
+    if (earlyDefense != loggedEarlyDefense_)
+      ctx_.log.info("Production", earlyDefense ? concat("early defense: ", fightingUnits(), " fighting units, want ",
+                                                        earlyDefenseTarget(ctx_.frame, ctx_.config.earlyDefenseArmy), " - army before tech")
+                                               : std::string("early defense army is there"));
+    loggedEarlyDefense_ = earlyDefense;
     planSupply(budget);
     ensureCommandCenter(budget);
     buildDetection(budget);
     if (armyFirst)
       trainArmy(budget);
     trainWorkers(budget);
+    buildBunker(budget);
+    if (earlyDefense)
+      trainArmy(budget);
     followBuildOrder(budget);
     macroBuildings(budget);
     doResearch(budget);
     buildComsat(budget);
-    if (!armyFirst)
+    if (!armyFirst && !earlyDefense)
       trainArmy(budget);
     measureIdle(elapsedFrames, budget);
   }
@@ -158,6 +169,37 @@ namespace bb
         lastPlan_ += "scv ";
       }
     }
+  }
+
+  int ProductionManager::fightingUnits() const
+  {
+    // Finished or in production, without Medics and Science Vessels.
+    Player self = Broodwar->self();
+    int n = 0;
+    for (UnitType t : { UnitTypes::Terran_Marine, UnitTypes::Terran_Firebat, UnitTypes::Terran_Vulture,
+                        UnitTypes::Terran_Siege_Tank_Tank_Mode, UnitTypes::Terran_Siege_Tank_Siege_Mode, UnitTypes::Terran_Goliath,
+                        UnitTypes::Terran_Wraith, UnitTypes::Terran_Battlecruiser })
+      n += self->allUnitCount(t);
+    return n;
+  }
+
+  void ProductionManager::buildBunker(Budget& budget)
+  {
+    // One Bunker at the rally point (the army's waiting spot on the way out of the
+    // main) once a Barracks is up; CombatManager puts 4 marines in it.
+    const UnitType bunker = UnitTypes::Terran_Bunker;
+    Player self = Broodwar->self();
+    if (!ctx_.config.earlyBunker || ctx_.frame >= 24 * 600 || planned(bunker) > 0 || ctx_.buildings->onCooldown(bunker) ||
+        self->completedUnitCount(UnitTypes::Terran_Barracks) == 0)
+      return;
+    if (budget.tryReserve(costOf(bunker)))
+    {
+      ctx_.log.info("Production", "Bunker at the rally point against early attacks");
+      ctx_.buildings->request(bunker, TilePosition(ctx_.map->rallyPoint()));
+      lastPlan_ += "bunker ";
+    }
+    else
+      lastPlan_ += "(saving:bunker) ";
   }
 
   bool ProductionManager::supplyStalled()
