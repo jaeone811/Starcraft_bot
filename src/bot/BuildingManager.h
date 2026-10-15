@@ -51,6 +51,7 @@ namespace bb
       int lastProgressFrame = 0;
       int reissues = 0;        // build orders repeated while Assigned
       bool loggedUnexplored = false;
+      int dangerSince = -1;    // frame enemies were first seen at the site while waiting (-1: none)
     };
 
     BWAPI::TilePosition findLocation(const Task& task) const;
@@ -58,6 +59,8 @@ namespace bb
     bool keepsExitsOpen(const Task& task, BWAPI::TilePosition tile, bool behindEntrance) const;
     bool blocksRamp(const Task& task, BWAPI::TilePosition tile) const;
     bool recentlyBlocked(BWAPI::TilePosition tile) const;
+    bool enemiesAtSite(BWAPI::Position p) const;
+    bool waitForSafeSite(Task& task, BWAPI::Position site, bool& remove);
     void updateTask(Task& task, bool& remove);
     void startConstructionCheck(Task& task);
     void fail(Task& task, const char* reason);

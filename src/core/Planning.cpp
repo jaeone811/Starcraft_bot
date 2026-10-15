@@ -78,6 +78,11 @@ namespace bb
   {
     if (in.bases >= p.maxBases || in.basesBuilding > 0 || in.underThreat || in.frame < p.earliestFrame)
       return false;
+    // A base beyond the natural lies further out than the army can cover: only when
+    // our army is at least as strong as the enemy army we know. A third Command
+    // Center went up twice next to UAlbertaBot's army and took seven SCVs with it.
+    if (in.bases >= 2 && in.ownArmyStrength < in.knownEnemyStrength)
+      return false;
     if (in.lastExpansionFrame >= 0 && in.frame - in.lastExpansionFrame < kExpansionIntervalFrames)
       return false;
     return in.workers >= p.atWorkers || (in.workerTarget > 0 && in.workers >= in.workerTarget);

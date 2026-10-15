@@ -2,6 +2,7 @@
 
 #include "BwapiUtil.h"
 #include "Commander.h"
+#include "InformationManager.h"
 #include "MapInfo.h"
 #include "WorkerManager.h"
 
@@ -175,6 +176,40 @@ namespace bb
         if (rectsOverlap(tile, task.type, nat->depotTile, UnitTypes::Terran_Command_Center, 2))
           return true;
     return false;
+  }
+
+  bool BuildingManager::enemiesAtSite(Position p) const
+  {
+    for (Unit e : ctx_.info->visibleEnemiesNear(p, 10 * 32))
+      if (!e->getType().isWorker() && !e->getType().isBuilding() && canAttackGround(e->getType()))
+        return true;
+    return false;
+  }
+
+  bool BuildingManager::waitForSafeSite(Task& task, Position site, bool& remove)
+  {
+    // No SCV walks into enemy fighting units at the building site: the third Command
+    // Center lost three builders that way and every replacement walked the same way.
+    // The task waits; after 90 s of enemies there it is given up, so the planner can
+    // choose again (another base, or later).
+    if (!enemiesAtSite(site))
+    {
+      task.dangerSince = -1;
+      return false;
+    }
+    if (task.dangerSince < 0)
+    {
+      task.dangerSince = ctx_.frame;
+      ctx_.log.info("Build", concat("task #", task.id, " ", task.type.c_str(), ": enemies at the site, no SCV sent until they are gone"));
+    }
+    if (isValid(task.builder) && !task.builder->isConstructing())
+      releaseBuilder(task);
+    if (task.state != State::UnderConstruction && ctx_.frame - task.dangerSince > 24 * 90)
+    {
+      fail(task, "enemies stayed at the site");
+      remove = true;
+    }
+    return true;
   }
 
   bool BuildingManager::recentlyBlocked(TilePosition tile) const
@@ -386,6 +421,8 @@ namespace bb
           return;
         }
       }
+      if (waitForSafeSite(task, buildingCenter(task.tile, task.type), remove))
+        return;
       if (!isValid(task.builder))
       {
         task.builder = ctx_.workers->acquireWorker(buildingCenter(task.tile, task.type), WorkerRole::Build);
@@ -444,6 +481,14 @@ namespace bb
       startConstructionCheck(task);
       if (task.state == State::UnderConstruction)
         return;
+      if (enemiesAtSite(buildingCenter(task.tile, task.type)))
+      {
+        // Turn back on the way: waiting is handled in WaitingForBuilder.
+        task.state = State::WaitingForBuilder;
+        task.stateFrame = ctx_.frame;
+        waitForSafeSite(task, buildingCenter(task.tile, task.type), remove);
+        return;
+      }
       if (!isValid(task.builder))
       {
         ctx_.log.info("Build", concat("task #", task.id, " lost its builder; choosing another"));
@@ -527,7 +572,10 @@ namespace bb
       }
       if (ctx_.frame - task.lastProgressFrame < kAbandonedFrames)
         return;
-      // Nobody is building it (builder died or wandered off): send an SCV to resume.
+      // Nobody is building it (builder died or wandered off): send an SCV to resume,
+      // but not into the enemies that stand there.
+      if (waitForSafeSite(task, task.building->getPosition(), remove))
+        return;
       if (!isValid(task.builder) || task.builder->isConstructing())
       {
         releaseBuilder(task);

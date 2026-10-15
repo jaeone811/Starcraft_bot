@@ -382,6 +382,11 @@ namespace bb
         taken = taken || (u->getType().isResourceDepot() && u->getDistance(b.center) < 6 * 32);
       for (const auto& [id, e] : ctx_.info->enemyBuildings())
         taken = taken || e.position.getApproxDistance(b.center) < 12 * 32;
+      // Not where enemy fighting units were seen in the last minute (they killed
+      // the Command Center being built there and every SCV sent after it).
+      for (const auto& [id, e] : ctx_.info->enemyUnits())
+        taken = taken || (!e.type.isWorker() && canAttackGround(e.type) && ctx_.frame - e.lastSeenFrame < 24 * 60 &&
+                          e.position.getApproxDistance(b.center) < 15 * 32);
       if (b.isStartLocation && b.depotTile != ctx_.map->mainTile() && ctx_.info->startStatus(b.depotTile) != StartStatus::Empty)
         taken = true;
       // Something we can see stands on the spot (enemy units, a building we did not
@@ -446,6 +451,10 @@ namespace bb
                                    ctx_.config.workersPerMineralPatch, ctx_.config.maxWorkers);
     ex.lastExpansionFrame = lastExpansionFrame_;
     ex.underThreat = ctx_.strategy->baseUnderThreat();
+    for (Unit u : self->getUnits())
+      if (isOurArmyType(u->getType()) && u->isCompleted())
+        ex.ownArmyStrength += unitStrengthNow(u);
+    ex.knownEnemyStrength = ctx_.info->knownEnemyArmyStrength();
     const ExpansionParams ep{ ctx_.config.maxBases, ctx_.config.expandEarliestFrame, ctx_.config.expandAtWorkers };
     if (!ctx_.buildings->onCooldown(cc) && shouldExpand(ex, ep))
       if (const BaseLocation* next = nextExpansion())

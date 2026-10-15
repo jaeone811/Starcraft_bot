@@ -76,6 +76,8 @@ namespace bb
     int workerTarget = 0;      // what the current bases can use
     int lastExpansionFrame = -1;
     bool underThreat = false;
+    double ownArmyStrength = 0.0;
+    double knownEnemyStrength = 0.0;   // remembered enemy army + static defense
   };
   struct ExpansionParams
   {

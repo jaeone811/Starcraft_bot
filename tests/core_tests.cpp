@@ -491,6 +491,14 @@ TEST_CASE("expansion: one rule, the difficulty sets when and how far")
   CHECK(!shouldExpand(in, p));
   in.lastExpansionFrame = in.frame - kExpansionIntervalFrames;
   CHECK(shouldExpand(in, p));
+  in.knownEnemyStrength = 5000;
+  in.ownArmyStrength = 4000;
+  CHECK(!shouldExpand(in, p));                  // a third base the army cannot cover
+  in.ownArmyStrength = 5000;
+  CHECK(shouldExpand(in, p));
+  in.bases = 1;
+  in.ownArmyStrength = 0;
+  CHECK(shouldExpand(in, p));                   // the natural does not wait for the army
 }
 
 TEST_CASE("infantry mix")
