@@ -421,6 +421,16 @@ TEST_CASE("a seen rush wants the whole early army at once")
   CHECK(!rushSigns(late));            // two Gateways after 3:00 are normal
 }
 
+TEST_CASE("levels 3-5 research Spider Mines, levels 1-2 do not")
+{
+  for (int level = 1; level <= 5; ++level)
+  {
+    const DifficultyConfig c = makeDifficultyConfig(level);
+    const bool mines = std::find(c.research.begin(), c.research.end(), ResearchItem::SpiderMines) != c.research.end();
+    CHECK_EQ(mines, level >= 3);
+  }
+}
+
 TEST_CASE("only what makes the early army is built while it is short")
 {
   CHECK(makesEarlyArmy(BuildItem::SupplyDepot));

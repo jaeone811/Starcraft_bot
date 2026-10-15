@@ -26,7 +26,7 @@ namespace bb
 
   bool isResearchItemTech(ResearchItem item)
   {
-    return item == ResearchItem::StimPacks || item == ResearchItem::SiegeMode;
+    return item == ResearchItem::StimPacks || item == ResearchItem::SiegeMode || item == ResearchItem::SpiderMines;
   }
 
   TechType toTechType(ResearchItem item)
@@ -35,6 +35,7 @@ namespace bb
     {
     case ResearchItem::StimPacks: return TechTypes::Stim_Packs;
     case ResearchItem::SiegeMode: return TechTypes::Tank_Siege_Mode;
+    case ResearchItem::SpiderMines: return TechTypes::Spider_Mines;
     default: return TechTypes::None;
     }
   }

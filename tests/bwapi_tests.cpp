@@ -119,6 +119,12 @@ TEST_CASE("tech tree assumptions")
   CHECK(researchBuilding(ResearchItem::VehicleWeapons1) == UnitTypes::Terran_Armory);
   CHECK(researchBuilding(ResearchItem::VehiclePlating1) == UnitTypes::Terran_Armory);
   CHECK(researchBuilding(ResearchItem::CharonBoosters) == UnitTypes::Terran_Machine_Shop);
+  // Spider Mines: Machine Shop tech, laid at a position by Vultures (CombatManager::layMines).
+  CHECK(toTechType(ResearchItem::SpiderMines) == TechTypes::Spider_Mines);
+  CHECK(researchBuilding(ResearchItem::SpiderMines) == UnitTypes::Terran_Machine_Shop);
+  CHECK(TechTypes::Spider_Mines.targetsPosition());
+  CHECK(TechTypes::Spider_Mines.whatUses().count(UnitTypes::Terran_Vulture) == 1);
+  CHECK(UnitTypes::Terran_Vulture_Spider_Mine.groundWeapon() != WeaponTypes::None);
   CHECK(UpgradeTypes::Charon_Boosters.whatsRequired(1) == UnitTypes::Terran_Armory);
   // The early Bunker needs only a Barracks and holds 4 marines.
   CHECK(UnitTypes::Terran_Bunker.requiredUnits().count(UnitTypes::Terran_Barracks) == 1);

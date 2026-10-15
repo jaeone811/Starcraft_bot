@@ -173,6 +173,88 @@ namespace bb
     }
   }
 
+  void CombatManager::layMines()
+  {
+    // Vultures with Spider Mines:
+    //  - in a fight, one under themselves when ground enemies that set mines off
+    //    are close (zealots chasing a Vulture run into it);
+    //  - at home, up to 6 mines in a field just outside the entrance (or in front
+    //    of the natural once it is ours).
+    // A Vulture planting a mine is kept out of the army for a moment so the next
+    // move or attack order does not cancel the mine.
+    for (auto it = mineLayers_.begin(); it != mineLayers_.end();)
+    {
+      Unit v = Broodwar->getUnit(it->first);
+      const bool done = !isValid(v) || ctx_.frame > it->second.until ||
+                        (ctx_.frame > it->second.since + 8 && v->getOrder() != Orders::PlaceMine);
+      it = done ? mineLayers_.erase(it) : std::next(it);
+    }
+    if (Broodwar->self()->hasResearched(TechTypes::Spider_Mines))
+    {
+      auto minesNear = [](Position p, int radius) {
+        int n = 0;
+        for (Unit m : Broodwar->self()->getUnits())
+          if (m->getType() == UnitTypes::Terran_Vulture_Spider_Mine && m->getDistance(p) <= radius)
+            ++n;
+        return n;
+      };
+      auto setsMinesOff = [](UnitType t) {
+        // Mines ignore air units and hovering ones.
+        return !t.isFlyer() && !t.isBuilding() && t != UnitTypes::Terran_Vulture && t != UnitTypes::Protoss_Archon &&
+               t != UnitTypes::Protoss_Dark_Archon && t != UnitTypes::Terran_Vulture_Spider_Mine;
+      };
+      // In a fight.
+      for (Unit v : army_)
+      {
+        if (v->getType() != UnitTypes::Terran_Vulture || v->getSpiderMineCount() == 0 || mineLayers_.count(v->getID()) ||
+            ctx_.frame < nextMineFrame_[v->getID()])
+          continue;
+        bool enemyClose = false;
+        for (Unit e : ctx_.info->visibleEnemiesNear(v->getPosition(), 5 * kTile))
+          enemyClose = enemyClose || setsMinesOff(e->getType());
+        if (!enemyClose || minesNear(v->getPosition(), 2 * kTile) > 0)
+          continue;
+        if (ctx_.commander->useTechAt(v, TechTypes::Spider_Mines, v->getPosition()))
+        {
+          mineLayers_[v->getID()] = { ctx_.frame, ctx_.frame + 24 * 2 };
+          nextMineFrame_[v->getID()] = ctx_.frame + 24 * 3;
+        }
+      }
+      // A field at home.
+      constexpr int kFieldMines = 6;
+      const Position spot = ctx_.map->mineFieldSpot();
+      if (state_ == State::Gather && !ctx_.strategy->baseUnderThreat() && ctx_.frame >= nextFieldMineFrame_ && spot.isValid() &&
+          minesNear(spot, 4 * kTile) < kFieldMines)
+      {
+        static const Position offsets[] = { {0, 0}, {64, 0}, {-64, 0}, {0, 64}, {0, -64}, {64, 64}, {-64, -64}, {64, -64}, {-64, 64} };
+        Position target = Positions::None;
+        for (const Position& o : offsets)
+        {
+          const Position p = spot + o;
+          if (p.isValid() && Broodwar->isWalkable(WalkPosition(p)) && minesNear(p, 40) == 0)
+          {
+            target = p;
+            break;
+          }
+        }
+        Unit best = nullptr;
+        for (Unit v : army_)
+          if (v->getType() == UnitTypes::Terran_Vulture && v->getSpiderMineCount() > 0 && !mineLayers_.count(v->getID()) &&
+              !wave_.count(v->getID()) && v->getDistance(spot) <= 40 * kTile && (!best || v->getDistance(spot) < best->getDistance(spot)))
+            best = v;
+        if (best && target.isValid() && ctx_.commander->useTechAt(best, TechTypes::Spider_Mines, target))
+        {
+          if (!loggedMineField_)
+            ctx_.log.info("Combat", concat("Vultures lay a Spider Mine field at ", spot.x / 32, ",", spot.y / 32));
+          loggedMineField_ = true;
+          mineLayers_[best->getID()] = { ctx_.frame, ctx_.frame + 24 * 15 };
+          nextFieldMineFrame_ = ctx_.frame + 24 * 2;
+        }
+      }
+    }
+    army_.erase(std::remove_if(army_.begin(), army_.end(), [this](Unit u) { return mineLayers_.count(u->getID()) > 0; }), army_.end());
+  }
+
   void CombatManager::repairBunker(Unit bunker)
   {
     // SCVs repair the Bunker while ground enemies are at it. In two games zealots
@@ -285,6 +367,7 @@ namespace bb
   {
     collectArmy();
     manageBunker();
+    layMines();
     useScans();
 
     if (ctx_.strategy->baseUnderThreat())

@@ -363,6 +363,7 @@ namespace bb
       mainEntranceDistance_ = mainChoke_.getApproxDistance(start);
       bunkerSpot_ = center(at(choke - 3));
       rally_ = center(at(choke - 4));
+      mainMineField_ = center(at(choke + 3));
       ctx_.log.info("Map", concat("main entrance at ", mainChoke_.x, ",", mainChoke_.y, " (", narrowest == std::numeric_limits<int>::max() ? 0 : narrowest,
                                   " tiles clearance): rally ", rally_.x / 32, ",", rally_.y / 32, ", bunker near ", bunkerSpot_.x / 32, ",",
                                   bunkerSpot_.y / 32));
@@ -382,6 +383,8 @@ namespace bb
           best = static_cast<int>(k);
         }
       naturalRally_ = bestD <= 12 ? center(at(best + 5)) : bases_[natural_].center;
+      if (bestD <= 12)
+        naturalMineField_ = center(at(best + 9));
     }
   }
 

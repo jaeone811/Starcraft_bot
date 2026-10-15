@@ -132,7 +132,8 @@ namespace bb
       c.expandAtWorkers = 20;
       c.maxBarracks = 3;
       c.extraBarracksMineralBank = 0;
-      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells, ResearchItem::InfantryWeapons1 };
+      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::SpiderMines, ResearchItem::U238Shells,
+                     ResearchItem::InfantryWeapons1 };
       c.supplyLookaheadFrames = 700;
       c.supplyFixedMargin = 4;
       c.maxConcurrentDepots = 1;
@@ -187,7 +188,7 @@ namespace bb
       c.expandAtWorkers = 20;
       c.maxBarracks = 6;
       c.extraBarracksMineralBank = 400;
-      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells,
+      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::SpiderMines, ResearchItem::U238Shells,
                      ResearchItem::InfantryWeapons1, ResearchItem::InfantryArmor1, ResearchItem::VehicleWeapons1,
                      ResearchItem::CharonBoosters };
       c.supplyLookaheadFrames = 850;
@@ -246,7 +247,7 @@ namespace bb
       c.maxBases = 4;
       c.expandEarliestFrame = 24 * 60 * 4 + 24 * 30;
       c.expandAtWorkers = 20;
-      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::U238Shells,
+      c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::SpiderMines, ResearchItem::U238Shells,
                      ResearchItem::InfantryWeapons1, ResearchItem::InfantryArmor1, ResearchItem::VehicleWeapons1,
                      ResearchItem::CharonBoosters, ResearchItem::VehiclePlating1 };
       c.supplyLookaheadFrames = 950;
@@ -333,6 +334,7 @@ namespace bb
     case ResearchItem::VehicleWeapons1: return "VehicleWeapons1";
     case ResearchItem::VehiclePlating1: return "VehiclePlating1";
     case ResearchItem::CharonBoosters: return "CharonBoosters";
+    case ResearchItem::SpiderMines: return "SpiderMines";
     }
     return "?";
   }

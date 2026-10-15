@@ -35,7 +35,8 @@ namespace bb
     SiegeMode,
     VehicleWeapons1,
     VehiclePlating1,
-    CharonBoosters
+    CharonBoosters,
+    SpiderMines
   };
 
   const char* toString(BuildItem item);

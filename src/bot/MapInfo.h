@@ -49,6 +49,9 @@ namespace bb
     BWAPI::TilePosition mainChoke() const { return mainChoke_; } // the main's entrance (narrowest point on the way out); None if not found
     BWAPI::Position bunkerSpot() const { return bunkerSpot_; }   // just inside the ramp, covering it
     BWAPI::Position bunkerRally() const { return bunkerRally_; } // right behind our Bunker there; None without one
+    // Where Vultures lay a Spider Mine field: just outside the main's entrance, and
+    // once the natural is ours a few tiles further out than its rally point. None if unknown.
+    BWAPI::Position mineFieldSpot() const { return naturalOwned_ && naturalMineField_.isValid() ? naturalMineField_ : mainMineField_; }
     const std::vector<BWAPI::TilePosition>& otherStartLocations() const { return otherStarts_; }
     const std::vector<SearchCell>& searchCells() const { return searchCells_; }
 
@@ -74,6 +77,8 @@ namespace bb
     BWAPI::Position bunkerSpot_ = BWAPI::Positions::None;
     BWAPI::Position naturalRally_ = BWAPI::Positions::None;
     BWAPI::Position bunkerRally_ = BWAPI::Positions::None;
+    BWAPI::Position mainMineField_ = BWAPI::Positions::None;
+    BWAPI::Position naturalMineField_ = BWAPI::Positions::None;
     int bunkerRallyFor_ = -1;   // id of the Bunker bunkerRally_ belongs to
     bool naturalOwned_ = false;
     int mainEntranceDistance_ = -1;

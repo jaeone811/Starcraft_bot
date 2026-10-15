@@ -40,6 +40,7 @@ namespace bb
 
     void collectArmy();
     void manageBunker();
+    void layMines();
     void repairBunker(BWAPI::Unit bunker);
     void releaseRepairers();
     void useScans();
@@ -76,6 +77,11 @@ namespace bb
     std::set<int> notCrew_;             // marines that did not reach the Bunker (e.g. boxed in)
     std::set<int> repairers_;           // SCVs repairing the Bunker
     bool holdingAtBunker_ = false;
+    struct MineLayer { int since = 0; int until = 0; };
+    std::map<int, MineLayer> mineLayers_;   // Vultures planting a mine (kept out of the army meanwhile)
+    std::map<int, int> nextMineFrame_;      // Vulture id -> frame it may lay a combat mine again
+    int nextFieldMineFrame_ = 0;
+    bool loggedMineField_ = false;
     int ignoreThreatUntilFrame_ = 0;   // a threat too far from every base is not chased for a while
     int regroupStartFrame_ = 0;
     int nextRegroupAllowedFrame_ = 0;
