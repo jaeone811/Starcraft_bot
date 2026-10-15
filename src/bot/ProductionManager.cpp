@@ -108,10 +108,13 @@ namespace bb
     // took it (Stim, Siege Mode, U-238, +1 between 4:44 and 6:27) and only 8 units
     // met the zealots at 6:45 in two games. Now research, the Comsat and the tech
     // buildings wait until the early army is there.
-    if (holdTech_ != (earlyDefense || armyFirst))
-      ctx_.log.info("Production", holdTech_ ? std::string("early army is there: tech and research continue")
-                                            : std::string("tech and research wait for the army"));
-    holdTech_ = earlyDefense || armyFirst;
+    // The army keeps pace with a rising target, so this switches every few seconds
+    // (22 log lines in one game): only the first wait is logged.
+    const bool hold = earlyDefense || armyFirst;
+    if (hold && !loggedHoldTech_)
+      ctx_.log.info("Production", "tech and research wait for the army (logged once)");
+    loggedHoldTech_ = loggedHoldTech_ || hold;
+    holdTech_ = hold;
     planSupply(budget);
     ensureCommandCenter(budget);
     buildDetection(budget);
