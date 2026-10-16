@@ -78,9 +78,25 @@ namespace bb
     return s.productionBuildings >= 2 || (s.spawningPool && s.frame < 24 * 150) || s.combatUnits >= 2;
   }
 
+  int naturalAtSupply(EnemyRace race)
+  {
+    switch (race)
+    {
+    case EnemyRace::Zerg: return 15;
+    case EnemyRace::Terran: return 20;
+    case EnemyRace::Protoss: return 24;
+    case EnemyRace::Unknown: break;
+    }
+    return 0;
+  }
+
   bool shouldExpand(const ExpansionInputs& in, const ExpansionParams& p)
   {
-    if (in.bases >= p.maxBases || in.basesBuilding > 0 || in.underThreat || in.frame < p.earliestFrame)
+    if (in.bases >= p.maxBases || in.basesBuilding > 0 || in.underThreat)
+      return false;
+    if (in.openingNatural && in.nextIsNatural)
+      return true;
+    if (in.frame < p.earliestFrame)
       return false;
     // A base other than the natural lies further out than the army can cover: only
     // when our army is at least as strong as the enemy army we know. A third Command

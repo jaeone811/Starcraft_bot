@@ -186,6 +186,7 @@ namespace bb
       c.maxBases = 3;
       c.expandEarliestFrame = 24 * 60 * 6 + 24 * 30;
       c.expandAtWorkers = 20;
+      c.openingNatural = true;
       c.maxBarracks = 6;
       c.extraBarracksMineralBank = 400;
       c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::SpiderMines, ResearchItem::U238Shells,
@@ -247,6 +248,7 @@ namespace bb
       c.maxBases = 4;
       c.expandEarliestFrame = 24 * 60 * 4 + 24 * 30;
       c.expandAtWorkers = 20;
+      c.openingNatural = true;
       c.research = { ResearchItem::StimPacks, ResearchItem::SiegeMode, ResearchItem::SpiderMines, ResearchItem::U238Shells,
                      ResearchItem::InfantryWeapons1, ResearchItem::InfantryArmor1, ResearchItem::VehicleWeapons1,
                      ResearchItem::CharonBoosters, ResearchItem::VehiclePlating1 };
@@ -501,7 +503,8 @@ namespace bb
       ss << ' ' << toString(r);
     ss << "\n  economy: workersPerPatch=" << c.workersPerMineralPatch << " maxWorkers=" << c.maxWorkers
        << " maxBarracks=" << c.maxBarracks << " extraBarracksBank=" << c.extraBarracksMineralBank
-       << " bases<=" << c.maxBases << " expand>=" << c.expandEarliestFrame << "f@" << c.expandAtWorkers << "workers";
+       << " bases<=" << c.maxBases << " expand>=" << c.expandEarliestFrame << "f@" << c.expandAtWorkers << "workers"
+       << " openingNatural=" << c.openingNatural;
     ss << "\n  supply: lookahead=" << c.supplyLookaheadFrames << " fixedMargin=" << c.supplyFixedMargin
        << " maxConcurrentDepots=" << c.maxConcurrentDepots << " marginOnBlock=+" << c.supplyMarginIncreaseOnBlock;
     ss << "\n  allocation: strictPriority=" << c.strictPriority << " armyFirstWhenThreatened=" << c.armyFirstWhenThreatened

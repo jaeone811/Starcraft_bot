@@ -685,6 +685,18 @@ TEST_CASE("expansion: one rule, the difficulty sets when and how far")
   CHECK(shouldExpand(in, p));
   in.frame = 24 * 599;
   CHECK(!shouldExpand(in, p));                  // too early
+  in.openingNatural = true;
+  CHECK(!shouldExpand(in, p));                  // the opening's natural only
+  in.nextIsNatural = true;
+  CHECK(shouldExpand(in, p));                   // the opening takes the natural at its supply
+  in.underThreat = true;
+  CHECK(!shouldExpand(in, p));
+  in.underThreat = false;
+  in.openingNatural = false;
+  in.nextIsNatural = false;
+  CHECK(naturalAtSupply(EnemyRace::Zerg) < naturalAtSupply(EnemyRace::Terran));
+  CHECK(naturalAtSupply(EnemyRace::Terran) < naturalAtSupply(EnemyRace::Protoss));
+  CHECK(naturalAtSupply(EnemyRace::Unknown) == 0);
   in.frame = 24 * 600;
   in.underThreat = true;
   CHECK(!shouldExpand(in, p));

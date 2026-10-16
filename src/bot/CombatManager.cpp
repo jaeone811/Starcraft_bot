@@ -1490,8 +1490,12 @@ namespace bb
       if (e->exists())
         (e->isFlying() ? airPts : groundPts).push_back(toPoint(e->getPosition()));
     const Position groundThreat = groundPts.empty() ? Positions::None : toPosition(centroid(groundPts));
+    // Only an enemy at the Bunker: one at the natural (further from the main than the
+    // Bunker too) held 13 to 28 units behind the Bunker while the natural's Command
+    // Center was killed.
     if (!goForTank && !bunkerReleased_ && bunkerManned && behindBunker.isValid() && groundThreat.isValid() &&
-        groundThreat.getApproxDistance(main) + 2 * kTile >= behindBunker.getApproxDistance(main))
+        groundThreat.getApproxDistance(main) + 2 * kTile >= behindBunker.getApproxDistance(main) &&
+        groundThreat.getApproxDistance(behindBunker) <= 12 * kTile)
     {
       if (!holdingAtBunker_)
         ctx_.log.info("Combat", "enemy at the Bunker: the army holds right behind it");

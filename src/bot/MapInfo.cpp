@@ -221,6 +221,62 @@ namespace bb
     return bunkerRally_.isValid() ? bunkerRally_ : rally_;
   }
 
+  bool MapInfo::inMain(TilePosition t) const
+  {
+    if (mainArea_.empty() || !t.isValid())
+      return false;
+    return mainArea_[static_cast<size_t>(t.y) * Broodwar->mapWidth() + t.x] != 0;
+  }
+
+  void MapInfo::computeMainArea(int chokeClearance)
+  {
+    // Every level: Barracks and Factories go inside the main, behind the Bunker at
+    // its entrance. "Behind the entrance" used to mean "no further from the Command
+    // Center than the entrance", which on Boxer took tiles beside the main, in front
+    // of the Bunker. Here the walkable tiles are filled from the Command Center with
+    // the entrance closed off (its narrowest width plus two tiles around it).
+    const int w = Broodwar->mapWidth(), h = Broodwar->mapHeight();
+    const std::vector<char> blocked = blockedTiles();
+    const int wall = chokeClearance + 2;
+    std::vector<char> area(static_cast<size_t>(w) * h, 0);
+    std::vector<TilePosition> frontier{ mainTile_ };
+    area[static_cast<size_t>(mainTile_.y) * w + mainTile_.x] = 1;
+    for (size_t q = 0; q < frontier.size(); ++q)
+    {
+      const TilePosition c = frontier[q];
+      static const int dx[] = { 1, -1, 0, 0 }, dy[] = { 0, 0, 1, -1 };
+      for (int k = 0; k < 4; ++k)
+      {
+        const int nx = c.x + dx[k], ny = c.y + dy[k];
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h)
+          continue;
+        const size_t i = static_cast<size_t>(ny) * w + nx;
+        if (area[i] || blocked[i] ||
+            (std::abs(nx - mainChoke_.x) <= wall && std::abs(ny - mainChoke_.y) <= wall))
+          continue;
+        area[i] = 1;
+        frontier.push_back(TilePosition(nx, ny));
+      }
+    }
+    // Got out of the main (to another base): the old distance rule stays.
+    for (int b = 0; b < static_cast<int>(bases_.size()); ++b)
+    {
+      const TilePosition t(bases_[b].center);
+      if (t.getApproxDistance(mainTile_) > 10 && area[static_cast<size_t>(t.y) * w + t.x])
+      {
+        ctx_.log.info("Map", concat("main area: the fill reached the base at ", t.x, ",", t.y, "; not used"));
+        return;
+      }
+    }
+    if (frontier.size() > static_cast<size_t>(w) * h / 4)
+    {
+      ctx_.log.info("Map", concat("main area: ", frontier.size(), " tiles, too large; not used"));
+      return;
+    }
+    mainArea_ = std::move(area);
+    ctx_.log.info("Map", concat("main area: ", frontier.size(), " tiles inside the entrance"));
+  }
+
   std::vector<char> MapInfo::blockedTiles() const
   {
     // Tiles a unit cannot stand on: static terrain, minerals and geysers.
@@ -380,6 +436,8 @@ namespace bb
     }
     else
       ctx_.log.info("Map", "no entrance found on the way out of the main: rally point kept");
+    if (choke >= 4)
+      computeMainArea(narrowest == std::numeric_limits<int>::max() ? 1 : narrowest);
 
     // In front of the natural: the path tile closest to it, then 5 tiles further out.
     if (natural_ >= 0)

@@ -80,6 +80,7 @@ namespace bb
     double ownArmyStrength = 0.0;
     double knownEnemyStrength = 0.0;   // remembered enemy army + static defense
     bool nextIsNatural = false;        // the base to take is the natural
+    bool openingNatural = false;       // the opening's natural is due (naturalAtSupply reached)
   };
   struct ExpansionParams
   {
@@ -91,6 +92,8 @@ namespace bb
   // one base at a time, not while our base is attacked, not before earliestFrame,
   // once workers reach atWorkers or the current bases are saturated, and the next
   // one at least kExpansionIntervalFrames after the previous.
+  // The natural as part of a Liquipedia opening is taken at its supply, not by the
+  // clock or the worker count.
   constexpr int kExpansionIntervalFrames = 24 * 150;
   bool shouldExpand(const ExpansionInputs& in, const ExpansionParams& p);
 
@@ -161,6 +164,10 @@ namespace bb
   // opens with (Protoss: zealots then dragoons; Zerg: lings then hydras; Terran:
   // marines then tanks), so the first units fit the opponent.
   enum class EnemyRace { Unknown, Protoss, Zerg, Terran };
+  // Supply (UI units) at which Liquipedia's openings take the natural: 1 Rax FE
+  // against Zerg (15), 1 Factory FE against Terran (20), Siege Expand against
+  // Protoss (24, after the first Tank). 0: the race is unknown, no opening natural.
+  int naturalAtSupply(EnemyRace race);
   EnemyMix withRacePrior(const EnemyMix& seen, EnemyRace race);
 
   // What an idle Factory should build next.

@@ -466,8 +466,15 @@ namespace bb
         haveDepot = haveDepot || (u->getType().isResourceDepot() && u->getDistance(b.center) < 6 * 32);
       if (haveDepot)
         continue;
+      // An enemy base there, a building that shoots (or a Bunker) near it, or any
+      // building on the spot. Steamhammer's Supply Depots along the map edge 8 tiles
+      // from our natural rejected it for good.
       for (const auto& [id, e] : ctx_.info->enemyBuildings())
-        reject(e.position.getApproxDistance(b.center) < 12 * 32, "enemy building");
+      {
+        const int d = e.position.getApproxDistance(b.center);
+        const bool defends = canAttackGround(e.type) || e.type == UnitTypes::Terran_Bunker;
+        reject((d < 12 * 32 && (e.type.isResourceDepot() || defends)) || d < 6 * 32, "enemy building");
+      }
       // Not where enemy fighting units were seen in the last minute that our army
       // could not handle (they killed the Command Center being built there and every
       // SCV sent after it). Any enemy at all kept the natural waiting from 7:30 to
@@ -480,8 +487,11 @@ namespace bb
         for (Unit u : Broodwar->self()->getUnits())
           if (u->getType().isResourceDepot())
             ours = std::min(ours, u->getPosition().getApproxDistance(b.center));
+        // Their bases mark their side, not every Supply Depot (scattered depots made
+        // every free base "enemy side").
         for (const auto& [id, e] : ctx_.info->enemyBuildings())
-          theirs = std::min(theirs, e.position.getApproxDistance(b.center));
+          if (e.type.isResourceDepot())
+            theirs = std::min(theirs, e.position.getApproxDistance(b.center));
         reject(theirs < ours, "enemy side");
       }
       const bool takenBefore = taken;
@@ -606,6 +616,17 @@ namespace bb
     const ExpansionParams ep{ ctx_.config.maxBases, ctx_.config.expandEarliestFrame, ctx_.config.expandAtWorkers };
     const BaseLocation* next = ctx_.buildings->onCooldown(cc) ? nullptr : nextExpansion();
     ex.nextIsNatural = next && ctx_.map->naturalIndex() >= 0 && next == &ctx_.map->bases()[ctx_.map->naturalIndex()];
+    // Levels 4-5 with a Liquipedia opening: the natural at the opening's supply (1
+    // Factory FE against Terran at 20), not at 6:30. The first Command Center went
+    // up at 7:43 into the enemy's Vulture and Tank push.
+    const int natSupply = naturalAtSupply(openingRace_);
+    ex.openingNatural = ctx_.config.openingNatural && liquipedia_ && ex.bases == 1 && natSupply > 0 &&
+                        Broodwar->self()->supplyUsed() / 2 >= natSupply;
+    if (ex.openingNatural && ex.nextIsNatural && !loggedOpeningNatural_)
+    {
+      loggedOpeningNatural_ = true;
+      ctx_.log.info("Production", concat("opening: the natural at supply ", natSupply));
+    }
     if (next && shouldExpand(ex, ep))
       {
         if (budget.reserveFirst({ cc.mineralPrice(), 0, 0 }))

@@ -58,11 +58,18 @@ namespace bb
     // Ground connection between two points (uses BWAPI's static region data).
     bool groundReachable(BWAPI::Position from, BWAPI::Position to) const;
 
+    // The main's own ground: tiles reachable from the main's Command Center without
+    // passing its entrance. Unknown (false for every tile, mainAreaKnown() false)
+    // when no entrance was found or the fill got out of the main.
+    bool mainAreaKnown() const { return !mainArea_.empty(); }
+    bool inMain(BWAPI::TilePosition t) const;
+
   private:
     BWAPI::TilePosition findDepotTile(const std::vector<BWAPI::Position>& resources, BWAPI::Position resourceCenter) const;
     void computeRally();
     void computeSearchCells();
     void computeChoke();
+    void computeMainArea(int chokeClearance);
     std::vector<BWAPI::TilePosition> groundPath(BWAPI::TilePosition from, BWAPI::TilePosition to) const;
     std::vector<char> blockedTiles() const;
 
@@ -82,6 +89,7 @@ namespace bb
     int bunkerRallyFor_ = -1;   // id of the Bunker bunkerRally_ belongs to
     bool naturalOwned_ = false;
     int mainEntranceDistance_ = -1;
+    std::vector<char> mainArea_;   // per tile: 1 inside the main (empty: unknown)
   public:
     // Air distance (tiles) from the main's Command Center to its entrance; -1 if unknown.
     int mainEntranceDistance() const { return mainEntranceDistance_; }

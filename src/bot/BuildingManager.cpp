@@ -52,6 +52,15 @@ namespace bb
       return { t.x, t.y, type.tileWidth() + (type.canBuildAddon() ? 2 : 0), type.tileHeight() };
     }
 
+    bool insideMain(const MapInfo& map, const TileRect& r)
+    {
+      for (int y = r.y; y < r.y + r.h; ++y)
+        for (int x = r.x; x < r.x + r.w; ++x)
+          if (!map.inMain(TilePosition(x, y)))
+            return false;
+      return true;
+    }
+
     // A Factory's (or Starport's) add-on column is buildable: Broodwar->canBuildHere
     // does not look at it, and a Machine Shop once failed with Unbuildable_Location.
     bool addonSpaceFree(TilePosition t, UnitType type)
@@ -352,12 +361,19 @@ namespace bb
     const TileRect r = footprint(tile, task.type);
     if (producesGroundUnits(task.type) && !ringOpen(r))
       return false;
-    // Behind the entrance (closer to the main than it is), so the Bunker at the
-    // entrance covers them; one game had Barracks and Factories in front of it.
+    // Behind the entrance (inside the main), so the Bunker at the entrance covers
+    // them; games had Barracks and Factories in front of it.
     const int entrance = ctx_.map->mainEntranceDistance();
-    if (behindEntrance && entrance > 0 && !task.type.isResourceDepot() && task.type != UnitTypes::Terran_Missile_Turret &&
-        TilePosition(r.x + r.w / 2, r.y + r.h / 2).getApproxDistance(ctx_.map->mainTile()) > entrance - 2)
-      return false;
+    if (behindEntrance && !task.type.isResourceDepot() && task.type != UnitTypes::Terran_Missile_Turret)
+    {
+      if (ctx_.map->mainAreaKnown())
+      {
+        if (!insideMain(*ctx_.map, r))
+          return false;
+      }
+      else if (entrance > 0 && TilePosition(r.x + r.w / 2, r.y + r.h / 2).getApproxDistance(ctx_.map->mainTile()) > entrance - 2)
+        return false;
+    }
     for (Unit u : Broodwar->self()->getUnits())
       if (producesGroundUnits(u->getType()) && !u->isLifted() && rectsOverlap(r, footprint(u->getTilePosition(), u->getType()), 1))
         return false;
@@ -450,7 +466,7 @@ namespace bb
       {
         if (pass < 3 && !keepsExitsOpen(task, t, pass == 0))
           continue;
-        if (pass == 1 && Broodwar->getGroundHeight(t) != mainHeight)
+        if (pass == 1 && (ctx_.map->mainAreaKnown() ? !insideMain(*ctx_.map, footprint(t, type)) : Broodwar->getGroundHeight(t) != mainHeight))
           continue;
         if (pass == 1)
           ctx_.log.info("Build", concat("no spot behind the entrance for ", type.c_str(), ": using ", t.x, ",", t.y, " on the main plateau"));

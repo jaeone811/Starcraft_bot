@@ -112,6 +112,7 @@ namespace bb
     int maxBases = 1;                    // expansions up to this many Command Centers (Planning::shouldExpand)
     int expandEarliestFrame = 0;         // ... not before this frame
     int expandAtWorkers = 0;             // ... once we have this many workers (or the bases are saturated)
+    bool openingNatural = false;         // a Liquipedia opening takes the natural at its supply (naturalAtSupply)
     std::vector<ResearchItem> research;  // researched in this order once the building exists
 
     // ---- Supply -------------------------------------------------------------
