@@ -28,7 +28,8 @@ JaeTankBot {version} 실행 방법
       (경로를 직접 입력해도 됩니다. 예: C:\StarCraft)
   (4) 다음이 자동으로 진행됩니다.
       - BWAPI 4.4.0 설치 (이미 있는 파일은 그대로 둡니다)
-      - JaeTankBot 설치 (스타크래프트 폴더\bwapi-data\AI)
+      - JaeTankBot 과 상대 봇(Steamhammer, UAlbertaBot) 설치 (스타크래프트 폴더\bwapi-data\AI,
+        이미 있는 상대 봇 파일은 그대로 둡니다)
       - 바탕화면에 "JaeTankBot" 바로가기(탱크 아이콘) 만들기
   (5) "설치 완료" 가 나오면 아무 키나 눌러 창을 닫습니다.
 
@@ -58,7 +59,10 @@ JaeTankBot {version} 실행 방법
      - 스타크래프트 기본 컴퓨터(AI)와 봇이 자동으로 싸웁니다. 구경만 하면 됩니다.
 
   ■ JaeTankBot 대 다른 봇
-     - 스타크래프트폴더\bwapi-data\AI 에 다른 봇 DLL 이 있을 때 고를 수 있습니다.
+     - 함께 설치되는 상대 봇: Steamhammer 5.3.6, UAlbertaBot
+       ("상대 봇 (DLL)" 에서 고르고, "상대 봇 종족" 에서 그 봇의 종족을 고릅니다.
+        두 봇 모두 테란, 프로토스, 저그를 할 수 있습니다)
+     - 스타크래프트폴더\bwapi-data\AI 에 다른 봇 DLL 을 넣으면 그것도 목록에 나옵니다.
 
   옵션
      - 봇 스타크래프트 소리 끄기: 기본으로 켜져 있습니다 (봇 쪽 창만 무음).
@@ -97,7 +101,12 @@ JaeTankBot {version} 실행 방법
   (BWAPI 는 다른 봇에도 쓰이므로 필요할 때만 지우세요)
 
 
-라이선스
---------
-  BWAPI 4.4.0: LGPL-3.0 (BWAPI-4.4.0\LICENSE-BWAPI.txt, 소스 https://github.com/bwapi/bwapi)
+라이선스와 만든 사람
+--------------------
+  licenses 폴더에 원문이 있습니다 (목록: licenses\README.txt).
+  - BWAPI 4.4.0: LGPL-3.0, https://github.com/bwapi/bwapi
+  - Steamhammer 5.3.6: Jay J.P. Scott, MIT, https://satirist.org/ai/starcraft/steamhammer
+      (UAlbertaBot 의 MIT 와 FAP(Hannes Bredberg)의 MIT 포함)
+  - UAlbertaBot: David Churchill, MIT, https://github.com/davechurchill/ualbertabot
+  다른 봇들은 만든 사람의 파일을 바꾸지 않고 그대로 넣었습니다.
   StarCraft 는 Blizzard Entertainment 의 상표이자 저작물이며 이 배포본에 포함되어 있지 않습니다.

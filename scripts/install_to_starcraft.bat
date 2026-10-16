@@ -42,6 +42,19 @@ if exist "%SC%\bwapi-data\AI\JaeTankBot.ini" (
   copy "%INI%" "%SC%\bwapi-data\AI\JaeTankBot.ini" >nul || exit /b 1
   echo Copied default JaeTankBot.ini ^(difficulty 3^)
 )
+rem The packaged zip also carries opponent bots (Steamhammer, UAlbertaBot): copied
+rem only when missing, so a bot version already installed is kept.
+if exist "%SRC%bwapi-data\AI\" (
+  for %%F in ("%SRC%bwapi-data\AI\*") do (
+    if not exist "%SC%\bwapi-data\AI\%%~nxF" (
+      copy "%%F" "%SC%\bwapi-data\AI\%%~nxF" >nul || exit /b 1
+      echo Copied opponent file %%~nxF
+    )
+  )
+)
+rem Bots read and write their learning files here.
+if not exist "%SC%\bwapi-data\read" mkdir "%SC%\bwapi-data\read"
+if not exist "%SC%\bwapi-data\write" mkdir "%SC%\bwapi-data\write"
 echo.
 echo Play: "%SC%\bwapi-data\AI\JaeTankBotPlay.exe" ^(no Chaoslauncher needed^)
 echo With Chaoslauncher: set "ai = bwapi-data/AI/JaeTankBot.dll" in "%SC%\bwapi-data\bwapi.ini"

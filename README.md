@@ -117,7 +117,8 @@ map = maps/(2)Boxer.scm
 
 ## 5.2 배포용 zip
 
-`python tools\make_package.py` → `dist\JaeTankBot-<버전>-win32.zip`: 봇 DLL, 설정, 런처, 설정 도구, BWAPI 4.4.0 실행 파일(LGPL-3.0, 라이선스 포함),
+`python tools\make_package.py` → `dist\JaeTankBot-<버전>-win32.zip`: 봇 DLL, 설정, 런처, 설정 도구, BWAPI 4.4.0 실행 파일(LGPL-3.0),
+상대 봇 Steamhammer 5.3.6(Jay J.P. Scott, MIT)과 UAlbertaBot(David Churchill, MIT)을 변경 없이(`--bots` 폴더에서), 모든 라이선스 원문(`packaging\licenses\`),
 그리고 `packaging\`의 한글 안내 `실행방법.txt`와 한 번에 설치하는 `설치하기.bat`(BWAPI의 없는 파일만 복사 → 봇 설치 → 바탕화면 "JaeTankBot" 바로가기).
 받는 사람은 압축을 풀고 `설치하기.bat`에 스타크래프트 폴더를 끌어다 놓으면 된다(Chaoslauncher·인터넷·네트워크 설정 불필요).
 **StarCraft 게임 파일은 넣지 않는다**(Blizzard 저작물). 받는 사람은 각자 설치한 StarCraft: Brood War 1.16.1과 Visual C++ 2015-2022 x86 재배포 패키지가 필요하다.
