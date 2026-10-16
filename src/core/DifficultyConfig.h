@@ -1,5 +1,5 @@
 #pragma once
-// Difficulty presets for BeginnerBot.
+// Difficulty presets for JaeTankBot.
 //
 // Every per-difficulty number lives here and nowhere else. The game logic only
 // reads these fields; it never branches on the level number itself.

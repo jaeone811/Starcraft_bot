@@ -228,53 +228,69 @@ namespace bb
     return mainArea_[static_cast<size_t>(t.y) * Broodwar->mapWidth() + t.x] != 0;
   }
 
-  void MapInfo::computeMainArea(int chokeClearance)
+  void MapInfo::computeMainArea()
   {
     // Every level: Barracks and Factories go inside the main, behind the Bunker at
     // its entrance. "Behind the entrance" used to mean "no further from the Command
     // Center than the entrance", which on Boxer took tiles beside the main, in front
-    // of the Bunker. Here the walkable tiles are filled from the Command Center with
-    // the entrance closed off (its narrowest width plus two tiles around it).
+    // of the Bunker; a fill from the Command Center walled off at the entrance got
+    // out to the natural. Inside the main is where the ground way to the natural
+    // goes through the entrance: distance to the natural = distance to the entrance
+    // + the entrance's distance to the natural (a few tiles of slack).
+    if (natural_ < 0 || mainChoke_ == TilePositions::None)
+      return;
     const int w = Broodwar->mapWidth(), h = Broodwar->mapHeight();
     const std::vector<char> blocked = blockedTiles();
-    const int wall = chokeClearance + 2;
+    constexpr int kFar = std::numeric_limits<int>::max();
+    auto index = [w](TilePosition t) { return static_cast<size_t>(t.y) * w + t.x; };
+    auto distancesFrom = [&](TilePosition from) {
+      std::vector<int> d(static_cast<size_t>(w) * h, kFar);
+      std::vector<TilePosition> frontier{ from };
+      d[index(from)] = 0;
+      for (size_t q = 0; q < frontier.size(); ++q)
+      {
+        const TilePosition c = frontier[q];
+        for (int dy = -1; dy <= 1; ++dy)
+          for (int dx = -1; dx <= 1; ++dx)
+          {
+            const int nx = c.x + dx, ny = c.y + dy;
+            if ((dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= w || ny >= h)
+              continue;
+            const size_t i = static_cast<size_t>(ny) * w + nx;
+            // No cutting corners between two blocked tiles.
+            if (blocked[i] || d[i] != kFar ||
+                (dx != 0 && dy != 0 && (blocked[static_cast<size_t>(c.y) * w + nx] || blocked[static_cast<size_t>(ny) * w + c.x])))
+              continue;
+            d[i] = d[index(c)] + 1;
+            frontier.push_back(TilePosition(nx, ny));
+          }
+      }
+      return d;
+    };
+    const std::vector<int> toNatural = distancesFrom(TilePosition(bases_[natural_].center));
+    const std::vector<int> toChoke = distancesFrom(mainChoke_);
+    const int chokeToNatural = toNatural[index(mainChoke_)];
+    if (chokeToNatural == kFar)
+    {
+      ctx_.log.info("Map", "main area: no ground way from the entrance to the natural; not used");
+      return;
+    }
     std::vector<char> area(static_cast<size_t>(w) * h, 0);
-    std::vector<TilePosition> frontier{ mainTile_ };
-    area[static_cast<size_t>(mainTile_.y) * w + mainTile_.x] = 1;
-    for (size_t q = 0; q < frontier.size(); ++q)
-    {
-      const TilePosition c = frontier[q];
-      static const int dx[] = { 1, -1, 0, 0 }, dy[] = { 0, 0, 1, -1 };
-      for (int k = 0; k < 4; ++k)
+    int tiles = 0;
+    for (size_t i = 0; i < area.size(); ++i)
+      if (toNatural[i] != kFar && toChoke[i] != kFar && toChoke[i] >= 4 && toChoke[i] + chokeToNatural <= toNatural[i] + 3)
       {
-        const int nx = c.x + dx[k], ny = c.y + dy[k];
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h)
-          continue;
-        const size_t i = static_cast<size_t>(ny) * w + nx;
-        if (area[i] || blocked[i] ||
-            (std::abs(nx - mainChoke_.x) <= wall && std::abs(ny - mainChoke_.y) <= wall))
-          continue;
         area[i] = 1;
-        frontier.push_back(TilePosition(nx, ny));
+        ++tiles;
       }
-    }
-    // Got out of the main (to another base): the old distance rule stays.
-    for (int b = 0; b < static_cast<int>(bases_.size()); ++b)
+    const TilePosition cc(mainTile_.x + 2, mainTile_.y + 1);
+    if (!area[index(cc)] || tiles > w * h / 4)
     {
-      const TilePosition t(bases_[b].center);
-      if (t.getApproxDistance(mainTile_) > 10 && area[static_cast<size_t>(t.y) * w + t.x])
-      {
-        ctx_.log.info("Map", concat("main area: the fill reached the base at ", t.x, ",", t.y, "; not used"));
-        return;
-      }
-    }
-    if (frontier.size() > static_cast<size_t>(w) * h / 4)
-    {
-      ctx_.log.info("Map", concat("main area: ", frontier.size(), " tiles, too large; not used"));
+      ctx_.log.info("Map", concat("main area: ", tiles, " tiles, the Command Center ", area[index(cc)] ? "inside" : "outside", "; not used"));
       return;
     }
     mainArea_ = std::move(area);
-    ctx_.log.info("Map", concat("main area: ", frontier.size(), " tiles inside the entrance"));
+    ctx_.log.info("Map", concat("main area: ", tiles, " tiles behind the entrance"));
   }
 
   std::vector<char> MapInfo::blockedTiles() const
@@ -437,7 +453,7 @@ namespace bb
     else
       ctx_.log.info("Map", "no entrance found on the way out of the main: rally point kept");
     if (choke >= 4)
-      computeMainArea(narrowest == std::numeric_limits<int>::max() ? 1 : narrowest);
+      computeMainArea();
 
     // In front of the natural: the path tile closest to it, then 5 tiles further out.
     if (natural_ >= 0)

@@ -93,7 +93,7 @@ namespace bb
                   self->supplyTotal() - self->supplyUsed(), ctx_.config.strictPriority);
     lastPlan_.clear();
 
-    // The opening for the enemy race (BeginnerBot.ini opening = liquipedia, the
+    // The opening for the enemy race (JaeTankBot.ini opening = liquipedia, the
     // levels that counter what they know): Liquipedia's TvP/TvT Factory first, TvZ
     // bio with an early Engineering Bay. Dragoons cut down the Marines of the
     // infantry opening and broke the Bunker from out of range, game after game.
@@ -163,6 +163,10 @@ namespace bb
       doResearch(budget);
     if (earlyDefense)
       trainArmy(budget);
+    // The opening's natural comes before the next build step: each step took the
+    // money first and the natural planned at 3:20 waited until 6:43.
+    if (openingNaturalDue())
+      expand(budget);
     followBuildOrder(budget);
     macroBuildings(budget);
     doResearch(budget);
@@ -481,17 +485,19 @@ namespace bb
       // 11:45 on one base: Zerglings poking the Bunker 14 tiles away counted.
       // Not on the enemy's side: a base nearer to a known enemy building than to our
       // nearest Command Center (a center base next to the enemy's third took 25 SCVs).
+      // Their side is what lies nearer to their main than to ours: the third base went
+      // up 77 tiles away next to the enemy's (and died with 15 SCVs) while the base
+      // below our main counted as theirs because of a Command Center in the center.
       if (i != ctx_.map->naturalIndex())
       {
-        int ours = std::numeric_limits<int>::max(), theirs = std::numeric_limits<int>::max();
-        for (Unit u : Broodwar->self()->getUnits())
-          if (u->getType().isResourceDepot())
-            ours = std::min(ours, u->getPosition().getApproxDistance(b.center));
-        // Their bases mark their side, not every Supply Depot (scattered depots made
-        // every free base "enemy side").
-        for (const auto& [id, e] : ctx_.info->enemyBuildings())
-          if (e.type.isResourceDepot())
-            theirs = std::min(theirs, e.position.getApproxDistance(b.center));
+        const int ours = main.getApproxDistance(b.center);
+        int theirs = std::numeric_limits<int>::max();
+        if (const auto enemyMain = ctx_.info->enemyMain())
+          theirs = enemyMain->getApproxDistance(b.center);
+        else
+          for (const auto& [id, e] : ctx_.info->enemyBuildings())
+            if (e.type.isResourceDepot())
+              theirs = std::min(theirs, e.position.getApproxDistance(b.center));
         reject(theirs < ours, "enemy side");
       }
       const bool takenBefore = taken;
@@ -594,10 +600,25 @@ namespace bb
       lastPlan_ += "(saving:expand) ";
   }
 
+  bool ProductionManager::openingNaturalDue() const
+  {
+    const int natSupply = naturalAtSupply(openingRace_);
+    return ctx_.config.openingNatural && liquipedia_ && natSupply > 0 && planned(UnitTypes::Terran_Command_Center) == 1 &&
+           Broodwar->self()->supplyUsed() / 2 >= natSupply;
+  }
+
   void ProductionManager::macroBuildings(Budget& budget)
   {
     replaceMinedOutBase(budget);
+    expand(budget);
+    macroExtras(budget);
+  }
 
+  void ProductionManager::expand(Budget& budget)
+  {
+    if (expandCheckedFrame_ == ctx_.frame)
+      return;
+    expandCheckedFrame_ = ctx_.frame;
     // Expansions: the same rule at every level, the difficulty sets how early and
     // how many (Planning::shouldExpand). The natural first, then the nearest free base.
     const UnitType cc = UnitTypes::Terran_Command_Center;
@@ -619,13 +640,11 @@ namespace bb
     // Levels 4-5 with a Liquipedia opening: the natural at the opening's supply (1
     // Factory FE against Terran at 20), not at 6:30. The first Command Center went
     // up at 7:43 into the enemy's Vulture and Tank push.
-    const int natSupply = naturalAtSupply(openingRace_);
-    ex.openingNatural = ctx_.config.openingNatural && liquipedia_ && ex.bases == 1 && natSupply > 0 &&
-                        Broodwar->self()->supplyUsed() / 2 >= natSupply;
+    ex.openingNatural = openingNaturalDue();
     if (ex.openingNatural && ex.nextIsNatural && !loggedOpeningNatural_)
     {
       loggedOpeningNatural_ = true;
-      ctx_.log.info("Production", concat("opening: the natural at supply ", natSupply));
+      ctx_.log.info("Production", concat("opening: the natural at supply ", naturalAtSupply(openingRace_)));
     }
     if (next && shouldExpand(ex, ep))
       {
@@ -640,7 +659,15 @@ namespace bb
         else
           lastPlan_ += "(saving:expand) ";
       }
+  }
 
+  void ProductionManager::macroExtras(Budget& budget)
+  {
+    const UnitType cc = UnitTypes::Terran_Command_Center;
+    Player self = Broodwar->self();
+    const int workers = ctx_.workers->workerCount();
+    const int workerGoal = workerTarget(ctx_.workers->mineralPatchesAtBases(), ctx_.workers->gasRefineries(),
+                                        ctx_.config.workersPerMineralPatch, ctx_.config.maxWorkers);
     // Extra barracks while money piles up (keeps production running at full capacity).
     const UnitType rax = UnitTypes::Terran_Barracks;
     if (ctx_.config.extraBarracksMineralBank > 0 && budget.minerals() >= ctx_.config.extraBarracksMineralBank &&
@@ -693,12 +720,12 @@ namespace bb
     if (self->completedUnitCount(refinery) >= 1 && ctx_.buildings->notStarted(refinery) == 0 &&
         !ctx_.buildings->onCooldown(refinery) && freeGeyserAvailable())
     {
-      const bool saturated = planned(refinery) < self->completedUnitCount(cc) && ex.workers >= ex.workerTarget - 2;
+      const bool saturated = planned(refinery) < self->completedUnitCount(cc) && workers >= workerGoal - 2;
       const bool shortOnGas = budget.gas() < 100 && budget.minerals() >= 300;
       if ((saturated || shortOnGas) && budget.tryReserve(costOf(refinery)))
       {
         ctx_.log.info("Production", concat(saturated ? "bases saturated (" : "short on gas (",
-                                           saturated ? ex.workers : self->gas(), saturated ? " workers)" : " gas)",
+                                           saturated ? workers : self->gas(), saturated ? " workers)" : " gas)",
                                            ": Refinery #", planned(refinery) + 1));
         ctx_.buildings->request(refinery);
         lastPlan_ += "refinery ";
@@ -764,6 +791,10 @@ namespace bb
     const int tanks = Broodwar->self()->allUnitCount(UnitTypes::Terran_Siege_Tank_Tank_Mode) +
                       Broodwar->self()->allUnitCount(UnitTypes::Terran_Siege_Tank_Siege_Mode);
     const bool enemyAirSeen = ctx_.info->enemyMix().air > 0;
+    // doResearch runs twice a frame: the plan notes the first waiting item once (the
+    // snapshot line listed 16 waiting items).
+    bool noteWait = researchNotedFrame_ != ctx_.frame;
+    researchNotedFrame_ = ctx_.frame;
     for (ResearchItem item : researchOrder(base, rangeFirst))
     {
       if (isResearchDone(item) || isResearchInProgress(item))
@@ -777,7 +808,9 @@ namespace bb
       }
       if (const char* wait = researchWaits(item, openingRace_, tanks, enemyAirSeen))
       {
-        lastPlan_ += concat("(", wait, ":", toString(item), ") ");
+        if (noteWait)
+          lastPlan_ += concat("(", wait, ":", toString(item), ") ");
+        noteWait = false;
         continue;
       }
       if (!researchServesCounter(item, ctx_.strategy->counter()))

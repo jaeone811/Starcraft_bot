@@ -30,7 +30,6 @@ namespace bb
     const char* stateName() const;
     int armySize() const { return static_cast<int>(army_.size()); }
     int waveSize() const { return static_cast<int>(wave_.size()); }
-    const std::string& targetReason() const { return targetReason_; }
 
   private:
     enum class State { Gather, Attack, Retreat, Defend };

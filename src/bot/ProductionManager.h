@@ -30,7 +30,12 @@ namespace bb
     void trainWorkers(Budget& budget);
     void followBuildOrder(Budget& budget);
     void macroBuildings(Budget& budget);
+    // The next Command Center (Planning::shouldExpand); once per frame.
+    void expand(Budget& budget);
+    // A Liquipedia opening's natural is due (levels with openingNatural).
+    bool openingNaturalDue() const;
     void replaceMinedOutBase(Budget& budget);
+    void macroExtras(Budget& budget);   // extra Barracks, Factories, Refineries
     void doResearch(Budget& budget);
     void buildComsat(Budget& budget);
     void trainArmy(Budget& budget);
@@ -73,6 +78,8 @@ namespace bb
     EnemyRace openingRace_ = EnemyRace::Unknown; // race the build order was made for
     bool liquipedia_ = false;           // opening = liquipedia and the level counters what it knows
     bool loggedOpeningNatural_ = false;
+    int expandCheckedFrame_ = -1;
+    int researchNotedFrame_ = -1;
     bool factoryFirst_ = false;         // Liquipedia opening against Protoss or Terran
     bool rush_ = false;       // an early attack is expected (seen by the scout, levels that use what they see)
     int earlyGasNeed() const;   // research and tech buildings wait: the early army (or the defense) comes first

@@ -52,6 +52,45 @@ namespace bb
       return { t.x, t.y, type.tileWidth() + (type.canBuildAddon() ? 2 : 0), type.tileHeight() };
     }
 
+    // The area between our Command Centers and their minerals and gas: nothing is
+    // built there. Supply Depots in the main's mineral line boxed SCVs in, and the
+    // SCV sent to build the natural stood there for four minutes.
+    std::vector<TileRect> miningAreas()
+    {
+      std::vector<TileRect> areas;
+      for (Unit cc : Broodwar->self()->getUnits())
+      {
+        if (!cc->getType().isResourceDepot())
+          continue;
+        const TilePosition t = cc->getTilePosition();
+        int x0 = t.x, y0 = t.y, x1 = t.x + 4, y1 = t.y + 3;
+        auto add = [&](Unit r) {
+          if (r->getInitialPosition().getApproxDistance(cc->getPosition()) > 12 * 32)
+            return;
+          const TilePosition rt = r->getInitialTilePosition();
+          const UnitType rtype = r->getInitialType();
+          x0 = std::min(x0, rt.x);
+          y0 = std::min(y0, rt.y);
+          x1 = std::max(x1, rt.x + rtype.tileWidth());
+          y1 = std::max(y1, rt.y + rtype.tileHeight());
+        };
+        for (Unit m : Broodwar->getStaticMinerals())
+          add(m);
+        for (Unit g : Broodwar->getStaticGeysers())
+          add(g);
+        areas.push_back({ x0, y0, x1 - x0, y1 - y0 });
+      }
+      return areas;
+    }
+
+    bool overlapsAny(const TileRect& r, const std::vector<TileRect>& areas)
+    {
+      for (const TileRect& a : areas)
+        if (r.x < a.x + a.w && a.x < r.x + r.w && r.y < a.y + a.h && a.y < r.y + r.h)
+          return true;
+      return false;
+    }
+
     bool insideMain(const MapInfo& map, const TileRect& r)
     {
       for (int y = r.y; y < r.y + r.h; ++y)
@@ -421,16 +460,25 @@ namespace bb
     // A requested spot (e.g. a Missile Turret by a Command Center) is searched only
     // around that spot. Falling back to the main would put the building where it is
     // not needed: a turret meant for the natural once ended up in the main 13 times.
+    const std::vector<TileRect> mining = miningAreas();
     if (task.desired.isValid() && task.desired != TilePositions::None)
     {
-      for (bool spaced : { true, false })
-      {
-        TilePosition tile = Broodwar->getBuildLocation(type, task.desired, 12);
-        if (tile.isValid() && tile != TilePositions::None && !overlapsOtherTask(task, tile) && !recentlyBlocked(tile) &&
-            tile.getApproxDistance(task.desired) <= 12 && !blocksRamp(task, tile) && (!spaced || keepsExitsOpen(task, tile, true)))
-          return tile;
-      }
-      return TilePositions::None;
+      // Nearest legal spot to the requested one outside the mining area (BWAPI's
+      // getBuildLocation put Turrets into the mineral line).
+      TilePosition best = TilePositions::None;
+      int bestDist = std::numeric_limits<int>::max();
+      for (int dy = -12; dy <= 12; ++dy)
+        for (int dx = -12; dx <= 12; ++dx)
+        {
+          const TilePosition t(task.desired.x + dx, task.desired.y + dy);
+          const int d = dx * dx + dy * dy;
+          if (d >= bestDist || d > 144 || !t.isValid() || !Broodwar->canBuildHere(t, type) || overlapsOtherTask(task, t) ||
+              recentlyBlocked(t) || blocksRamp(task, t) || overlapsAny(footprint(t, type), mining) || !keepsExitsOpen(task, t, false))
+            continue;
+          best = t;
+          bestDist = d;
+        }
+      return best;
     }
     // Every legal tile around the main, nearest to the Command Center first. 17
     // sampled spots found nothing with free exits once the main filled up, and the
@@ -446,7 +494,7 @@ namespace bb
         const TilePosition t(centre.x + dx, centre.y + dy);
         if (dx * dx + dy * dy > radius * radius || !t.isValid() || !Broodwar->canBuildHere(t, type) || !addonSpaceFree(t, type) ||
             overlapsOtherTask(task, t) || recentlyBlocked(t) || blocksRamp(task, t) || takesAddonSpot(t, type) ||
-            nearArmySpot(task, t))
+            nearArmySpot(task, t) || overlapsAny(footprint(t, type), mining))
           continue;
         legal.push_back(t);
       }
@@ -717,6 +765,9 @@ namespace bb
                                       " repeated orders); trying another spot"));
         if (!task.type.isResourceDepot() && !task.type.isRefinery())
           blockedTiles_.push_back({ task.tile, ctx_.frame + kBlockedTileFrames });
+        // Another SCV next time: the same boxed-in SCV got the natural's Command
+        // Center six times in a row.
+        releaseBuilder(task);
         task.reissues = 0;
         task.tile = TilePositions::None;
         task.state = State::WaitingForBuilder;

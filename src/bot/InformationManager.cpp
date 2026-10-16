@@ -14,7 +14,9 @@ namespace bb
 
     bool ignoredType(UnitType t)
     {
-      return t == UnitTypes::Zerg_Larva || t == UnitTypes::Zerg_Egg || t == UnitTypes::Zerg_Lurker_Egg ||
+      // Spells (an enemy Scanner Sweep) are not units: 22 attack orders on one failed
+      // with Incompatible_UnitType.
+      return t.isSpell() || t == UnitTypes::Zerg_Larva || t == UnitTypes::Zerg_Egg || t == UnitTypes::Zerg_Lurker_Egg ||
              t == UnitTypes::Protoss_Interceptor || t == UnitTypes::Protoss_Scarab ||
              t == UnitTypes::Terran_Vulture_Spider_Mine;
     }

@@ -52,15 +52,14 @@ namespace bb
     // Where Vultures lay a Spider Mine field: just outside the main's entrance, and
     // once the natural is ours a few tiles further out than its rally point. None if unknown.
     BWAPI::Position mineFieldSpot() const { return naturalOwned_ && naturalMineField_.isValid() ? naturalMineField_ : mainMineField_; }
-    const std::vector<BWAPI::TilePosition>& otherStartLocations() const { return otherStarts_; }
     const std::vector<SearchCell>& searchCells() const { return searchCells_; }
 
     // Ground connection between two points (uses BWAPI's static region data).
     bool groundReachable(BWAPI::Position from, BWAPI::Position to) const;
 
-    // The main's own ground: tiles reachable from the main's Command Center without
-    // passing its entrance. Unknown (false for every tile, mainAreaKnown() false)
-    // when no entrance was found or the fill got out of the main.
+    // The main's own ground: tiles whose ground way to the natural goes through the
+    // main's entrance. Unknown (false for every tile, mainAreaKnown() false) when no
+    // entrance or natural was found or the Command Center is not inside.
     bool mainAreaKnown() const { return !mainArea_.empty(); }
     bool inMain(BWAPI::TilePosition t) const;
 
@@ -69,7 +68,7 @@ namespace bb
     void computeRally();
     void computeSearchCells();
     void computeChoke();
-    void computeMainArea(int chokeClearance);
+    void computeMainArea();
     std::vector<BWAPI::TilePosition> groundPath(BWAPI::TilePosition from, BWAPI::TilePosition to) const;
     std::vector<char> blockedTiles() const;
 

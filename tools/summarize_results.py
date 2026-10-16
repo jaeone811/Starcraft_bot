@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Summarize BeginnerBot's results.csv per difficulty (and map / enemy race).
+"""Summarize JaeTankBot's results.csv per difficulty (and map / enemy race).
 
 Usage:
-    python tools/summarize_results.py "C:/StarCraft/bwapi-data/write/BeginnerBot/results.csv"
+    python tools/summarize_results.py "C:/StarCraft/bwapi-data/write/JaeTankBot/results.csv"
 
 Only the Python standard library is used.
 """

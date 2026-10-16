@@ -584,11 +584,20 @@ namespace bb
         addTurretsNear(home, ctx_.strategy->threatCenter(), 25 * kTile);
         const double threat = enemyStrengthOf(ctx_.strategy->baseThreats());
         const double defense = strengthOf(home, enemyAirFraction(ctx_.strategy->baseThreats()));
-        if (threat > defense * 1.2 && groupCenter(waveUnits).getApproxDistance(ctx_.map->mainPosition()) > 30 * kTile)
+        // Only for an attack on a base (the defense ignores threats further than 35
+        // tiles from every Command Center); the next wave waits 30 s. A threat at a
+        // lost base recalled and restarted the wave 20 times in 10 s.
+        int homeDistance = ctx_.strategy->threatCenter().getApproxDistance(ctx_.map->mainPosition());
+        for (Unit u : Broodwar->self()->getUnits())
+          if (u->getType().isResourceDepot())
+            homeDistance = std::min(homeDistance, ctx_.strategy->threatCenter().getApproxDistance(u->getPosition()));
+        if (threat > defense * 1.2 && homeDistance <= 35 * kTile &&
+            groupCenter(waveUnits).getApproxDistance(ctx_.map->mainPosition()) > 30 * kTile)
         {
           ctx_.log.info("Combat", concat("base attack too strong for home (", static_cast<int>(threat), " vs ",
                                          static_cast<int>(defense), "): recalling the wave"));
           endWave("recalled to defend the base", State::Defend);
+          nextAttackAllowedFrame_ = ctx_.frame + 24 * 30;
         }
       }
     }

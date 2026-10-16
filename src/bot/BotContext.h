@@ -1,5 +1,5 @@
 #pragma once
-// Shared services and module pointers. BeginnerBot owns everything; modules keep
+// Shared services and module pointers. JaeTankBot owns everything; modules keep
 // a reference to the context to reach each other.
 
 #include "BotSettings.h"
@@ -45,7 +45,7 @@ namespace bb
     StrategyManager* strategy = nullptr;
   };
 
-  // Small helper so modules can write: logInfo(ctx, "Combat", "wave ", n, " started").
+  // Joins its arguments into one string: concat("wave ", n, " started").
   template <typename... Args>
   std::string concat(const Args&... args)
   {

@@ -1,5 +1,5 @@
 #pragma once
-// Runtime settings read from BeginnerBot.ini (see config/BeginnerBot.ini).
+// Runtime settings read from JaeTankBot.ini (see config/JaeTankBot.ini).
 
 #include <string>
 #include <vector>
@@ -14,7 +14,7 @@ namespace bb
     // classic: the difficulty's build and research order for every race (as in 0.8.8).
     std::string opening = "liquipedia";
     std::string logLevel = "info";// debug | info | warn | error
-    std::string logDirectory = "bwapi-data/write/BeginnerBot";
+    std::string logDirectory = "bwapi-data/write/JaeTankBot";
     int localSpeed = -1;          // -1 = leave the game speed alone, 0 = fastest
     int frameSkip = 0;
     bool debugDraw = true;        // draw state text on screen

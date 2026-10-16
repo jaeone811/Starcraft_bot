@@ -1,12 +1,13 @@
-# BeginnerBot — 스타크래프트: 브루드워 초보 AI 봇 (Terran, 난이도 1~5)
+# JaeTankBot — 스타크래프트: 브루드워 초보 AI 봇 (Terran, 난이도 1~5)
 
 BWAPI 4.4.0으로 게임 상태를 읽고 유닛에 명령을 내리는 C++ AI 모듈(DLL)이다. 화면 인식/마우스 조작은 쓰지 않는다.
 BWAPI 기본 설정(전장의 안개 적용, 보이지 않는 유닛 정보 차단)을 그대로 사용하며 `CompleteMapInformation` 같은 치트 플래그를 켜지 않는다.
 
 > **상태 요약**
-> - 빌드: Windows MSVC 32비트(Win32, Release)와 Linux g++에서 빌드 성공, 단위 테스트/모듈 로드 테스트 통과 (GitHub Actions)
-> - **실제 게임 실행: 아직 검증되지 않음.** 개발 환경(Linux 클라우드 컨테이너)에 StarCraft가 없었다. 자세한 내용은 [docs/VALIDATION.md](docs/VALIDATION.md)
-> - 로컬 Claude Code로 실전 테스트하기: [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md)
+> - 1.0.0부터 이름이 **JaeTankBot**이다(0.9.8까지는 BeginnerBot). DLL `JaeTankBot.dll`, 설정 `JaeTankBot.ini`, 로그 `bwapi-data/write/JaeTankBot/`.
+> - 빌드: Windows MSVC 32비트(Win32, Release)와 Linux g++에서 빌드 성공, 단위 테스트/모듈 로드 테스트 통과
+> - 실제 게임: 내장 AI와 Steamhammer(봇 대 봇)를 상대로 반복 실전 테스트 중. 결과는 [docs/VALIDATION.md](docs/VALIDATION.md) 5절
+> - 사람이 봇과 붙는 방법: 아래 5.1절 (`JaeTankBotPlay.exe`)
 
 ---
 
@@ -63,23 +64,23 @@ ctest --test-dir build -C Release --output-on-failure
 ```
 - 반드시 **Win32(32비트)** + **Release** (BWAPI.dll이 32비트 Release, `/MD` 런타임)
 - `BWAPI_DIR` 은 `include\BWAPI.h` 와 `BWAPILIB\` 가 있는 폴더. BWAPI git 저장소를 쓸 경우 `<저장소>\bwapi` 폴더 (`git clone --branch v4.4.0 https://github.com/bwapi/bwapi.git`)
-- 결과물: `build\Release\BeginnerBot.dll`, `build\Release\BeginnerBotConfig.exe`
+- 결과물: `build\Release\JaeTankBot.dll`, `build\Release\JaeTankBotConfig.exe`
 
-빌드 없이 쓰려면 GitHub Actions의 `BeginnerBot-win32` 아티팩트(zip)를 받는다.
+빌드 없이 쓰려면 GitHub Actions의 `JaeTankBot-win32` 아티팩트(zip)를 받는다.
 
 ## 5. 게임에 설치하고 실행
 
 ```bat
 scripts\install_to_starcraft.bat "C:\Games\StarCraft"
-build\Release\BeginnerBotConfig.exe --starcraft "C:\Games\StarCraft"
+build\Release\JaeTankBotConfig.exe --starcraft "C:\Games\StarCraft"
 ```
-- 설치 스크립트는 `bwapi-data\AI\` 에 `BeginnerBot.dll`(과 없을 때만 `BeginnerBot.ini`)을 **추가**할 뿐 게임 파일이나 `bwapi.ini`를 건드리지 않는다.
-- 설정 도구에서 난이도/종족을 고르고, 원하면 `bwapi.ini`도 수정한다(수정 전 `bwapi.ini.beginnerbot-날짜.bak` 백업 생성, `[ai] ai`와 `[auto_menu]`의 몇 개 키만 변경).
+- 설치 스크립트는 `bwapi-data\AI\` 에 `JaeTankBot.dll`(과 없을 때만 `JaeTankBot.ini`)을 **추가**할 뿐 게임 파일이나 `bwapi.ini`를 건드리지 않는다.
+- 설정 도구에서 난이도/종족을 고르고, 원하면 `bwapi.ini`도 수정한다(수정 전 `bwapi.ini.jaetankbot-날짜.bak` 백업 생성, `[ai] ai`와 `[auto_menu]`의 몇 개 키만 변경).
 
 수동으로 할 경우 `StarCraft\bwapi-data\bwapi.ini`:
 ```ini
 [ai]
-ai = bwapi-data/AI/BeginnerBot.dll
+ai = bwapi-data/AI/JaeTankBot.dll
 
 [auto_menu]            ; 기본 AI와 자동 대전 (선택)
 auto_menu = SINGLE_PLAYER
@@ -91,11 +92,34 @@ map = maps/(2)Boxer.scm
 ```
 실행: BWAPI 설치 폴더의 `Chaoslauncher\Chaoslauncher.exe`를 **관리자 권한**으로 실행 → `BWAPI 4.4.0 Injector [RELEASE]` 체크 (창 모드는 `W-MODE`) → Start.
 `auto_menu = OFF`이면 Single Player → Expansion → Play Custom에서 Terran으로 직접 게임을 만든다.
-게임이 시작되면 화면 왼쪽 위에 `BeginnerBot 0.9.8 - difficulty 3 (Normal)` 문구가 나온다.
+게임이 시작되면 화면 왼쪽 위에 `JaeTankBot 1.0.0 - difficulty 3 (Normal)` 문구가 나온다.
+
+## 5.1 사람 대 JaeTankBot (한 PC)
+
+StarCraft 두 개를 띄워 첫 번째 창은 봇이 게임을 만들고, 두 번째 창에서 사람이 그 게임에 들어가 플레이한다
+(봇 대 봇과 같은 "Local PC" 방식).
+
+1. `install_to_starcraft.bat`로 설치하면 `bwapi-data\AI\JaeTankBotPlay.exe`가 함께 복사된다. 바로가기를 바탕화면에 만들어 두면 편하다.
+2. `JaeTankBotPlay.exe`를 더블클릭 → 난이도, 사람 종족, 맵을 묻는다(Enter = 기본값).
+   - `JaeTankBot.ini`: 고른 난이도, `local_speed = -1`(보통 속도)
+   - `bwapi.ini`(먼저 `bwapi.ini.jaetankbot-날짜.bak` 백업): `ai = bwapi-data/AI/JaeTankBot.dll, HUMAN`,
+     `auto_menu = LAN`, `lan_mode = Local PC`, `race = Terran, <사람 종족>`, `wait_for_min_players = 2`, `windowed = ON`
+   - `%USERPROFILE%\BWAPI\Chaoslauncher\Chaoslauncher - MultiInstance.exe`를 실행한다(경로가 다르면 `--chaoslauncher`).
+3. Chaoslauncher에서 "BWAPI Injector [RELEASE]"를 체크하고 **Start** → 봇 창(게임을 만들고 사람을 기다림).
+4. **Start**를 한 번 더 → 사람 창. 자동으로 같은 게임에 들어가고, `HUMAN`은 DLL이 아니라서 이 창에는 AI가 없다
+   (BWAPI의 "AI 모듈을 불러오지 못함" 문구는 정상). 이 창에서 직접 플레이한다.
+5. 봇 대 봇으로 돌아가려면 백업한 `bwapi.ini`를 되돌리거나 `ai =` 줄을 다시 바꾼다.
+
+명령줄: `JaeTankBotConfig.exe --starcraft "C:\StarCraft" --vs-human --difficulty 5 --human-race Protoss --map "maps/(2)Boxer.scm" --launch`
+
+다른 PC의 사람과 붙을 때는 봇 PC에서 위 설정으로 봇 창만 띄우고(`lan_mode = Local Area Network (UDP)`), 사람은 같은 네트워크에서
+Multiplayer → Local Area Network로 그 게임에 들어가면 된다.
+
+> 검증되지 않음: 두 번째 인스턴스가 AI 없이 자동 입장하는 동작과 다른 PC와의 대전(양쪽 모두 StarCraft 1.16.1 필요)은 아직 실제 게임에서 확인하지 않았다.
 
 ## 6. 난이도 / 종족 / 맵 설정
 
-`StarCraft\bwapi-data\AI\BeginnerBot.ini` (없으면 `bwapi-data\read\BeginnerBot.ini`, 그다음 DLL과 같은 폴더, 모두 없으면 기본값 3).
+`StarCraft\bwapi-data\AI\JaeTankBot.ini` (없으면 `bwapi-data\read\JaeTankBot.ini`, 그다음 DLL과 같은 폴더, 모두 없으면 기본값 3).
 StarCraft 폴더는 작업 폴더에 `bwapi-data`가 있으면 그 폴더, 아니면 DLL 위치(`…\bwapi-data\AI`)의 두 단계 위로 판단하며 로그 첫 부분에 기록된다:
 ```ini
 [bot]
@@ -108,7 +132,7 @@ opening = liquipedia ; liquipedia(기본, 0.9.1) | classic(0.8.8 방식)
     - 프로토스·테란 상대: 두 번째 배럭 자리에 팩토리, 시즈 모드·U-238 먼저.
     - 저그 상대: 팩토리 자리에 엔지니어링 베이, 스팀·U-238·보병 +1을 시즈 모드보다 먼저.
   - `classic`: 난이도의 빌드 순서를 종족과 상관없이 그대로 씀.
-  - 0.8.8을 그대로 쓰고 싶으면 `bwapi.ini`에서 `ai = bwapi-data/AI/BeginnerBot_0.8.8.dll`로 지정한다(VALIDATION.md 4.2).
+  - 0.8.8을 그대로 쓰고 싶으면 `bwapi.ini`에서 `ai = bwapi-data/AI/JaeTankBot_0.8.8.dll`로 지정한다(VALIDATION.md 4.2).
 | 단계 | 이름 | 설명 |
 |---|---|---|
 | 1 | 매우 쉬움 (VeryEasy) | 단순한 빌드, 늦은 정찰과 공격, 집중 공격/후퇴 판단 제한 |
@@ -117,7 +141,7 @@ opening = liquipedia ; liquipedia(기본, 0.9.1) | classic(0.8.8 방식)
 | 4 | 어려움 (Hard) | 높은 가동률, 보급 예측, 정찰 정보 기반 조합/공격 시점, 효율적인 집중 공격과 후퇴 |
 | 5 | 매우 어려움 (VeryHard) | 이른 다중 확장, 업그레이드, 위협 우선순위 집중 공격, 손실 기반 재판단 |
 
-모든 수치와 코드 위치: [docs/DIFFICULTY.md](docs/DIFFICULTY.md). `BeginnerBotConfig.exe --list`로도 볼 수 있다.
+모든 수치와 코드 위치: [docs/DIFFICULTY.md](docs/DIFFICULTY.md). `JaeTankBotConfig.exe --list`로도 볼 수 있다.
 
 - **종족**: 실제 플레이 종족은 로비 또는 `bwapi.ini [auto_menu] race`가 결정한다. Terran이 아니면 봇은 로그에 ERROR를 남기고 일꾼 채취만 한다.
 - **맵**: `bwapi.ini [auto_menu] map` (자동 시작 시). 처음에는 2인용 맵 하나로만 테스트할 것.
@@ -126,8 +150,8 @@ opening = liquipedia ; liquipedia(기본, 0.9.1) | classic(0.8.8 방식)
 
 | 파일 | 내용 |
 |---|---|
-| `StarCraft\bwapi-data\write\BeginnerBot\BeginnerBot_YYYYMMDD_HHMMSS.log` | 게임별 로그 |
-| `StarCraft\bwapi-data\write\BeginnerBot\results.csv` | 경기마다 한 줄: 결과, 시간, 일꾼/자원/보급 막힘/생산 유휴/웨이브/막힘/예외 수 |
+| `StarCraft\bwapi-data\write\JaeTankBot\JaeTankBot_YYYYMMDD_HHMMSS.log` | 게임별 로그 |
+| `StarCraft\bwapi-data\write\JaeTankBot\results.csv` | 경기마다 한 줄: 결과, 시간, 일꾼/자원/보급 막힘/생산 유휴/웨이브/막힘/예외 수 |
 
 경로는 `[log] directory`로 바꿀 수 있다 (StarCraft 폴더 기준 상대 경로). 형식:
 ```
@@ -136,7 +160,7 @@ opening = liquipedia ; liquipedia(기본, 0.9.1) | classic(0.8.8 방식)
 - 시작 부분 `APPLIED difficulty=…` 줄 = 실제 적용된 난이도 설정 전체
 - 약 30초마다 `Snapshot` 줄 = 보급/자원/일꾼 역할/병력/전투 상태/생산 계획
 - 끝에 `metrics:` 줄과 `game over: WIN/LOSS`
-- 요약: `python tools\summarize_results.py "C:\Games\StarCraft\bwapi-data\write\BeginnerBot\results.csv"`
+- 요약: `python tools\summarize_results.py "C:\Games\StarCraft\bwapi-data\write\JaeTankBot\results.csv"`
 
 ## 8. 문제 해결
 
@@ -162,7 +186,7 @@ src/core/   BWAPI 없이 테스트 가능한 로직
   CommandHistory    같은 명령 반복 방지 + 반복 감지
   Logger, Metrics   로그와 검증용 지표
 src/bot/    BWAPI 레이어
-  BeginnerBot       AIModule: 이벤트 처리, 매니저 호출, 예외 격리, 로그/결과 기록
+  JaeTankBot       AIModule: 이벤트 처리, 매니저 호출, 예외 격리, 로그/결과 기록
   Commander         모든 유닛 명령의 단일 통로 (중복 제거, 실패 로그)
   MapInfo           시작 위치, 광물 클러스터로 기지 위치/앞마당/집결지 계산
   InformationManager 본 적 있는 적 건물/유닛만 기억, 적 본진 확인/추론
@@ -173,7 +197,7 @@ src/bot/    BWAPI 레이어
   ScoutManager      일꾼 정찰
   CombatManager     (전투) 집결/공격/후퇴/방어, 집중 공격, 재집결, 막힘 감지, 스팀/스캔
   StrategyManager   공격 조건 적응, 공격 목표 선택, 기지 위협 감지
-tools/configurator  BeginnerBotConfig.exe (난이도/종족/맵 설정)
+tools/configurator  JaeTankBotConfig.exe (난이도/종족/맵 설정)
 tests/              단위 테스트, BWAPI 데이터 테스트, 모듈 로드 테스트
 ```
 외부 라이브러리는 BWAPI 4.4.0 외에 없다 (지형 분석 라이브러리 BWEM/BWTA 미사용).

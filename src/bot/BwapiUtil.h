@@ -18,7 +18,6 @@ namespace bb
 
   inline Point toPoint(BWAPI::Position p) { return { p.x, p.y }; }
   inline BWAPI::Position toPosition(Point p) { return BWAPI::Position(p.x, p.y); }
-  inline BWAPI::Position tileCenter(BWAPI::TilePosition t) { return BWAPI::Position(t) + BWAPI::Position(16, 16); }
   // Center of a building of `type` placed with its top-left at `t`.
   BWAPI::Position buildingCenter(BWAPI::TilePosition t, BWAPI::UnitType type);
 

@@ -130,13 +130,13 @@ TEST_CASE("ini set replaces in place and appends new keys/sections")
 {
   IniFile ini;
   ini.parse("; keep me\n[ai]\nai = old.dll\n\n[auto_menu]\nrace = Zerg\n; trailing comment\n\n[config]\nx=1\n");
-  ini.set("ai", "ai", "bwapi-data/AI/BeginnerBot.dll");
+  ini.set("ai", "ai", "bwapi-data/AI/JaeTankBot.dll");
   ini.set("auto_menu", "race", "Terran");
   ini.set("auto_menu", "map", "maps/test.scx");
   ini.set("new", "k", "v");
   const std::string out = ini.toString();
   CHECK(out.find("; keep me") != std::string::npos);
-  CHECK(out.find("ai = bwapi-data/AI/BeginnerBot.dll") != std::string::npos);
+  CHECK(out.find("ai = bwapi-data/AI/JaeTankBot.dll") != std::string::npos);
   CHECK(out.find("old.dll") == std::string::npos);
   CHECK(ini.getString("auto_menu", "race", "") == "Terran");
   CHECK(ini.getString("auto_menu", "map", "") == "maps/test.scx");

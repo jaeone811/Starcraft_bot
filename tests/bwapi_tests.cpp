@@ -223,7 +223,7 @@ TEST_CASE("StarCraft folder detection")
   namespace fs = std::filesystem;
   CHECK(!moduleDirectory().empty()); // the test executable itself
   const fs::path old = fs::current_path();
-  const fs::path tmp = fs::temp_directory_path() / "beginnerbot_root_test";
+  const fs::path tmp = fs::temp_directory_path() / "jaetankbot_root_test";
   fs::create_directories(tmp / "bwapi-data");
   fs::current_path(tmp);
   CHECK(fs::equivalent(starcraftRoot(), tmp));

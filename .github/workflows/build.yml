@@ -31,28 +31,29 @@ jobs:
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $dumpbin = & $vswhere -latest -products * -find "VC\Tools\MSVC\**\bin\Hostx64\x86\dumpbin.exe" | Select-Object -First 1
           if (-not $dumpbin) { throw "dumpbin not found" }
-          & $dumpbin /headers build\Release\BeginnerBot.dll | Select-String "machine"
-          & $dumpbin /exports build\Release\BeginnerBot.dll
-          & $dumpbin /dependents build\Release\BeginnerBot.dll
-          $exports = & $dumpbin /exports build\Release\BeginnerBot.dll | Out-String
+          & $dumpbin /headers build\Release\JaeTankBot.dll | Select-String "machine"
+          & $dumpbin /exports build\Release\JaeTankBot.dll
+          & $dumpbin /dependents build\Release\JaeTankBot.dll
+          $exports = & $dumpbin /exports build\Release\JaeTankBot.dll | Out-String
           if ($exports -notmatch "newAIModule" -or $exports -notmatch "gameInit") { throw "missing BWAPI exports" }
-          $headers = & $dumpbin /headers build\Release\BeginnerBot.dll | Out-String
+          $headers = & $dumpbin /headers build\Release\JaeTankBot.dll | Out-String
           if ($headers -notmatch "14C machine \(x86\)") { throw "DLL is not 32-bit x86" }
 
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force package/bwapi-data/AI, package/tools | Out-Null
-          Copy-Item build/Release/BeginnerBot.dll package/bwapi-data/AI/
-          Copy-Item config/BeginnerBot.ini package/bwapi-data/AI/
-          Copy-Item build/Release/BeginnerBotConfig.exe package/tools/
+          Copy-Item build/Release/JaeTankBot.dll package/bwapi-data/AI/
+          Copy-Item config/JaeTankBot.ini package/bwapi-data/AI/
+          Copy-Item build/Release/JaeTankBotConfig.exe package/tools/
+          Copy-Item build/Release/JaeTankBotPlay.exe package/bwapi-data/AI/
           Copy-Item scripts/install_to_starcraft.bat package/
           if (Test-Path README.md) { Copy-Item README.md package/ }
           if (Test-Path docs) { Copy-Item docs package/docs -Recurse }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: BeginnerBot-win32
+          name: JaeTankBot-win32
           path: package
 
   linux-gcc:

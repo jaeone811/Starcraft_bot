@@ -45,7 +45,7 @@ namespace bb
       }
       s.logDirectory = ini.getString("log", "directory", s.logDirectory);
       if (s.logDirectory.empty())
-        s.logDirectory = "bwapi-data/write/BeginnerBot";
+        s.logDirectory = "bwapi-data/write/JaeTankBot";
       s.snapshotIntervalFrames = ini.getInt("log", "snapshot_interval_frames", s.snapshotIntervalFrames);
       if (s.snapshotIntervalFrames < 24)
         s.snapshotIntervalFrames = 24;
@@ -87,6 +87,6 @@ namespace bb
 
   std::vector<std::string> defaultSettingsPaths()
   {
-    return { "bwapi-data/AI/BeginnerBot.ini", "bwapi-data/read/BeginnerBot.ini" };
+    return { "bwapi-data/AI/JaeTankBot.ini", "bwapi-data/read/JaeTankBot.ini" };
   }
 }

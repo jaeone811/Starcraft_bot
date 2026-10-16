@@ -20,7 +20,6 @@ namespace bb
     const int id = u->getID();
     if (!ctx_.history.shouldIssue(id, key, ctx_.frame, cooldown))
     {
-      ctx_.history.noteSuppressed();
       lastSuppressed_ = true;
       return false;
     }
@@ -57,7 +56,6 @@ namespace bb
     // look like a stuck unit. A unit that stopped gets the order again as usual.
     if (!isValid(u) || !u->isMoving() || u->getOrder() != order || u->getOrderTargetPosition().getApproxDistance(p) > 64)
       return false;
-    ctx_.history.noteSuppressed();
     lastSuppressed_ = true;
     return true;
   }
@@ -172,7 +170,6 @@ namespace bb
       return false;
     if (worker->getOrder() == Orders::Repair && worker->getOrderTarget() == target)
     {
-      ctx_.history.noteSuppressed();
       lastSuppressed_ = true;
       return false;   // already repairing it
     }

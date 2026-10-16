@@ -32,9 +32,9 @@
 - 봇: Terran, 난이도 3
 - 상대: 기본 탑재 컴퓨터 AI, Protoss
 - `bwapi.ini`: `auto_menu = SINGLE_PLAYER`, `enemy_count = 1`, `game_type = MELEE`
-- `BeginnerBot.ini`: `local_speed = 0` (최고 속도), `level = info`
+- `JaeTankBot.ini`: `local_speed = 0` (최고 속도), `level = info`
 
-로그(`bwapi-data/write/BeginnerBot/BeginnerBot_*.log`)에서 확인할 줄:
+로그(`bwapi-data/write/JaeTankBot/JaeTankBot_*.log`)에서 확인할 줄:
 
 | 확인 항목 | 로그에서 찾을 문자열 |
 |---|---|
@@ -50,7 +50,7 @@
 
 ## 4. 난이도 비교 (반복 대전)
 
-각 경기 종료 시 `bwapi-data/write/BeginnerBot/results.csv`에 한 줄이 추가된다.
+각 경기 종료 시 `bwapi-data/write/JaeTankBot/results.csv`에 한 줄이 추가된다.
 요약: `python tools/summarize_results.py <results.csv 경로>`
 
 권장 매트릭스 (각 칸 최소 10경기):
@@ -77,10 +77,10 @@
 - UAlbertaBot (github.com/davechurchill/ualbertabot 558899d): 원래 클라이언트 exe라 `UAlbertaBotModule`을 AIModule로 감싸는 Dll.cpp를 추가,
   `_HAS_AUTO_PTR_ETC=1`(SparCraft의 std::random_shuffle), 설정 파일 위치를 `bwapi-data/AI/UAlbertaBot_Config.txt`로 변경.
 - Steamhammer 5.3.6 (satirist.org 소스 릴리스): 그대로 DLL. 설정 `Steamhammer_5.3.6.json`(바이너리 zip에만 있음)을 `bwapi-data/AI/`에.
-  상대별 학습 파일을 `bwapi-data/write/`에 남기므로 경기를 거듭하면 BeginnerBot에 적응한다.
+  상대별 학습 파일을 `bwapi-data/write/`에 남기므로 경기를 거듭하면 JaeTankBot에 적응한다.
 
 두 봇 모두 `CompleteMapInformation`은 꺼져 있다(설정 확인). `bwapi.ini`(백업 후):
-`ai = bwapi-data/AI/BeginnerBot.dll, bwapi-data/AI/<상대>.dll`, `race = Terran, <상대 종족>`, `auto_menu = LAN`,
+`ai = bwapi-data/AI/JaeTankBot.dll, bwapi-data/AI/<상대>.dll`, `race = Terran, <상대 종족>`, `auto_menu = LAN`,
 `lan_mode = Local PC`, `game = JOIN_FIRST`. 사용자가 `Chaoslauncher - MultiInstance.exe`(관리자)에서 Start를 두 번 누른다
 (첫 번째 창이 방을 만들고 두 번째가 들어온다). 기본 AI 테스트로 돌아갈 때는 백업한 bwapi.ini를 되돌린다.
 
@@ -88,15 +88,17 @@
 
 | 파일 (`bwapi-data\AI\`) | 버전 | 오프닝 |
 |---|---|---|
-| `BeginnerBot.dll` | 최신 (0.9.1~) | `BeginnerBot.ini`의 `opening` (기본 liquipedia, classic 가능) |
+| `JaeTankBot.dll` | 최신 (0.9.1~) | `JaeTankBot.ini`의 `opening` (기본 liquipedia, classic 가능) |
 | `BeginnerBot_0.9.0.dll` | 0.9.0 | 프로토스 상대만 팩토리 먼저 |
 | `BeginnerBot_0.8.8.dll` | 0.8.8 | 모든 종족 상대로 난이도 빌드 그대로 |
 
 - 쓰는 방법: `bwapi.ini`의 `ai =` 첫 번째 DLL을 원하는 파일로 바꾼다(봇 대 봇이면 `ai = bwapi-data/AI/BeginnerBot_0.8.8.dll, bwapi-data/AI/Steamhammer.dll`). 로그 첫 줄에 버전이 찍힌다.
-- 같은 DLL로 오프닝만 비교하려면 `BeginnerBot.ini`의 `opening = classic` / `liquipedia`를 바꾼다. 로그에 `opening vs ... (Liquipedia)` 또는 `opening: classic`이 찍힌다.
-- 백업 DLL은 git 태그 `v0.8.8`(2f19166), `v0.9.0`(793b751)에서 다시 빌드할 수 있다: `git worktree add <폴더> v0.8.8` → 그 폴더에서 `cmake -S . -B build -A Win32` → `cmake --build build --config Release --target BeginnerBot`.
+- 같은 DLL로 오프닝만 비교하려면 `JaeTankBot.ini`의 `opening = classic` / `liquipedia`를 바꾼다. 로그에 `opening vs ... (Liquipedia)` 또는 `opening: classic`이 찍힌다.
+- 백업 DLL은 git 태그 `v0.8.8`(2f19166), `v0.9.0`(793b751)에서 다시 빌드할 수 있다: `git worktree add <폴더> v0.8.8` → 그 폴더에서 `cmake -S . -B build -A Win32` → `cmake --build build --config Release --target JaeTankBot`.
 
 ## 5. 결과 기록 양식
+
+> 1.0.0부터 봇 이름이 JaeTankBot(DLL·설정·로그 폴더 `write/JaeTankBot`)이다. 아래 0.9.8 이전 행의 로그와 results.csv는 `write/BeginnerBot`에 있다.
 
 | 날짜 | 맵 | 상대 | 난이도 | 경기 수 | 승률 | 평균 시간 | 비고 |
 |---|---|---|---|---|---|---|---|
@@ -149,3 +151,4 @@
 | 2026-10-16 | (2)Boxer.scm | Terran (Steamhammer 5.3.6, 봇 대 봇) | 4 | 1 | — (33:18 사용자 강제 종료, results.csv에는 win으로 기록됨) | 33:18 | 0.9.5. 처치 113 / 손실 204. 확인: "hold over: the army gathers at home" 동작. 사용자 관찰: SCV가 여전히 적에게 돌진, 병력이 상대보다 너무 적음, 적 마인에 쉽게 당함, 앞마당 옆 멀티 자리를 못 찾음. 로그: 중앙 기지(45,57)를 11:55·14:44·17:35 세 번 골라 매번 "unexplored: SCV walks there first" 후 2분 뒤 "spot never got explored" — 정찰하러 걸어가는 SCV는 죽어도 기록·제한이 없어 다음 SCV가 같은 길로 계속 감(0.8.6 제한은 건설 명령을 받은 뒤만 적용). 웨이브 4번(15~22기) 모두 시즈 탱크 라인에서 10~14기 잃음: 적 병력이 시야에서 사라지면 알려진 전력이 0~560으로 떨어져 공격 조건을 통과. 마인: 스파이더 마인을 무시 목록에 둬서 스캔·사격·회피 모두 없음(스캔 0번). 자원: 광물 0~70, 가스 400~1100이 계속 쌓임. 19:24 "only 2996 minerals left but no free base is known", 23:00 본진·앞마당 고갈로 SCV 19기가 놀며 교착 → 0.9.6에서 정찰 SCV가 죽거나 공격받아도 2번이면 포기·그 자리 3분 회피, 먼 미탐색 자리는 컴샛에 스캔 2번 분 에너지가 있으면 먼저 스캔, 먼 자리가 끝내 미탐색이면 그 자리 3분 회피. 확장 후보는 우리 기지 아무 곳에서 가장 가까운 곳(앞마당 옆이 중앙보다 먼저), 고를 곳이 없으면 이유를 2분마다 로그, 시작할 때 모든 기지 목록 로그, 광물 고갈 대체 때는 "최근 2분 적 통과" 조건을 풀어 줌. 공격 판단의 적 전력은 지금까지 본 최대 전력이 5분에 절반씩 줄어드는 값과 현재 값 중 큰 것. 스파이더 마인은 근처 적으로 인식(먼저 쏨, 숨은 마인은 비켜섬·스캔), 처음 볼 때 로그. 광물 150 미만이면 가스 400부터 가스 일꾼을 광물로 |
 | 2026-10-16 | (2)Boxer.scm | Terran (Steamhammer 5.3.6, 봇 대 봇) | 4 | 1 | 0% (패) | 16:50 | 0.9.6. 처치 39 / 손실 131, 공격 0회, 최대 보급 50, 스캔 0(통계). 확인: "bases:" 로그로 기지 8곳 모두 인식(32,87 60,7 85,23 45,57 7,70 84,76 8,17 47,38), 먼 미탐색 건설지 스캔 동작(7:00, 단 우리 앞마당에 씀), "enemy Spider Mine seen at 28,71 (detected)". 패인: 4:31~6:42 연구 5개(시즈·U-238·마인·스팀·공1)가 가스 600을 다 써서 7:00 적 벌처·탱크 압박 때 탱크 0기(첫 탱크 8:30), 벙커가 12타일 밖 시즈 탱크에 7:43 파괴(병력은 벙커 뒤에서 대기, SCV는 수리하러 감), 앞마당 사령부 8:28 완성·9:47 파괴 후 "natural contested"면 nextExpansion이 바로 nullptr를 돌려 다른 기지 7곳은 검토조차 안 함("no free base is known"), 적이 1분 안 보이면 같은 자리에 사령부 재시도 2번(11:46, 13:03) 모두 건설 중 파괴(광물 1200), 그때마다 병력이 "새 기지 지키기"로 탱크 라인에 들어가 15→9, 11→2, 숨은 마인(25,69)에 스캔 대신 본진·앞마당 터렛 3개(마인에서 15타일 넘게 떨어짐), 카론 부스터(대공 사거리)를 공중 유닛 없는 상대에게 연구, 본진 광물 7덩이가 10:45에 3천 미만 → 14:23 적 본병력 진입(23410 vs 0). → 0.9.7에서 테란 상대 연구는 시즈 모드·마인·차량 공업 먼저, 시즈 모드 외에는 탱크 2기(보병 연구는 6기)까지 대기, 카론 부스터는 적 공중 유닛을 본 뒤에만. 사령부가 파괴된 자리는 3분간 피하고 그동안 앞마당이 막혀 있으면 다른 기지 검토. 기억한 시즈 탱크(최근 1분)가 집결지·벙커·지키는 기지 13타일 안이면 아군이 1.2배 이상 강할 때 탱크로 돌격(목줄 무시), 아니면 사거리 밖에서 대기, 시즈 탱크에 맞는 벙커는 수리 안 함. 숨은 유닛은 우리 유닛 8타일 또는 집결지·벙커·지키는 기지 10타일 안이면 스캔(에너지 없으면 로그), 마인은 터렛 이유에서 제외하고 컴샛 이유에 추가, 앞마당은 스캔 대신 SCV로 확인, 건설지 스캔도 통계에 포함 |
 | 2026-10-16 | (2)Boxer.scm | Terran (Steamhammer 5.3.6, 봇 대 봇) | 4 | 1 | 0% (패) | 18:37 | 0.9.7 (우리 본진 85,23). 처치 59 / 손실 136, 공격 3회(1회 실패). 확인: "sieged Tank at 53,9 (698 vs 13451): the army goes for it", "sieged Tank at 71,15 (7054 vs 191): the army waits out of its reach", "site 62,8 avoided for 3 minutes (our Command Center was destroyed there)", 스캔 2회. 사용자 관찰: 벙커 바깥쪽에 팩토리를 짓고, 앞마당이 공격받아도 지키지 않으며, 확장이 너무 느림. 로그: 팩토리 73,22 / 70,18 — "입구 뒤" 판정이 '본진 사령부에서 입구까지 거리보다 가까움'이라 본진 옆(입구 바깥) 타일도 통과, 앞마당 사령부 6:59 결정·7:43 시작, 8:28부터 앞마당에 적이 오자 벙커 대기 규칙(적이 벙커보다 본진에서 멀면 벙커 뒤에서 대기)이 앞마당의 적에도 적용돼 병력 13→28기가 7:30~10:00 벙커 뒤에 서 있는 동안 건설 중 사령부가 10:04 파괴, 10:38 두 번째 확장 시도 때 "no base to take: 32,87 enemy side; 8,17 enemy side; 60,7 enemy building; … 47,38 enemy side; 45,57 enemy side" — 적이 맵 가장자리(40~55,0)에 흩어 지은 서플라이 디포가 앞마당을 '적 건물'로, 나머지를 '적 진영'으로 만듦 → 0.9.8에서 본진 영역을 입구를 막고 사령부에서 채워 계산("main area: N tiles")해 배럭·팩토리는 그 안에만, 벙커 대기는 적이 벙커 12타일 안일 때만, 4~5단계 Liquipedia 빌드는 앞마당을 시간 대신 보급(저그 15, 테란 20, 프로토스 24)에 확장, 적 건물로 인한 기지 제외는 사령부·공격 건물(12타일)이나 바로 옆(6타일)만, 적 진영 판정은 적 사령부 기준 |
+| 2026-10-16 | (2)Boxer.scm | Terran (Steamhammer 5.3.6, 봇 대 봇) | 5 | 1 | 0% (패) | 23:52 | 0.9.8 (본진 85,23). 처치 136 / 손실 227 — 지금까지 Steamhammer 테란 상대 최장·최다 처치. 확인: "opening: the natural at supply 20"(3:20), 웨이브 3(10:48~12:33) 44기 처치 / 21기 손실, 첫 탱크 4:53. 패인: ① 앞마당 사령부가 3:20에 결정됐지만 빌드 오더 단계(아카데미·팩토리·엔베·배럭)가 매번 먼저 돈을 가져가 6:43에야 요청, ② 본진 광물·가스 사이에 지은 서플라이 디포(88,21 / 89,19 / 89,17)가 SCV를 가둬 건설 SCV가 88,22에 4분간 서 있음("same build command 8 times", "did not start … trying another spot" 7회, 같은 SCV 재사용) → 앞마당 10:42 시작·11:57 완성, 일꾼 27기 7:00~12:00 정체, ③ "main area: the fill reached the base at 62,8; not used" — 본진 영역 계산이 앞마당으로 새어 팩토리·배럭이 다시 입구 밖(73,24 / 72,20 / 70,16 / 65,22 / 65,18), 배럭 85,2는 도달 불가, ④ 세 번째 기지를 적 쪽 8,17(본진에서 77타일)에 → 15:32 파괴, SCV 39→20, 정작 본진 아래 84,76은 중앙 적 사령부 때문에 '적 진영' 판정, ⑤ 15:34~15:44 "base attack too strong for home" 웨이브 시작·소환 20회 반복(파괴된 기지 쪽 위협), ⑥ 적 스캐너 스윕을 공격 대상으로 골라 Incompatible_UnitType 22회, ⑦ 19:23 본진 광물 고갈과 앞마당 파괴가 겹쳐 붕괴. → 1.0.0(JaeTankBot)에서 Liquipedia 앞마당은 빌드 오더 단계보다 먼저, 사령부·광물·가스를 감싼 채취 영역에는 건물 금지(터렛 포함), 건설이 시작되지 않으면 다른 SCV로, 본진 영역은 '앞마당까지의 지상 거리가 입구를 지나는 타일'로 계산, 적 진영은 적 본진과 우리 본진 중 더 가까운 쪽, 소환은 기지 35타일 안의 위협에만 + 소환 뒤 30초 공격 금지, 스펠(스캐너 스윕) 무시 |
