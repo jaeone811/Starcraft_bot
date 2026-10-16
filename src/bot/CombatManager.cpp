@@ -771,6 +771,17 @@ namespace bb
     return AttackTarget{ best->position, concat("enemy ", best->type.c_str(), " at our doorstep") };
   }
 
+  bool CombatManager::scanReady() const
+  {
+    if (!ctx_.config.useComsatScan)
+      return false;
+    for (Unit c : Broodwar->self()->getUnits())
+      if (c->getType() == UnitTypes::Terran_Comsat_Station && c->isCompleted() &&
+          c->getEnergy() >= TechTypes::Scanner_Sweep.energyCost())
+        return true;
+    return false;
+  }
+
   bool CombatManager::staysSieged(Unit u)
   {
     return u->getType() == UnitTypes::Terran_Siege_Tank_Siege_Mode && updateSiege(u) != TankMode::Mobile;
@@ -857,6 +868,21 @@ namespace bb
     const bool sieged = type == UnitTypes::Terran_Siege_Tank_Siege_Mode;
     if (dodging(u))
       return;   // stepping aside from a Scarab
+    // Every level: an attacker we cannot see (a Dark Templar without detection) is
+    // not fought where it stands; units step 3 tiles away from it until a scan or a
+    // Turret shows it. They stood and died to it.
+    if (!u->isFlying() && !scanReady())
+      for (Unit e : ctx_.info->visibleEnemiesNear(u->getPosition(), 3 * kTile))
+        if (!e->isDetected() && canAttackGround(e->getType()) && !e->isFlying())
+        {
+          const Position away = toPosition(awayFrom(toPoint(u->getPosition()), toPoint(e->getPosition()), 3 * kTile));
+          if (away.isValid())
+          {
+            ++hiddenSteps_;
+            ctx_.commander->move(u, away, 8);
+            return;
+          }
+        }
     if (isSiegeTank(type) && updateSiege(u) == TankMode::Switching)
       return;
 
@@ -1230,11 +1256,11 @@ namespace bb
       {
         state_ = State::Gather;
         stateFrame_ = ctx_.frame;
-        ctx_.log.info("Combat", leashCalls_ > 0 ? concat("base is safe again; gathering (", leashCalls_,
-                                                         " units called back from chasing)")
-                                                : std::string("base is safe again; gathering"));
+        ctx_.log.info("Combat", concat("base is safe again; gathering", leashCalls_ > 0 ? concat(" (", leashCalls_, " units called back from chasing)") : std::string(),
+                                       hiddenSteps_ > 0 ? concat(" (", hiddenSteps_, " steps away from undetected attackers)") : std::string()));
         leashed_.clear();
         leashCalls_ = 0;
+        hiddenSteps_ = 0;
         holdingOutmatched_ = false;
       }
       return;

@@ -64,6 +64,7 @@ namespace bb
     bool holdTech_ = false;
     bool loggedHoldTech_ = false;
     bool loggedRangeFirst_ = false;
+    bool comsatWanted_ = false;         // a Comsat is due: the main's Command Center does not start another SCV
     std::vector<BuildStep> buildOrder_;  // the configured one, or raceOpening() (opening = liquipedia)
     bool buildOrderSet_ = false;
     EnemyRace openingRace_ = EnemyRace::Unknown; // race the build order was made for

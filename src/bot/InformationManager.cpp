@@ -63,6 +63,11 @@ namespace bb
       if (buildings_.find(id) == buildings_.end())
         ctx_.log.info("Info", concat("enemy building seen: ", type.c_str(), " at ", rec.tile.x, ",", rec.tile.y));
       buildings_[id] = rec;
+      if (hiddenTechFrame_ < 0 && (type == UnitTypes::Protoss_Templar_Archives || type == UnitTypes::Protoss_Citadel_of_Adun))
+      {
+        hiddenTechFrame_ = ctx_.frame;
+        ctx_.log.info("Info", concat("Dark Templar tech seen (", type.c_str(), "): detection now"));
+      }
     }
     else
     {

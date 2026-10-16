@@ -155,6 +155,15 @@ namespace bb
     return sum;
   }
 
+  int BuildingManager::committedMinerals() const
+  {
+    int sum = 0;
+    for (const auto& t : tasks_)
+      if (t.state == State::Assigned)
+        sum += t.type.mineralPrice();
+    return sum;
+  }
+
   int BuildingManager::reservedGas() const
   {
     int sum = 0;

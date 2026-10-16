@@ -33,6 +33,8 @@ namespace bb
     int inProgress(BWAPI::UnitType type) const;
     int reservedMinerals() const;
     int reservedGas() const;
+    // Minerals of buildings whose SCV is on its way (spent within seconds).
+    int committedMinerals() const;
     // Supply that will be added by depots/CCs that are planned or being built (doubled units).
     int pendingSupply() const;
     int taskCount() const { return static_cast<int>(tasks_.size()); }

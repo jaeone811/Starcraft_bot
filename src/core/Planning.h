@@ -211,6 +211,12 @@ namespace bb
   // clearly stronger than what defends them.
   bool canClearDoorstep(double ownStrength, double defendersStrength, int ownShooters);
 
+  // Missile Turrets (and the Engineering Bay for them) are wanted: hidden attackers
+  // seen, their tech seen (Citadel / Templar Archives), enemy air attackers, or
+  // against Protoss from 6:00 on (Dark Templar come around 7:00; a level that counters
+  // what it knows does not wait to see them first).
+  bool detectionWanted(bool hiddenSeen, bool hiddenTechSeen, int enemyAirAttackers, bool protossInsurance, int frame);
+
   // Defending: the enemy at the edge of the base is clearly stronger than our army
   // there, so the army waits at the rally instead of going out to it.
   bool defenseOutmatched(double ownStrength, double enemyStrength);

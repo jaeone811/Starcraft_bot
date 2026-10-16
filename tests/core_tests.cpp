@@ -439,6 +439,16 @@ TEST_CASE("a seen rush wants the whole early army at once")
   CHECK(!rushSigns(proxy));           // later: a forward base, not a rush
 }
 
+TEST_CASE("detection: Turrets before the Dark Templar arrive")
+{
+  CHECK(!detectionWanted(false, false, 0, false, 24 * 600));
+  CHECK(detectionWanted(true, false, 0, false, 24 * 100));    // a hidden attacker seen
+  CHECK(detectionWanted(false, true, 0, false, 24 * 100));    // Templar Archives seen
+  CHECK(detectionWanted(false, false, 2, false, 24 * 100));   // Mutalisks
+  CHECK(!detectionWanted(false, false, 0, true, 24 * 300));   // Protoss, 5:00: not yet
+  CHECK(detectionWanted(false, false, 0, true, 24 * 360));    // Protoss, 6:00
+}
+
 TEST_CASE("doorstep: enemy buildings near our bases are cleared when the army is clearly stronger")
 {
   CHECK(canClearDoorstep(3000.0, 0.0, 4));        // an undefended Pylon / Gateway

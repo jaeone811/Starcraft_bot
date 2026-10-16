@@ -150,6 +150,9 @@ namespace bb
     planSupply(budget);
     ensureCommandCenter(budget);
     buildDetection(budget);
+    // The Comsat before the next SCV: the Command Center was never idle (an SCV
+    // always in training) and the Comsat never came, not even after a Dark Templar.
+    buildComsat(budget);
     if (armyFirst)
       trainArmy(budget);
     trainWorkers(budget);
@@ -163,7 +166,6 @@ namespace bb
     followBuildOrder(budget);
     macroBuildings(budget);
     doResearch(budget);
-    buildComsat(budget);
     if (!armyFirst && !earlyDefense)
       trainArmy(budget);
     measureIdle(elapsedFrames, budget);
@@ -207,14 +209,22 @@ namespace bb
                                                          ctx_.config.expandEarliestFrame);
     const int target = std::min(baseTarget + advance, ctx_.config.maxWorkers);
     int current = self->allUnitCount(scv);
+    int scvsThisFrame = 0;
     for (Unit cc : self->getUnits())
     {
       if (current >= target)
         break;
       if (cc->getType() != UnitTypes::Terran_Command_Center || !idleProducer(cc))
         continue;
-      if (!budget.tryReserve(costOf(scv)))
+      if (comsatWanted_ && !cc->getAddon())
+        continue;   // the Comsat goes on first
+      // SCVs keep coming while buildings wait for their builder: their reservations
+      // stopped SCV production at 18 from 3:30 to 6:30. Money for a building whose
+      // SCV is on its way is still kept.
+      if (!budget.tryReserve(costOf(scv)) &&
+          Broodwar->self()->minerals() - ctx_.buildings->committedMinerals() < scv.mineralPrice() * (scvsThisFrame + 1))
         break;
+      ++scvsThisFrame;
       if (ctx_.commander->train(cc, scv))
       {
         ++current;
@@ -300,11 +310,16 @@ namespace bb
     // answer that does not depend on it, so every level builds them once needed.
     // Enemy air attackers get the same Turrets: Mutalisks killed every SCV while the
     // army was out (no Turret, an Engineering Bay standing since 5:52).
+    // Against Protoss the levels that counter what they know put up Turrets from 6:00
+    // without waiting to see a Dark Templar: one came at 7:11, there was no Comsat
+    // and the Turret could not be started next to it; the main fell by 9:29.
     const bool hidden = ctx_.info->hiddenAttackerSeen();
+    const bool hiddenTech = ctx_.info->hiddenTechSeen();
     const int air = ctx_.info->enemyMix().air;
-    if (!hidden && air < 2)
+    const bool protossInsurance = ctx_.config.enemyInfoUsage >= 1 && ctx_.info->enemyRace() == Races::Protoss;
+    if (!detectionWanted(hidden, hiddenTech, air, protossInsurance, ctx_.frame))
       return;
-    const char* why = hidden ? "hidden attackers" : "enemy air";
+    const char* why = hidden ? "hidden attackers" : hiddenTech ? "Dark Templar tech" : air >= 2 ? "enemy air" : "against Protoss (Dark Templar)";
     Player self = Broodwar->self();
     const UnitType ebay = UnitTypes::Terran_Engineering_Bay;
     const UnitType turret = UnitTypes::Terran_Missile_Turret;
@@ -725,13 +740,19 @@ namespace bb
 
   void ProductionManager::buildComsat(Budget& budget)
   {
+    comsatWanted_ = false;
     const UnitType comsat = UnitTypes::Terran_Comsat_Station;
     Player self = Broodwar->self();
     if (!ctx_.config.useComsatScan || self->allUnitCount(comsat) > 0 ||
         self->completedUnitCount(UnitTypes::Terran_Academy) < 1 || ctx_.frame < comsatRetryFrame_)
       return;
-    if (holdTech_ && !ctx_.info->hiddenAttackerSeen())
-      return;   // after the early army, unless something hidden is attacking
+    // After the early army, unless something hidden is attacking or expected
+    // (Protoss: Dark Templar; their tech seen).
+    const bool hiddenExpected = ctx_.info->hiddenAttackerSeen() || ctx_.info->hiddenTechSeen() ||
+                                (ctx_.config.enemyInfoUsage >= 1 && ctx_.info->enemyRace() == Races::Protoss);
+    if (holdTech_ && !hiddenExpected)
+      return;
+    comsatWanted_ = true;
     for (Unit cc : self->getUnits())
     {
       if (cc->getType() != UnitTypes::Terran_Command_Center || !idleProducer(cc) || cc->getAddon())

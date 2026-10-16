@@ -59,6 +59,8 @@ namespace bb
     // An enemy that attacks while hidden (Dark Templar, Lurker, cloaked Ghost/Wraith)
     // has been seen this game: we need detection.
     bool hiddenAttackerSeen() const { return hiddenAttackerFrame_ >= 0; }
+    // A Citadel of Adun or Templar Archives (Dark Templar tech) has been seen.
+    bool hiddenTechSeen() const { return hiddenTechFrame_ >= 0; }
     // Signs of an early attack seen before 3:00 (Planning::rushSigns).
     bool rushSeen() const { return rushFrame_ >= 0; }
 
@@ -75,6 +77,7 @@ namespace bb
     BWAPI::Race enemyRace_ = BWAPI::Races::Unknown;
     bool loggedInference_ = false;
     int hiddenAttackerFrame_ = -1;
+    int hiddenTechFrame_ = -1;
     std::set<int> typesSeen_;           // enemy unit types logged once when first seen
     int rushFrame_ = -1;
   };

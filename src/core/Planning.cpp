@@ -277,6 +277,11 @@ namespace bb
     return enemyAirStrength > 0.0 && ownAntiAirStrength < enemyAirStrength;
   }
 
+  bool detectionWanted(bool hiddenSeen, bool hiddenTechSeen, int enemyAirAttackers, bool protossInsurance, int frame)
+  {
+    return hiddenSeen || hiddenTechSeen || enemyAirAttackers >= 2 || (protossInsurance && frame >= 24 * 360);
+  }
+
   bool canClearDoorstep(double ownStrength, double defendersStrength, int ownShooters)
   {
     return ownShooters >= 4 && ownStrength >= defendersStrength * 1.5;
