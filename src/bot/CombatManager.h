@@ -64,6 +64,13 @@ namespace bb
     bool staysSieged(BWAPI::Unit u);
     // A Comsat with energy for a Scanner Sweep.
     bool scanReady() const;
+    // The nearest remembered sieged enemy Tank (seen within the last minute) within
+    // `radius` of `p`, or None.
+    BWAPI::Position siegedTankNear(BWAPI::Position p, int radius) const;
+    // `spot`, moved out of the reach of a sieged enemy Tank (the main if that fails).
+    BWAPI::Position outOfTankRange(BWAPI::Position spot) const;
+    // Remembered enemy fighting units within 12 tiles of `p` (last minute).
+    double rememberedEnemyStrengthNear(BWAPI::Position p) const;
 
     // Unit-level fighting used by Attack and Defend.
     void fight(BWAPI::Unit u, BWAPI::Position advanceTo, double localOwn, double localEnemy);
@@ -103,6 +110,10 @@ namespace bb
     bool doorstepWave_ = false;         // the wave clears our doorstep only (no targets beyond it)
     int hiddenSteps_ = 0;               // steps away from undetected attackers (logged when the defense ends)
     int nextDodgeLogFrame_ = 0;
+    int nextNoScanLogFrame_ = 0;
+    int nextTankRepairLogFrame_ = 0;
+    bool holdingOutOfTankRange_ = false;   // "waits out of the Tanks' reach" logged once per contain
+    bool goingForTank_ = false;            // "goes for the sieged Tank" logged once per contain
     int harasserId_ = -1;                // enemy worker attacking our SCVs in a base
     int harassSinceFrame_ = 0;
     std::set<int> chasers_;             // SCVs sent after it

@@ -107,7 +107,10 @@ namespace bb
           ctx_.log.info("Info", concat("enemy unit first seen: ", type.c_str(), " at ", u->getTilePosition().x, ",",
                                        u->getTilePosition().y));
         const bool hidden = type.hasPermanentCloak() || type == UnitTypes::Zerg_Lurker || u->isCloaked() || u->isBurrowed();
-        if (hiddenAttackerFrame_ < 0 && u->exists() && hidden && !type.isWorker() && canAttackGround(type))
+        // Spider Mines are not counted: Turrets went up by the Command Centers, 15
+        // tiles from the mines at the ramp.
+        if (hiddenAttackerFrame_ < 0 && u->exists() && hidden && !type.isWorker() && canAttackGround(type) &&
+            type != UnitTypes::Terran_Vulture_Spider_Mine)
         {
           hiddenAttackerFrame_ = ctx_.frame;
           ctx_.log.info("Info", concat("hidden attacker seen: ", type.c_str(), " at ", u->getTilePosition().x, ",",

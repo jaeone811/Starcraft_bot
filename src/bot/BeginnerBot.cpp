@@ -370,6 +370,10 @@ namespace bb
         ++ctx_.metrics.ownUnitsLost;
         if (unit->getType().isBuilding())
           ctx_.log.warn("Units", concat("lost building ", unit->getType().c_str(), "#", unit->getID()));
+        // A Command Center lost away from the main (finished or not): the planner does
+        // not send the next one into the same Tanks right away.
+        if (unit->getType().isResourceDepot() && unit->getDistance(ctx_.map->mainPosition()) > 12 * 32)
+          buildings_->avoidSite(unit->getPosition());
         else
           ctx_.log.debug("Units", concat("lost ", unit->getType().c_str(), "#", unit->getID()));
       }

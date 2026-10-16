@@ -244,6 +244,12 @@ namespace bb
     return true;
   }
 
+  void BuildingManager::avoidSite(Position p)
+  {
+    dangerousSites_.push_back({ p, ctx_.frame + kDangerousSiteFrames });
+    ctx_.log.info("Build", concat("site ", p.x / 32, ",", p.y / 32, " avoided for 3 minutes (our Command Center was destroyed there)"));
+  }
+
   bool BuildingManager::siteDangerous(Position p) const
   {
     for (const auto& [site, until] : dangerousSites_)
@@ -265,7 +271,12 @@ namespace bb
     const int cost = TechTypes::Scanner_Sweep.energyCost();
     for (Unit c : Broodwar->self()->getUnits())
       if (c->getType() == UnitTypes::Terran_Comsat_Station && c->isCompleted() && c->getEnergy() >= 2 * cost)
-        return ctx_.commander->useTechAt(c, TechTypes::Scanner_Sweep, site, 24 * 10);
+      {
+        if (!ctx_.commander->useTechAt(c, TechTypes::Scanner_Sweep, site, 24 * 10))
+          return false;
+        ++ctx_.metrics.scansUsed;
+        return true;
+      }
     return false;
   }
 
@@ -571,7 +582,11 @@ namespace bb
         const Position site = buildingCenter(task.tile, task.type);
         // A far site nobody has seen: a Scanner Sweep looks first (enemies there show
         // up and the task waits), so no SCV walks blind into an enemy base.
-        if (!task.scanned && farFromOurBases(site) && scanSite(site))
+        // Not our natural: an SCV walks there (the scan went to it at 7:00 and the
+        // energy was missing for the Spider Mines at the ramp).
+        const int natural = ctx_.map->naturalIndex();
+        const bool atNatural = natural >= 0 && ctx_.map->bases()[natural].center.getApproxDistance(site) < 6 * 32;
+        if (!task.scanned && !atNatural && farFromOurBases(site) && scanSite(site))
         {
           task.scanned = true;
           releaseBuilder(task);

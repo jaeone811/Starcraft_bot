@@ -597,7 +597,22 @@ TEST_CASE("openings per enemy race (Liquipedia)")
   CHECK(zr[4] == R::SiegeMode);
   const std::vector<R> tr = raceResearch(research, EnemyRace::Terran);
   CHECK(tr[0] == R::SiegeMode);
-  CHECK(tr[1] == R::U238Shells);
+  CHECK(tr[1] == R::SpiderMines);
+  CHECK(tr[2] == R::VehicleWeapons1);
+  CHECK(tr[3] == R::StimPacks);
+  const std::vector<R> pr = raceResearch(research, EnemyRace::Protoss);
+  CHECK(pr[0] == R::SiegeMode);
+  CHECK(pr[1] == R::U238Shells);
+  // Against Terran: Tanks before the gas goes to research.
+  CHECK(researchWaits(R::SiegeMode, EnemyRace::Terran, 0, false) == nullptr);
+  CHECK(researchWaits(R::SpiderMines, EnemyRace::Terran, 1, false) != nullptr);
+  CHECK(researchWaits(R::SpiderMines, EnemyRace::Terran, 2, false) == nullptr);
+  CHECK(researchWaits(R::U238Shells, EnemyRace::Terran, 5, false) != nullptr);
+  CHECK(researchWaits(R::StimPacks, EnemyRace::Terran, 6, false) == nullptr);
+  CHECK(researchWaits(R::StimPacks, EnemyRace::Protoss, 0, false) == nullptr);
+  // Charon Boosters only once enemy air was seen.
+  CHECK(researchWaits(R::CharonBoosters, EnemyRace::Zerg, 0, false) != nullptr);
+  CHECK(researchWaits(R::CharonBoosters, EnemyRace::Zerg, 0, true) == nullptr);
   CHECK(raceResearch(research, EnemyRace::Unknown) == research);
 }
 
@@ -620,6 +635,9 @@ TEST_CASE("defense: no chase away from the base, no fight against a stronger ene
   CHECK(!defenseOutmatched(1000.0, 0.0));
   CHECK(!defenseOutmatched(1000.0, 1100.0));     // about even: fight
   CHECK(defenseOutmatched(1000.0, 1500.0));      // clearly stronger: wait at the rally
+  CHECK(canBreakSiege(1200.0, 1000.0));
+  CHECK(!canBreakSiege(1100.0, 1000.0));         // about even against a sieged line: wait
+  CHECK(!canBreakSiege(0.0, 0.0));
   CHECK(!onLeash(8, false, 10, 5));              // close to our buildings
   CHECK(onLeash(11, false, 10, 5));              // chased too far: called back
   CHECK(onLeash(7, true, 10, 5));                // on the way back: keeps walking

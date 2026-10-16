@@ -492,7 +492,8 @@ namespace bb
           seen.push_back(typeStrength(e.type));
       const double seenStrength = combineStrength(seen);
       reject(baseContested(seenStrength, army), "enemy army there");
-      reject(ctx_.buildings->siteDangerous(b.center), "builders lost there");
+      const bool lostThere = ctx_.buildings->siteDangerous(b.center);
+      reject(lostThere, "lost there lately");
       // A base other than the natural: no enemy fighting unit seen there in the last
       // two minutes at all (a center base where enemy Vultures and Tanks came and
       // went had SCVs sent to it for two and a half minutes).
@@ -520,8 +521,11 @@ namespace bb
         reasons += concat(b.depotTile.x, ",", b.depotTile.y, " ", why, "; ");
         // The natural is free but enemies were just there: wait for it rather than
         // taking a base further out (a center base went up while the natural was
-        // contested and had nothing to protect it).
-        if (i == ctx_.map->naturalIndex() && contestedOnly)
+        // contested and had nothing to protect it). Not once a Command Center or its
+        // builders were lost there: then the other bases are looked at. Sieged Tanks
+        // killed the natural at 9:47 and two more Command Centers there while it
+        // waited; seven other bases were never considered and the main ran dry.
+        if (i == ctx_.map->naturalIndex() && contestedOnly && !lostThere)
           return nullptr;
         continue;
       }
@@ -736,6 +740,9 @@ namespace bb
     // While enemy air outmatches our anti-air, only research that helps against it.
     const bool airFirst = ctx_.strategy->antiAirShort();
     const std::vector<ResearchItem> base = raceResearch(ctx_.config.research, openingRace_);
+    const int tanks = Broodwar->self()->allUnitCount(UnitTypes::Terran_Siege_Tank_Tank_Mode) +
+                      Broodwar->self()->allUnitCount(UnitTypes::Terran_Siege_Tank_Siege_Mode);
+    const bool enemyAirSeen = ctx_.info->enemyMix().air > 0;
     for (ResearchItem item : researchOrder(base, rangeFirst))
     {
       if (isResearchDone(item) || isResearchInProgress(item))
@@ -745,6 +752,11 @@ namespace bb
       if (airFirst && !helpsAgainstAir(item))
       {
         lastPlan_ += concat("(after anti-air:", toString(item), ") ");
+        continue;
+      }
+      if (const char* wait = researchWaits(item, openingRace_, tanks, enemyAirSeen))
+      {
+        lastPlan_ += concat("(", wait, ":", toString(item), ") ");
         continue;
       }
       if (!researchServesCounter(item, ctx_.strategy->counter()))
@@ -791,7 +803,7 @@ namespace bb
       return;
     // After the early army, unless something hidden is attacking or expected
     // (Protoss: Dark Templar; their tech seen).
-    const bool hiddenExpected = ctx_.info->hiddenAttackerSeen() || ctx_.info->hiddenTechSeen() ||
+    const bool hiddenExpected = ctx_.info->hiddenAttackerSeen() || ctx_.info->hiddenTechSeen() || ctx_.info->enemyMinesSeen() ||
                                 (ctx_.config.enemyInfoUsage >= 1 && ctx_.info->enemyRace() == Races::Protoss);
     if (holdTech_ && !hiddenExpected)
       return;

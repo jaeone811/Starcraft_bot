@@ -365,6 +365,18 @@ namespace bb
     bool enemyNear = false;
     for (Unit e : ctx_.info->visibleEnemiesNear(bunker->getPosition(), kRepairRadius))
       enemyNear = enemyNear || (!e->isFlying() && !e->getType().isWorker() && canAttackGround(e->getType()));
+    // A sieged Tank shelling the Bunker from out of its range: no SCVs walk into the
+    // splash (the Bunker cannot shoot back and falls anyway).
+    if (siegedTankNear(bunker->getPosition(), kSiegeReachTiles * kTile).isValid())
+    {
+      if (!repairers_.empty() && ctx_.frame >= nextTankRepairLogFrame_)
+      {
+        ctx_.log.info("Combat", "Bunker shelled by a sieged Tank: no SCVs repair it");
+        nextTankRepairLogFrame_ = ctx_.frame + 24 * 60;
+      }
+      releaseRepairers();
+      return;
+    }
     // Low minerals do not send them away: repair just waits for money. Releasing
     // them then made them walk back and forth and the log repeat every second.
     if (!enemyNear || bunker->getHitPoints() >= bunker->getType().maxHitPoints())
@@ -435,16 +447,20 @@ namespace bb
       return;
     Unit comsat = nullptr;
     for (Unit u : Broodwar->self()->getUnits())
-      if (u->getType() == UnitTypes::Terran_Comsat_Station && u->isCompleted() && u->getEnergy() >= 50)
+      if (u->getType() == UnitTypes::Terran_Comsat_Station && u->isCompleted() &&
+          (!comsat || u->getEnergy() > comsat->getEnergy()))
         comsat = u;
     if (!comsat)
       return;
+    // Our rally spots: hidden units (Spider Mines on the road out of the main) there
+    // are scanned before the army or an SCV walks onto them.
+    std::vector<Position> home{ ctx_.map->rallyPoint(), ctx_.map->bunkerRally(), guardedBase_ };
     for (Player enemy : Broodwar->enemies())
       for (Unit e : enemy->getUnits())
       {
         if (!e->exists() || e->isDetected() || !(e->isCloaked() || e->isBurrowed()))
           continue;
-        // Only scan hidden units that are next to our own units.
+        // Only scan hidden units that are next to our own units or our rally spots.
         bool nearUs = false;
         for (Unit u : Broodwar->self()->getUnits())
           if (u->getDistance(e) < 8 * kTile)
@@ -452,8 +468,18 @@ namespace bb
             nearUs = true;
             break;
           }
+        for (Position p : home)
+          nearUs = nearUs || (p.isValid() && e->getDistance(p) < 10 * kTile);
         if (!nearUs)
           continue;
+        if (comsat->getEnergy() < TechTypes::Scanner_Sweep.energyCost())
+        {
+          if (ctx_.frame >= nextNoScanLogFrame_)
+            ctx_.log.info("Combat", concat("hidden ", e->getType().c_str(), " at ", e->getTilePosition().x, ",", e->getTilePosition().y,
+                                           " near us: no Comsat energy (", comsat->getEnergy(), ")"));
+          nextNoScanLogFrame_ = ctx_.frame + 24 * 60;
+          return;
+        }
         if (ctx_.commander->useTechAt(comsat, TechTypes::Scanner_Sweep, e->getPosition(), 24 * 10))
         {
           lastScanFrame_ = ctx_.frame;
@@ -628,7 +654,45 @@ namespace bb
         return;
       }
     }
-    const Position rally = guard.isValid() ? guard : holdPoint_.isValid() ? holdPoint_ : ctx_.map->rallyPoint();
+    Position rally = guard.isValid() ? guard : holdPoint_.isValid() ? holdPoint_ : ctx_.map->rallyPoint();
+    // Sieged Tanks within reach of where the army gathers (the Bunker, the new base it
+    // guards): clearly stronger, it goes for them; otherwise it gathers out of reach.
+    // It guarded the natural's new Command Center inside a Tank line twice and fell
+    // from 15 to 9 and from 11 to 2.
+    const Position tank = siegedTankNear(rally, kSiegeReachTiles * kTile);
+    if (tank.isValid())
+    {
+      const double own = strengthOf(army_);
+      const double enemy = rememberedEnemyStrengthNear(tank);
+      if (canBreakSiege(own, enemy) && !army_.empty())
+      {
+        if (!goingForTank_)
+          ctx_.log.info("Combat", concat("sieged Tank at ", tank.x / 32, ",", tank.y / 32, " (", static_cast<int>(enemy), " vs ",
+                                         static_cast<int>(own), "): the army goes for it"));
+        goingForTank_ = true;
+        holdingOutOfTankRange_ = false;
+        fightCenter_ = groupCenter(army_);
+        for (Unit u : army_)
+          if (isSupport(u))
+            moveMedic(u, fightCenter_);
+          else
+            fight(u, tank, own, enemy);
+        fightCenter_ = Positions::None;
+        return;
+      }
+      const Position wait = outOfTankRange(rally);
+      if (!holdingOutOfTankRange_)
+        ctx_.log.info("Combat", concat("sieged Tank at ", tank.x / 32, ",", tank.y / 32, " (", static_cast<int>(enemy), " vs ",
+                                       static_cast<int>(own), "): the army gathers out of its reach at ", wait.x / 32, ",", wait.y / 32));
+      holdingOutOfTankRange_ = true;
+      goingForTank_ = false;
+      rally = wait;
+    }
+    else
+    {
+      holdingOutOfTankRange_ = false;
+      goingForTank_ = false;
+    }
     const int rallyRadius = groupRadiusTiles(kRallyRadiusTiles, static_cast<int>(army_.size())) * kTile;
     int nearRally = 0;
     for (Unit u : army_)
@@ -817,6 +881,47 @@ namespace bb
         return std::nullopt;
     }
     return AttackTarget{ best->position, concat("enemy ", best->type.c_str(), " at our doorstep") };
+  }
+
+  Position CombatManager::siegedTankNear(Position p, int radius) const
+  {
+    Position best = Positions::None;
+    int bestDist = radius;
+    if (!p.isValid())
+      return best;
+    for (const auto& [id, e] : ctx_.info->enemyUnits())
+      if (e.type == UnitTypes::Terran_Siege_Tank_Siege_Mode && ctx_.frame - e.lastSeenFrame < 24 * 60)
+      {
+        const int d = e.position.getApproxDistance(p);
+        if (d < bestDist)
+        {
+          bestDist = d;
+          best = e.position;
+        }
+      }
+    return best;
+  }
+
+  Position CombatManager::outOfTankRange(Position spot) const
+  {
+    const int reach = kSiegeReachTiles * kTile;
+    const Position tank = siegedTankNear(spot, reach);
+    if (!tank.isValid())
+      return spot;
+    const Position away = toPosition(awayFrom(toPoint(spot), toPoint(tank), reach + kTile - spot.getApproxDistance(tank)));
+    if (away.isValid() && Broodwar->isWalkable(WalkPosition(away)) && !siegedTankNear(away, reach).isValid())
+      return away;
+    return ctx_.map->mainPosition();
+  }
+
+  double CombatManager::rememberedEnemyStrengthNear(Position p) const
+  {
+    std::vector<double> near;
+    for (const auto& [id, e] : ctx_.info->enemyUnits())
+      if (!e.type.isWorker() && canAttackGround(e.type) && ctx_.frame - e.lastSeenFrame < 24 * 60 &&
+          e.position.getApproxDistance(p) < kLocalRadius)
+        near.push_back(typeStrength(e.type));
+    return combineStrength(near);
   }
 
   bool CombatManager::scanReady() const
@@ -1328,6 +1433,45 @@ namespace bb
       ignoreThreatUntilFrame_ = ctx_.frame + 24 * 5;
       return;
     }
+    // Every level: sieged enemy Tanks within reach of our rally (remembered: they
+    // shell from out of our sight). A Bunker does not hold them: it was shelled from
+    // 12 tiles while the army waited right behind it, and the army then sat in their
+    // reach for five minutes. Clearly stronger: the army goes for the Tanks (past the
+    // leash). Otherwise it waits out of their reach.
+    const Position homeSpot = ctx_.map->bunkerRally().isValid() ? ctx_.map->bunkerRally() : ctx_.map->rallyPoint();
+    const Position tank = siegedTankNear(homeSpot, kSiegeReachTiles * kTile);
+    bool goForTank = false;
+    if (tank.isValid())
+    {
+      const double own = strengthOf(army_);
+      const double enemy = rememberedEnemyStrengthNear(tank);
+      goForTank = canBreakSiege(own, enemy);
+      if (!goForTank)
+      {
+        const Position wait = outOfTankRange(homeSpot);
+        if (!holdingOutOfTankRange_)
+          ctx_.log.info("Combat", concat("sieged Tank at ", tank.x / 32, ",", tank.y / 32, " (", static_cast<int>(enemy), " vs ",
+                                         static_cast<int>(own), "): the army waits out of its reach at ", wait.x / 32, ",", wait.y / 32));
+        holdingOutOfTankRange_ = true;
+        goingForTank_ = false;
+        for (Unit u : army_)
+        {
+          if (dodging(u) || staysSieged(u) || settledNear(u, wait, 3 * kTile))
+            continue;
+          if (isSupport(u))
+            ctx_.commander->move(u, wait);
+          else
+            ctx_.commander->attackMove(u, wait);
+        }
+        return;
+      }
+      if (!goingForTank_)
+        ctx_.log.info("Combat", concat("sieged Tank at ", tank.x / 32, ",", tank.y / 32, " (", static_cast<int>(enemy), " vs ",
+                                       static_cast<int>(own), "): the army goes for it"));
+    }
+    goingForTank_ = goForTank;
+    holdingOutOfTankRange_ = false;
+
     // While the manned Bunker at the entrance stands and the enemy is at it or
     // outside it, the army waits right behind it and shoots what comes into range.
     // Running out after zealots, it died a few units at a time in the open while the
@@ -1346,7 +1490,7 @@ namespace bb
       if (e->exists())
         (e->isFlying() ? airPts : groundPts).push_back(toPoint(e->getPosition()));
     const Position groundThreat = groundPts.empty() ? Positions::None : toPosition(centroid(groundPts));
-    if (!bunkerReleased_ && bunkerManned && behindBunker.isValid() && groundThreat.isValid() &&
+    if (!goForTank && !bunkerReleased_ && bunkerManned && behindBunker.isValid() && groundThreat.isValid() &&
         groundThreat.getApproxDistance(main) + 2 * kTile >= behindBunker.getApproxDistance(main))
     {
       if (!holdingAtBunker_)
@@ -1392,7 +1536,7 @@ namespace bb
     // units before the Reavers and the main army came.
     const Position rally = ctx_.map->rallyPoint();
     const bool atEdge = rally.isValid() && threat.getApproxDistance(main) > rally.getApproxDistance(main) + 4 * kTile;
-    if (atEdge && defenseOutmatched(localOwn, localEnemy))
+    if (!goForTank && atEdge && defenseOutmatched(localOwn, localEnemy))
     {
       if (!holdingOutmatched_)
         ctx_.log.info("Combat", concat("enemy at the edge of the base is stronger (", static_cast<int>(localEnemy), " vs ",
@@ -1431,7 +1575,7 @@ namespace bb
       for (Unit b : buildings)
         nearest = std::min(nearest, u->getDistance(b));
       const bool leashed = leashed_.count(u->getID()) > 0;
-      if (!buildings.empty() && rally.isValid() && onLeash(nearest / kTile, leashed, 10, 5))
+      if (!goForTank && !buildings.empty() && rally.isValid() && onLeash(nearest / kTile, leashed, 10, 5))
       {
         if (!leashed)
         {
@@ -1443,7 +1587,7 @@ namespace bb
         continue;
       }
       leashed_.erase(u->getID());
-      fight(u, threat, localOwn, localEnemy);
+      fight(u, goForTank ? tank : threat, localOwn, localEnemy);
     }
     fightCenter_ = Positions::None;
   }

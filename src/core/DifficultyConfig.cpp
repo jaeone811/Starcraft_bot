@@ -366,15 +366,33 @@ namespace bb
 
   std::vector<ResearchItem> raceResearch(const std::vector<ResearchItem>& list, EnemyRace race)
   {
-    if (race == EnemyRace::Protoss || race == EnemyRace::Terran)
+    if (race == EnemyRace::Protoss)
       return researchOrder(list, true);
     std::vector<ResearchItem> out(list);
+    if (race == EnemyRace::Terran)
+      std::stable_partition(out.begin(), out.end(), [](ResearchItem i) {
+        return i == ResearchItem::SiegeMode || i == ResearchItem::SpiderMines || i == ResearchItem::VehicleWeapons1 ||
+               i == ResearchItem::VehiclePlating1;
+      });
     if (race == EnemyRace::Zerg)
       std::stable_partition(out.begin(), out.end(), [](ResearchItem i) {
         return i == ResearchItem::StimPacks || i == ResearchItem::U238Shells || i == ResearchItem::InfantryWeapons1 ||
                i == ResearchItem::InfantryArmor1;
       });
     return out;
+  }
+
+  const char* researchWaits(ResearchItem item, EnemyRace race, int tanks, bool enemyAirSeen)
+  {
+    using R = ResearchItem;
+    if (item == R::CharonBoosters && !enemyAirSeen)
+      return "no enemy air";
+    if (race != EnemyRace::Terran || item == R::SiegeMode)
+      return nullptr;
+    const bool infantry = item == R::StimPacks || item == R::U238Shells || item == R::InfantryWeapons1 || item == R::InfantryArmor1;
+    if (tanks < (infantry ? 6 : 2))
+      return "tanks first";
+    return nullptr;
   }
 
   bool extendsRange(ResearchItem item)

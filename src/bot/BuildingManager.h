@@ -26,6 +26,8 @@ namespace bb
     bool onCooldown(BWAPI::UnitType type) const;
     // A building site where SCVs were killed or attacked on the way: avoided for a while.
     bool siteDangerous(BWAPI::Position p) const;
+    // Our Command Center was destroyed here: the site is avoided for a while too.
+    void avoidSite(BWAPI::Position p);
 
     // Tasks that have not started construction yet (their cost is reserved).
     int notStarted(BWAPI::UnitType type) const;

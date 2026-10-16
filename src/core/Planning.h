@@ -237,6 +237,14 @@ namespace bb
   // `leashTiles` and goes on fighting once it is within `returnTiles` again.
   bool onLeash(int tilesToNearestBuilding, bool alreadyLeashed, int leashTiles, int returnTiles);
 
+  // A sieged Tank hits 12 tiles out (and sees nothing that far: it shells our Bunker
+  // and rally from out of our sight). Spots within this reach of one are in danger.
+  constexpr int kSiegeReachTiles = 13;
+  // Sieged Tanks at our base are attacked when our army is clearly stronger than
+  // the enemy there (a sieged line deals splash before we close in); otherwise the
+  // army waits out of their reach.
+  bool canBreakSiege(double ownStrength, double enemyStrength);
+
   // Combat value of one unit: hit points times damage per frame.
   double unitStrength(int hitPoints, int shields, double damagePerFrame);
   // Lanchester square-law style sum: (sum of sqrt(strength))^2.

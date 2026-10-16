@@ -82,9 +82,19 @@ namespace bb
   // The opening for the enemy race: factoryFirst against Protoss and Terran,
   // bioFirst against Zerg, the base build order when the race is unknown.
   std::vector<BuildStep> raceOpening(const std::vector<BuildStep>& base, EnemyRace race, int maxFactories);
-  // Research for the enemy race: Siege Mode / U-238 first against Protoss and Terran;
-  // Stim, U-238 and the infantry upgrades first against Zerg; unchanged otherwise.
+  // Research for the enemy race: Siege Mode / U-238 first against Protoss; Siege
+  // Mode, Spider Mines and the vehicle upgrades first against Terran (Liquipedia's
+  // TvT is a Tank and Vulture game); Stim, U-238 and the infantry upgrades first
+  // against Zerg; unchanged otherwise.
   std::vector<ResearchItem> raceResearch(const std::vector<ResearchItem>& list, EnemyRace race);
+  // Research that waits for now, with the reason for the plan log (nullptr: go ahead).
+  //  - Charon Boosters only lengthen the Goliath's anti-air range: not before enemy
+  //    air was seen (it was researched against Vultures and Tanks).
+  //  - Against Terran the gas goes to Siege Tanks first: everything but Siege Mode
+  //    waits for 2 Tanks, Stim / U-238 / infantry upgrades for 6. Five researches
+  //    took all the gas from 4:31 to 6:42 and the first Tank came after the enemy's
+  //    Tank push at 7:00.
+  const char* researchWaits(ResearchItem item, EnemyRace race, int tanks, bool enemyAirSeen);
 
   struct DifficultyConfig
   {

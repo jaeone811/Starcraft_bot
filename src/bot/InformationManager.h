@@ -64,6 +64,9 @@ namespace bb
     // An enemy that attacks while hidden (Dark Templar, Lurker, cloaked Ghost/Wraith)
     // has been seen this game: we need detection.
     bool hiddenAttackerSeen() const { return hiddenAttackerFrame_ >= 0; }
+    // Enemy Spider Mines were seen (a Comsat scans them; Turrets by our buildings do
+    // not reach the mines on the roads).
+    bool enemyMinesSeen() const { return loggedMine_; }
     // A Citadel of Adun or Templar Archives (Dark Templar tech) has been seen.
     bool hiddenTechSeen() const { return hiddenTechFrame_ >= 0; }
     // Signs of an early attack seen before 3:00 (Planning::rushSigns).

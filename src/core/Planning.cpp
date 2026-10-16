@@ -282,6 +282,11 @@ namespace bb
     return hiddenSeen || hiddenTechSeen || enemyAirAttackers >= 2 || (protossInsurance && frame >= 24 * 360);
   }
 
+  bool canBreakSiege(double ownStrength, double enemyStrength)
+  {
+    return ownStrength > 0.0 && ownStrength >= enemyStrength * 1.2;
+  }
+
   bool canClearDoorstep(double ownStrength, double defendersStrength, int ownShooters)
   {
     return ownShooters >= 4 && ownStrength >= defendersStrength * 1.5;
