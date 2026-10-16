@@ -445,6 +445,10 @@ TEST_CASE("counters: a dominant enemy unit type is answered in mass")
   CHECK(dominantForce(6, 10));          // 6 Dragoons in an army of 10
   CHECK(!dominantForce(6, 20));         // 30 %: a mixed army
   CHECK(dominantForce(12, 30));
+  CHECK(!dominantForce(5, 11));               // 45 % but fewer than 6: not yet
+  CHECK(dominantForce(5, 11, true));          // already massing: keep going
+  CHECK(!dominantForce(3, 8, true));          // fewer than 4: stop
+  CHECK(!dominantForce(4, 20, true));         // 20 %: stop
   CHECK(isFactoryCounter(Counter::SiegeTanks));
   CHECK(!isFactoryCounter(Counter::Firebats));
   CHECK(!isFactoryCounter(Counter::None));

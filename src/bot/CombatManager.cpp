@@ -587,6 +587,47 @@ namespace bb
     if (guard.isValid() && guard != guardedBase_)
       ctx_.log.info("Combat", concat("army guards the new base at ", guard.x / 32, ",", guard.y / 32, " until it stands"));
     guardedBase_ = guard;
+
+    // Every level: the army does not sit out on the map. After a retreat it held in
+    // the middle of the map for 3.5 minutes against Vultures, Mines and sieged Tanks
+    // without answering (no defense there), and each new unit walked out to it
+    // alone: 17 units became 3. It holds for 45 s at most, fights what comes at it
+    // if it is the stronger side, and otherwise goes home to gather; units far from
+    // the hold gather at home instead of walking out one by one.
+    std::vector<Unit> atHold;
+    if (holdPoint_.isValid())
+    {
+      for (Unit u : army_)
+        if (u->getDistance(holdPoint_) < 20 * kTile)
+          atHold.push_back(u);
+      std::vector<Unit> enemies;
+      for (Unit e : ctx_.info->visibleEnemiesNear(holdPoint_, 14 * kTile))
+        if (!e->getType().isWorker() && canAttackGround(e->getType()))
+          enemies.push_back(e);
+      const double own = strengthOf(atHold, enemyAirFraction(enemies));
+      const double enemy = enemyStrengthOf(enemies);
+      const bool expired = ctx_.frame - holdSinceFrame_ > kHoldPointFrames;
+      const bool outmatched = !enemies.empty() && defenseOutmatched(own, enemy);
+      if (expired || outmatched || atHold.empty())
+      {
+        ctx_.log.info("Combat", outmatched ? concat("enemy at the hold point is stronger (", static_cast<int>(enemy), " vs ",
+                                                   static_cast<int>(own), "): the army gathers at home")
+                                           : std::string("hold over: the army gathers at home"));
+        holdPoint_ = Positions::None;
+        atHold.clear();
+      }
+      else if (!enemies.empty())
+      {
+        fightCenter_ = groupCenter(atHold);
+        for (Unit u : atHold)
+          if (isSupport(u))
+            moveMedic(u, fightCenter_);
+          else
+            fight(u, enemies.front()->getPosition(), own, enemy);
+        fightCenter_ = Positions::None;
+        return;
+      }
+    }
     const Position rally = guard.isValid() ? guard : holdPoint_.isValid() ? holdPoint_ : ctx_.map->rallyPoint();
     const int rallyRadius = groupRadiusTiles(kRallyRadiusTiles, static_cast<int>(army_.size())) * kTile;
     int nearRally = 0;
@@ -599,10 +640,15 @@ namespace bb
         ++nearRally;
         continue;
       }
+      // Far from the hold point: gather at home, not alone across the map.
+      const bool farFromHold = holdPoint_.isValid() && !guard.isValid() && u->getDistance(holdPoint_) >= 20 * kTile;
+      const Position to = farFromHold ? ctx_.map->rallyPoint() : rally;
+      if (farFromHold && settledNear(u, to, rallyRadius))
+        continue;
       if (isSupport(u))
-        ctx_.commander->move(u, rally);
+        ctx_.commander->move(u, to);
       else
-        ctx_.commander->attackMove(u, rally);
+        ctx_.commander->attackMove(u, to);
     }
     if (army_.empty() || ctx_.frame < nextAttackAllowedFrame_)
       return;
@@ -709,6 +755,7 @@ namespace bb
     if (closest && ctx_.map->groundReachable(ctx_.map->rallyPoint(), closest->getPosition()))
     {
       holdPoint_ = closest->getPosition();
+      holdSinceFrame_ = ctx_.frame;
       ctx_.log.info("Combat", concat("army holds at ", holdPoint_.x, ",", holdPoint_.y, " instead of walking home"));
     }
   }

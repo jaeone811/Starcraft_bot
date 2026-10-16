@@ -306,8 +306,10 @@ namespace bb
     return c == Counter::SiegeTanks || c == Counter::Vultures || c == Counter::Goliaths;
   }
 
-  bool dominantForce(int typeCount, int armyCount)
+  bool dominantForce(int typeCount, int armyCount, bool alreadyMassing)
   {
+    if (alreadyMassing)
+      return typeCount >= 4 && typeCount * 10 >= armyCount * 3;
     return typeCount >= 6 && typeCount * 10 >= armyCount * 4;
   }
 

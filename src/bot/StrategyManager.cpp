@@ -75,7 +75,7 @@ namespace bb
           top = n;
           dominant = type;
         }
-      if (top > 0 && dominantForce(top, army))
+      if (top > 0 && dominantForce(top, army, counter_ != Counter::None && counterFor(dominant) == counter_))
         counter = counterFor(dominant);
       // Without Factories or Barracks for it the counter cannot be massed.
       if ((isFactoryCounter(counter) && ctx_.config.maxFactories <= 0) ||

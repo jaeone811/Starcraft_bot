@@ -171,8 +171,13 @@ namespace bb
   const char* toString(Counter c);
   bool isFactoryCounter(Counter c);
   // One unit type is a large part of the known enemy army: at least 6 of them and
-  // 40 % of its fighting units.
-  bool dominantForce(int typeCount, int armyCount);
+  // 40 % of its fighting units. A counter already being massed goes on until they
+  // are fewer than 4 or under 30 % (it flipped every 10-20 s at 6 of 8-11).
+  bool dominantForce(int typeCount, int armyCount, bool alreadyMassing = false);
+
+  // A wave that cleared its targets waits out on the map for at most this long,
+  // then the army gathers at home again.
+  constexpr int kHoldPointFrames = 24 * 45;
   FactoryUnit chooseFactoryUnit(int vultures, int tanks, int goliaths, const EnemyMix& enemy,
                                 bool hasMachineShop, bool armoryReady);
 

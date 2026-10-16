@@ -482,6 +482,13 @@ namespace bb
           seen.push_back(typeStrength(e.type));
       const double seenStrength = combineStrength(seen);
       taken = taken || baseContested(seenStrength, army) || ctx_.buildings->siteDangerous(b.center);
+      // A base other than the natural: no enemy fighting unit seen there in the last
+      // two minutes at all (a center base where enemy Vultures and Tanks came and
+      // went had SCVs sent to it for two and a half minutes).
+      if (i != ctx_.map->naturalIndex())
+        for (const auto& [id, e] : ctx_.info->enemyUnits())
+          taken = taken || (!e.type.isWorker() && canAttackGround(e.type) && ctx_.frame - e.lastSeenFrame < 24 * 120 &&
+                            e.position.getApproxDistance(b.center) < 15 * 32);
       const bool contestedOnly = taken && !takenBefore;
       if (contestedOnly && i == ctx_.map->naturalIndex() && ctx_.frame >= nextContestedLogFrame_)
       {

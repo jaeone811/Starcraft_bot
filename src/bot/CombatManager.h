@@ -81,6 +81,7 @@ namespace bb
     int readySinceFrame_ = -1;  // first frame the attack conditions held in Gather
     bool regrouping_ = false;
     BWAPI::Position holdPoint_ = BWAPI::Positions::None;  // where a wave that cleared its targets waits
+    int holdSinceFrame_ = 0;
     BWAPI::Position retreatFrom_ = BWAPI::Positions::None;
     int safeSinceFrame_ = -1;
     std::set<int> bunkerCrew_;          // marines sent into the Bunker (kept out of the army)

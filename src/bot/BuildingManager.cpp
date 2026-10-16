@@ -235,6 +235,9 @@ namespace bb
       releaseBuilder(task);
     if (task.state != State::UnderConstruction && ctx_.frame - task.dangerSince > 24 * 90)
     {
+      // The site is avoided for a while too, so the planner does not pick it again
+      // right after the cooldown.
+      dangerousSites_.push_back({ site, ctx_.frame + kDangerousSiteFrames });
       fail(task, "enemies stayed at the site");
       remove = true;
     }
