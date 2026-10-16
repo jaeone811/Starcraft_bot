@@ -439,6 +439,25 @@ TEST_CASE("a seen rush wants the whole early army at once")
   CHECK(!rushSigns(proxy));           // later: a forward base, not a rush
 }
 
+TEST_CASE("counters: a dominant enemy unit type is answered in mass")
+{
+  CHECK(!dominantForce(5, 6));          // too few to matter
+  CHECK(dominantForce(6, 10));          // 6 Dragoons in an army of 10
+  CHECK(!dominantForce(6, 20));         // 30 %: a mixed army
+  CHECK(dominantForce(12, 30));
+  CHECK(isFactoryCounter(Counter::SiegeTanks));
+  CHECK(!isFactoryCounter(Counter::Firebats));
+  CHECK(!isFactoryCounter(Counter::None));
+  using R = ResearchItem;
+  CHECK(researchServesCounter(R::SiegeMode, Counter::SiegeTanks));
+  CHECK(!researchServesCounter(R::StimPacks, Counter::SiegeTanks));
+  CHECK(!researchServesCounter(R::CharonBoosters, Counter::SiegeTanks));
+  CHECK(researchServesCounter(R::CharonBoosters, Counter::Goliaths));
+  CHECK(researchServesCounter(R::StimPacks, Counter::Firebats));
+  CHECK(!researchServesCounter(R::SiegeMode, Counter::Marines));
+  CHECK(researchServesCounter(R::InfantryArmor1, Counter::None));
+}
+
 TEST_CASE("detection: Turrets before the Dark Templar arrive")
 {
   CHECK(!detectionWanted(false, false, 0, false, 24 * 600));

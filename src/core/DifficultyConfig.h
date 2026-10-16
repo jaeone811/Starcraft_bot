@@ -50,6 +50,10 @@ namespace bb
   // waits while enemy air outmatches our anti-air: Spider Mines, +1 vehicle weapons
   // and Charon... took the gas that Goliaths needed against Mutalisks.
   bool helpsAgainstAir(ResearchItem item);
+  // Research that makes the counter units better. The rest waits while we mass a
+  // counter: Stim, infantry upgrades and Charon took the gas Siege Tanks needed
+  // against a Dragoon army.
+  bool researchServesCounter(ResearchItem item, Counter counter);
   // Research that gives our units the range to answer heavy ranged enemies
   // (Dragoons, Tanks, Lurkers): Siege Mode and U-238 Shells.
   bool extendsRange(ResearchItem item);

@@ -165,6 +165,14 @@ namespace bb
 
   // What an idle Factory should build next.
   enum class FactoryUnit { Vulture, SiegeTank, Goliath };
+
+  // What we mass against an enemy army made mostly of one unit type.
+  enum class Counter { None, SiegeTanks, Vultures, Goliaths, Firebats, Marines };
+  const char* toString(Counter c);
+  bool isFactoryCounter(Counter c);
+  // One unit type is a large part of the known enemy army: at least 6 of them and
+  // 40 % of its fighting units.
+  bool dominantForce(int typeCount, int armyCount);
   FactoryUnit chooseFactoryUnit(int vultures, int tanks, int goliaths, const EnemyMix& enemy,
                                 bool hasMachineShop, bool armoryReady);
 

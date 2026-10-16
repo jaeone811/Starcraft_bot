@@ -30,6 +30,8 @@ namespace bb
   void addToEnemyMix(EnemyMix& mix, BWAPI::UnitType type);
   bool isMeleeType(BWAPI::UnitType type);    // enemy units firebats are good against
   bool isDropTransport(BWAPI::UnitType type); // Shuttle / Dropship: may carry a Reaver, Tanks, ...
+  // What we mass against many of this enemy unit type (Counter::None: no special answer).
+  Counter counterFor(BWAPI::UnitType enemy);
 
   // Damage per frame against ground units (special cases for Bunker, Carrier, Reaver).
   double groundDamagePerFrame(BWAPI::UnitType type);

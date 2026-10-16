@@ -5,6 +5,7 @@
 #include "MapInfo.h"
 #include "Planning.h"
 
+#include <map>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -52,7 +53,47 @@ namespace bb
     antiAirShort_ = shortNow;
 
     const EnemyMix mix = ctx_.config.enemyInfoUsage >= 1 ? ctx_.info->expectedEnemyMix() : ctx_.info->enemyMix();
-    const double target = targetMechShare(mix, ctx_.config.mechShare, ctx_.config.maxMechShare, ctx_.config.enemyInfoUsage >= 1);
+    // Every level that counters what it knows: an enemy army made mostly of one
+    // unit type is answered by massing its counter (a Dragoon army beat Vultures and
+    // two Tanks made on the gas left over from Stim and infantry upgrades).
+    Counter counter = Counter::None;
+    UnitType dominant = UnitTypes::None;
+    if (ctx_.config.enemyInfoUsage >= 1)
+    {
+      std::map<UnitType, int> counts;
+      int army = 0;
+      for (const auto& [id, r] : ctx_.info->enemyUnits())
+        if (!r.type.isWorker() && (canAttackGround(r.type) || canAttackAir(r.type)))
+        {
+          ++counts[r.type];
+          ++army;
+        }
+      int top = 0;
+      for (const auto& [type, n] : counts)
+        if (n > top)
+        {
+          top = n;
+          dominant = type;
+        }
+      if (top > 0 && dominantForce(top, army))
+        counter = counterFor(dominant);
+      // Without Factories or Barracks for it the counter cannot be massed.
+      if ((isFactoryCounter(counter) && ctx_.config.maxFactories <= 0) ||
+          (counter == Counter::Firebats && ctx_.config.firebatRatioVsMelee <= 0.0))
+        counter = Counter::None;
+      if (counter != counter_)
+        ctx_.log.info("Strategy", counter == Counter::None
+                                      ? std::string("enemy army is mixed again: no counter massed")
+                                      : concat("enemy army is mostly ", dominant.c_str(), " (", top, " of ", army, "): massing ",
+                                               toString(counter)));
+    }
+    counter_ = counter;
+
+    double target = targetMechShare(mix, ctx_.config.mechShare, ctx_.config.maxMechShare, ctx_.config.enemyInfoUsage >= 1);
+    if (isFactoryCounter(counter_))
+      target = std::max(target, ctx_.config.maxMechShare);
+    else if (counter_ == Counter::Firebats || counter_ == Counter::Marines)
+      target = ctx_.config.mechShare;
     // Up at once, down slowly: the remembered enemy count drops whenever units die or
     // are forgotten, and the production plan should not flip with every skirmish.
     mechShare_ = target >= mechShare_ ? target : std::max(target, mechShare_ - kMechShareDropPerUpdate);
@@ -202,6 +243,10 @@ namespace bb
       return 0.0;
     if (antiAirShort_)
       return 0.0;   // Firebats cannot shoot flyers: Marines while the enemy air is ahead
+    if (counter_ == Counter::Firebats)
+      return std::max(ctx_.config.firebatRatioVsMelee, 0.5);   // massing Firebats against Zerglings
+    if (counter_ == Counter::Marines)
+      return 0.0;
     // Early on, the race tells what is coming (zealots / lings): firebats from the start.
     const int melee = std::max(ctx_.info->recentMeleeUnits(), ctx_.info->expectedEnemyMix().melee);
     if (melee < 2)

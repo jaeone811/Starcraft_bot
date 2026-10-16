@@ -390,6 +390,26 @@ namespace bb
     return out;
   }
 
+  bool researchServesCounter(ResearchItem item, Counter counter)
+  {
+    using R = ResearchItem;
+    switch (counter)
+    {
+    case Counter::None:
+      return true;
+    case Counter::SiegeTanks:
+      return item == R::SiegeMode || item == R::VehicleWeapons1 || item == R::VehiclePlating1 || item == R::SpiderMines;
+    case Counter::Vultures:
+      return item == R::SpiderMines || item == R::VehicleWeapons1 || item == R::VehiclePlating1;
+    case Counter::Goliaths:
+      return item == R::CharonBoosters || item == R::VehicleWeapons1 || item == R::VehiclePlating1;
+    case Counter::Firebats:
+    case Counter::Marines:
+      return item == R::StimPacks || item == R::U238Shells || item == R::InfantryWeapons1 || item == R::InfantryArmor1;
+    }
+    return true;
+  }
+
   bool helpsAgainstAir(ResearchItem item)
   {
     switch (item)

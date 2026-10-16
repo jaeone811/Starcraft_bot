@@ -645,7 +645,8 @@ namespace bb
 
     // Enemy air units: an Armory unlocks Goliaths.
     const UnitType armory = UnitTypes::Terran_Armory;
-    if (ctx_.config.mechShare > 0.0 && ctx_.info->enemyMix().air >= 2 && planned(armory) == 0 &&
+    if (ctx_.config.mechShare > 0.0 && (ctx_.info->enemyMix().air >= 2 || ctx_.strategy->counter() == Counter::Goliaths) &&
+        planned(armory) == 0 &&
         Broodwar->self()->completedUnitCount(factory) >= 1 && !ctx_.buildings->onCooldown(armory))
     {
       // Saved up for first while the enemy air is ahead of our anti-air.
@@ -708,6 +709,11 @@ namespace bb
       {
         lastPlan_ += concat("(after anti-air:", toString(item), ") ");
         continue;
+      }
+      if (!researchServesCounter(item, ctx_.strategy->counter()))
+      {
+        lastPlan_ += concat("(after counter:", toString(item), ") ");
+        continue;   // the gas goes to the counter units
       }
       const UnitType where = researchBuilding(item);
       Unit building = nullptr;
@@ -855,6 +861,14 @@ namespace bb
       const FactoryUnit choice = chooseFactoryUnit(vultures, tanks, goliaths, enemy, shopReady, armoryReady);
       UnitType type = choice == FactoryUnit::Goliath ? UnitTypes::Terran_Goliath
                     : choice == FactoryUnit::Vulture ? UnitTypes::Terran_Vulture : UnitTypes::Terran_Siege_Tank_Tank_Mode;
+      // Massing a counter: every Factory that can make it does.
+      const Counter counter = ctx_.strategy->counter();
+      if (counter == Counter::SiegeTanks && shopReady)
+        type = UnitTypes::Terran_Siege_Tank_Tank_Mode;
+      else if (counter == Counter::Goliaths && armoryReady)
+        type = UnitTypes::Terran_Goliath;
+      else if (counter == Counter::Vultures)
+        type = UnitTypes::Terran_Vulture;
       // Short on gas: the Vulture (minerals only) keeps the Factory busy. Not a
       // Goliath wanted against air: it waits for its gas (Vultures were made all
       // game while Mutalisks killed the SCVs).

@@ -60,6 +60,10 @@ namespace bb
     // not help waits). Re-evaluated every few seconds.
     bool antiAirShort() const { return antiAirShort_; }
 
+    // The enemy army is mostly one unit type: what we mass against it (levels that
+    // counter what they know). Re-evaluated every few seconds.
+    Counter counter() const { return counter_; }
+
   private:
     void detectThreats();
     void updateArmyMix();
@@ -74,5 +78,6 @@ namespace bb
     double loggedMechShare_;
     int lastMixFrame_ = -10000;
     bool antiAirShort_ = false;
+    Counter counter_ = Counter::None;
   };
 }

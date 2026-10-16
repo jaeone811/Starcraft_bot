@@ -287,6 +287,30 @@ namespace bb
     return ownShooters >= 4 && ownStrength >= defendersStrength * 1.5;
   }
 
+  const char* toString(Counter c)
+  {
+    switch (c)
+    {
+    case Counter::None: return "none";
+    case Counter::SiegeTanks: return "Siege Tanks";
+    case Counter::Vultures: return "Vultures";
+    case Counter::Goliaths: return "Goliaths";
+    case Counter::Firebats: return "Firebats";
+    case Counter::Marines: return "Marines";
+    }
+    return "?";
+  }
+
+  bool isFactoryCounter(Counter c)
+  {
+    return c == Counter::SiegeTanks || c == Counter::Vultures || c == Counter::Goliaths;
+  }
+
+  bool dominantForce(int typeCount, int armyCount)
+  {
+    return typeCount >= 6 && typeCount * 10 >= armyCount * 4;
+  }
+
   bool defenseOutmatched(double ownStrength, double enemyStrength)
   {
     return enemyStrength > 0.0 && enemyStrength > ownStrength * 1.2;

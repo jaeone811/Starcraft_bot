@@ -128,6 +128,14 @@ TEST_CASE("tech tree assumptions")
   CHECK(damageFactor(UnitTypes::Terran_Firebat.groundWeapon(), UnitSizeTypes::Large) == 0.25);
   CHECK(damageFactor(UnitTypes::Terran_Marine.groundWeapon(), UnitSizeTypes::Large) == 1.0);
   CHECK_EQ(UnitTypes::Protoss_Dragoon.groundWeapon().maxRange(), 128);
+  // Counters to a dominant enemy unit type.
+  CHECK(counterFor(UnitTypes::Protoss_Dragoon) == Counter::SiegeTanks);
+  CHECK(counterFor(UnitTypes::Protoss_Zealot) == Counter::Vultures);
+  CHECK(counterFor(UnitTypes::Zerg_Zergling) == Counter::Firebats);
+  CHECK(counterFor(UnitTypes::Zerg_Mutalisk) == Counter::Goliaths);
+  CHECK(counterFor(UnitTypes::Terran_Wraith) == Counter::Goliaths);
+  CHECK(counterFor(UnitTypes::Terran_Marine) == Counter::SiegeTanks);
+  CHECK(counterFor(UnitTypes::Protoss_Observer) == Counter::None);
   // Reavers: the Scarab is its own unit; the Shuttle carries the Reaver.
   CHECK(UnitTypes::Protoss_Scarab != UnitTypes::None);
   CHECK(groundDamagePerFrame(UnitTypes::Protoss_Reaver) > groundDamagePerFrame(UnitTypes::Protoss_Dragoon));

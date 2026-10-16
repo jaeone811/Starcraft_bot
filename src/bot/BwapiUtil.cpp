@@ -120,6 +120,26 @@ namespace bb
       ++mix.light;
   }
 
+  Counter counterFor(UnitType t)
+  {
+    // Tanks outrange and out-damage the ranged ground armies (Dragoons, Hydralisks,
+    // Lurkers, Terran bio and mech); Vultures and Firebats beat small melee units;
+    // Goliaths answer the air; Marines with Medics stand against Ultralisks.
+    if (t == UnitTypes::Protoss_Dragoon || t == UnitTypes::Protoss_Archon || t == UnitTypes::Zerg_Hydralisk ||
+        t == UnitTypes::Zerg_Lurker || t == UnitTypes::Terran_Marine || t == UnitTypes::Terran_Firebat ||
+        t == UnitTypes::Terran_Medic || isSiegeTank(t) || t == UnitTypes::Terran_Goliath)
+      return Counter::SiegeTanks;
+    if (t == UnitTypes::Protoss_Zealot || t == UnitTypes::Protoss_Reaver || t == UnitTypes::Protoss_Dark_Templar)
+      return Counter::Vultures;
+    if (t == UnitTypes::Zerg_Zergling)
+      return Counter::Firebats;
+    if (t == UnitTypes::Zerg_Ultralisk)
+      return Counter::Marines;
+    if (t == UnitTypes::Terran_Vulture || (t.isFlyer() && (canAttackGround(t) || t.airWeapon() != WeaponTypes::None)))
+      return Counter::Goliaths;
+    return Counter::None;
+  }
+
   bool isDropTransport(UnitType type)
   {
     return type == UnitTypes::Protoss_Shuttle || type == UnitTypes::Terran_Dropship;
