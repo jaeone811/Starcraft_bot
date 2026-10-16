@@ -94,6 +94,12 @@ namespace bb
         // BWAPI reports hidden enemy units next to ours with isDetected() == false
         // (the level 3 games scanned Lurkers this way).
         const UnitType type = u->getType();
+        if (!loggedMine_ && u->exists() && type == UnitTypes::Terran_Vulture_Spider_Mine)
+        {
+          loggedMine_ = true;
+          ctx_.log.info("Info", concat("enemy Spider Mine seen at ", u->getTilePosition().x, ",", u->getTilePosition().y,
+                                       u->isDetected() ? " (detected)" : " (hidden)"));
+        }
         // The first of each kind is logged: a game was lost to Reavers that the log
         // never named.
         if (u->exists() && !type.isBuilding() && !type.isWorker() && !ignoredType(type) &&
@@ -149,6 +155,8 @@ namespace bb
       else
         ++it;
     }
+    // Peak enemy army, halving over 5 minutes (per frame: 0.5^(1/7200)).
+    peakEnemyStrength_ = std::max(knownEnemyArmyStrength(), peakEnemyStrength_ * 0.99990373);
     // Mobile units: keep them for the strength estimate until they are old.
     for (auto it = units_.begin(); it != units_.end();)
     {
@@ -311,8 +319,9 @@ namespace bb
     std::vector<Unit> result;
     for (Player enemy : Broodwar->enemies())
       for (Unit u : enemy->getUnits())
-        if (u->exists() && u->isVisible() && !ignoredType(u->getType()) && u->getPosition().getApproxDistance(p) <= radius)
-          result.push_back(u);
+        if (u->exists() && u->isVisible() && (!ignoredType(u->getType()) || u->getType() == UnitTypes::Terran_Vulture_Spider_Mine) &&
+            u->getPosition().getApproxDistance(p) <= radius)
+          result.push_back(u);   // Spider Mines too: they are shot first and avoided while hidden
     return result;
   }
 }

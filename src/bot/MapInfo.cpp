@@ -63,7 +63,12 @@ namespace bb
     for (const auto& cluster : clusters)
     {
       if (cluster.size() < 4)
+      {
+        if (cluster.size() >= 2)
+          ctx_.log.info("Map", concat("mineral group of ", cluster.size(), " near ", points[cluster[0]].x / 32, ",",
+                                      points[cluster[0]].y / 32, " is not counted as a base"));
         continue;
+      }
       std::vector<Point> clusterPoints;
       std::vector<Position> resources;
       for (int idx : cluster)
@@ -95,7 +100,7 @@ namespace bb
         base.depotTile = findDepotTile(resources, mineralCenter);
       if (!base.depotTile.isValid() || base.depotTile == TilePositions::None)
       {
-        ctx_.log.debug("Map", concat("no Command Center spot found near minerals at ", mineralCenter.x, ",", mineralCenter.y));
+        ctx_.log.info("Map", concat("no Command Center spot found near minerals at ", mineralCenter.x / 32, ",", mineralCenter.y / 32));
         continue;
       }
       base.center = buildingCenter(base.depotTile, UnitTypes::Terran_Command_Center);
@@ -136,6 +141,11 @@ namespace bb
     computeRally();
     computeChoke();
     computeSearchCells();
+
+    std::string list;
+    for (const auto& b : bases_)
+      list += concat(b.depotTile.x, ",", b.depotTile.y, "(", b.mineralPatches, "m", b.geysers, "g", b.isStartLocation ? " start" : "", ") ");
+    ctx_.log.info("Map", concat("bases: ", list));
 
     ctx_.log.info("Map", concat("map=", Broodwar->mapFileName(), " size=", Broodwar->mapWidth(), "x", Broodwar->mapHeight(),
                                 " startLocations=", Broodwar->getStartLocations().size(), " bases=", bases_.size(),

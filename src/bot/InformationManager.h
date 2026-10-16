@@ -7,6 +7,7 @@
 #include "BotContext.h"
 #include "Planning.h"
 
+#include <algorithm>
 #include <BWAPI.h>
 
 #include <map>
@@ -51,6 +52,10 @@ namespace bb
     int recentMeleeUnits() const;          // remembered melee units (zealots, lings, ...)
     double knownEnemyArmyStrength() const; // remembered non-worker combat units + static defense
     double knownEnemyAirStrength() const;  // remembered flyers that attack ground (Mutalisks, Wraiths, ...)
+    // The largest enemy army strength we have known, fading by half over 5 minutes:
+    // an army out of sight is not gone (waves of 15-22 walked into sieged Tanks
+    // while the known strength read 0-560).
+    double estimatedEnemyArmyStrength() const { return std::max(knownEnemyArmyStrength(), peakEnemyStrength_); }
     double knownEnemyAirFraction() const;  // their share of the remembered army's strength
     int knownEnemyCombatUnits() const;
     EnemyMix enemyMix() const;             // remembered enemy army by counter group
@@ -78,6 +83,8 @@ namespace bb
     bool loggedInference_ = false;
     int hiddenAttackerFrame_ = -1;
     int hiddenTechFrame_ = -1;
+    double peakEnemyStrength_ = 0.0;
+    bool loggedMine_ = false;
     std::set<int> typesSeen_;           // enemy unit types logged once when first seen
     int rushFrame_ = -1;
   };

@@ -172,7 +172,10 @@ namespace bb
     // While the early army is short only a little gas is needed (Factory, Machine
     // Shop, a few Firebats/Medics); 3 SCVs on gas with 500 in the bank were 3 SCVs
     // short on minerals during a zealot rush.
-    const int high = gasCap_ >= 0 ? std::min(kGasBankHigh, gasCap_) : kGasBankHigh;
+    // Minerals are what is short (0-70 minerals with 400-1100 gas banked for minutes
+    // against Steamhammer): the gas workers mine minerals from 400 gas.
+    const bool mineralStarved = Broodwar->self()->minerals() < 150;
+    const int high = gasCap_ >= 0 ? std::min(kGasBankHigh, gasCap_) : mineralStarved ? kGasBankHigh / 2 : kGasBankHigh;
     const int low = gasCap_ >= 0 ? std::min(kGasBankLow, gasCap_ / 2) : kGasBankLow;
     // At most one switch per 20 seconds: SCVs walking between gas and minerals mine
     // nothing (the cap went on and off every ten seconds once).

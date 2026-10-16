@@ -45,7 +45,9 @@ namespace bb
     bool supplyStalled();
     int fightingUnits() const;
     void buildBunker(Budget& budget);
-    const BaseLocation* nextExpansion() const;
+    // relaxed: our bases are running dry and nothing else is free, so a base where
+    // enemies passed by in the last two minutes is acceptable again.
+    const BaseLocation* nextExpansion(bool relaxed = false) const;
     bool rangeResearchFirst() const;    // Siege Mode / U-238 first (heavy ranged enemies, or Protoss)
     double ownArmyStrength() const;     // finished army, combined (Planning::combineStrength)
 
@@ -60,6 +62,7 @@ namespace bb
     int stalledSinceFrame_ = -1;
     int lastExpansionFrame_ = -1;
     mutable int nextContestedLogFrame_ = 0;
+    mutable int nextNoBaseLogFrame_ = 0;
     bool loggedEarlyDefense_ = false;
     bool holdTech_ = false;
     bool loggedHoldTech_ = false;

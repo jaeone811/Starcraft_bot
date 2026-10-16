@@ -260,6 +260,15 @@ namespace bb
     return true;
   }
 
+  bool BuildingManager::scanSite(Position site)
+  {
+    const int cost = TechTypes::Scanner_Sweep.energyCost();
+    for (Unit c : Broodwar->self()->getUnits())
+      if (c->getType() == UnitTypes::Terran_Comsat_Station && c->isCompleted() && c->getEnergy() >= 2 * cost)
+        return ctx_.commander->useTechAt(c, TechTypes::Scanner_Sweep, site, 24 * 10);
+    return false;
+  }
+
   bool BuildingManager::builderTroubleGivesUp(Task& task, Position site, bool& remove)
   {
     // A far site where two builders were killed or attacked on the way is given up
@@ -524,6 +533,22 @@ namespace bb
       }
       if (waitForSafeSite(task, buildingCenter(task.tile, task.type), remove))
         return;
+      // The SCV walking to look at a far site died on the way. Every level: this was
+      // not counted, and a new SCV walked the same way again and again (three times
+      // two minutes towards a center base the enemy held, one SCV after another).
+      if (task.builder && !isValid(task.builder))
+      {
+        const Position site = buildingCenter(task.tile, task.type);
+        ctx_.log.info("Build", concat("task #", task.id, " ", task.type.c_str(), ": the SCV walking there died"));
+        task.builder = nullptr;
+        if (farFromOurBases(site))
+        {
+          ++task.builderTrouble;
+          task.pathDangerUntil = ctx_.frame + 24 * 30;
+          if (builderTroubleGivesUp(task, site, remove))
+            return;
+        }
+      }
       if (ctx_.frame < task.pathDangerUntil)
         return;   // the last builder was attacked on the way
       if (!isValid(task.builder))
@@ -543,10 +568,34 @@ namespace bb
       // unexplored at the easy levels). Walk the SCV there first.
       if (!footprintExplored(task.tile, task.type))
       {
+        const Position site = buildingCenter(task.tile, task.type);
+        // A far site nobody has seen: a Scanner Sweep looks first (enemies there show
+        // up and the task waits), so no SCV walks blind into an enemy base.
+        if (!task.scanned && farFromOurBases(site) && scanSite(site))
+        {
+          task.scanned = true;
+          releaseBuilder(task);
+          ctx_.log.info("Build", concat("task #", task.id, " ", task.type.c_str(), " at ", task.tile.x, ",", task.tile.y,
+                                        " is unexplored: scanning it before sending an SCV"));
+          return;
+        }
         if (ctx_.frame - task.stateFrame > kExploreTimeout)
         {
+          if (farFromOurBases(site))
+            dangerousSites_.push_back({ site, ctx_.frame + kDangerousSiteFrames });
           fail(task, "spot never got explored");
           remove = true;
+          return;
+        }
+        // The walking SCV is attacked on the way to a far site: back home.
+        if (isValid(task.builder) && task.builder->isUnderAttack() && farFromOurBases(site))
+        {
+          ++task.builderTrouble;
+          ctx_.log.info("Build", concat("task #", task.id, " SCV#", task.builder->getID(), " attacked on the way to ",
+                                        task.type.c_str(), ": turning back"));
+          releaseBuilder(task);
+          task.pathDangerUntil = ctx_.frame + 24 * 30;
+          builderTroubleGivesUp(task, site, remove);
           return;
         }
         if (!task.loggedUnexplored)

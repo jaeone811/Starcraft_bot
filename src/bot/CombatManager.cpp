@@ -671,7 +671,7 @@ namespace bb
     // Against the enemy army we know, flyers included: Firebats and Vultures do not
     // count against its Mutalisks.
     in.ownStrength = strengthOf(army_, ctx_.info->knownEnemyAirFraction());
-    in.knownEnemyStrength = ctx_.info->knownEnemyArmyStrength();
+    in.knownEnemyStrength = ctx_.info->estimatedEnemyArmyStrength();
     in.useStrengthEstimate = ctx_.config.enemyInfoUsage >= 2;
     AttackParams p;
     p.requiredSize = ctx_.strategy->attackSize();
@@ -740,6 +740,7 @@ namespace bb
                                    medics, " medics, ", firebats, " firebats, ", mech, " mech) -> ", target_.x, ",", target_.y, " [", targetReason_,
                                    "] ownStrength=", static_cast<int>(strengthOf(army_, ctx_.info->knownEnemyAirFraction())),
                                    " knownEnemyStrength=", static_cast<int>(ctx_.info->knownEnemyArmyStrength()),
+                                   " estimated=", static_cast<int>(ctx_.info->estimatedEnemyArmyStrength()),
                                    " requiredSize=", ctx_.strategy->attackSize()));
   }
 

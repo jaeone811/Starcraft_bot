@@ -441,7 +441,7 @@ namespace bb
     return combineStrength(own);
   }
 
-  const BaseLocation* ProductionManager::nextExpansion() const
+  const BaseLocation* ProductionManager::nextExpansion(bool relaxed) const
   {
     const double army = ownArmyStrength();
     // Free base closest to the main (the natural first): no Command Center of ours,
@@ -450,14 +450,24 @@ namespace bb
     const auto& bases = ctx_.map->bases();
     const BaseLocation* best = nullptr;
     int bestDist = std::numeric_limits<int>::max();
+    std::string reasons;
     for (int i = 0; i < static_cast<int>(bases.size()); ++i)
     {
       const BaseLocation& b = bases[i];
       bool taken = false;
+      const char* why = "";
+      auto reject = [&](bool cond, const char* reason) {
+        if (cond && !taken)
+          why = reason;
+        taken = taken || cond;
+      };
+      bool haveDepot = false;
       for (Unit u : Broodwar->self()->getUnits())
-        taken = taken || (u->getType().isResourceDepot() && u->getDistance(b.center) < 6 * 32);
+        haveDepot = haveDepot || (u->getType().isResourceDepot() && u->getDistance(b.center) < 6 * 32);
+      if (haveDepot)
+        continue;
       for (const auto& [id, e] : ctx_.info->enemyBuildings())
-        taken = taken || e.position.getApproxDistance(b.center) < 12 * 32;
+        reject(e.position.getApproxDistance(b.center) < 12 * 32, "enemy building");
       // Not where enemy fighting units were seen in the last minute that our army
       // could not handle (they killed the Command Center being built there and every
       // SCV sent after it). Any enemy at all kept the natural waiting from 7:30 to
@@ -472,7 +482,7 @@ namespace bb
             ours = std::min(ours, u->getPosition().getApproxDistance(b.center));
         for (const auto& [id, e] : ctx_.info->enemyBuildings())
           theirs = std::min(theirs, e.position.getApproxDistance(b.center));
-        taken = taken || theirs < ours;
+        reject(theirs < ours, "enemy side");
       }
       const bool takenBefore = taken;
       std::vector<double> seen;
@@ -481,14 +491,16 @@ namespace bb
             e.position.getApproxDistance(b.center) < 15 * 32)
           seen.push_back(typeStrength(e.type));
       const double seenStrength = combineStrength(seen);
-      taken = taken || baseContested(seenStrength, army) || ctx_.buildings->siteDangerous(b.center);
+      reject(baseContested(seenStrength, army), "enemy army there");
+      reject(ctx_.buildings->siteDangerous(b.center), "builders lost there");
       // A base other than the natural: no enemy fighting unit seen there in the last
       // two minutes at all (a center base where enemy Vultures and Tanks came and
       // went had SCVs sent to it for two and a half minutes).
-      if (i != ctx_.map->naturalIndex())
+      if (i != ctx_.map->naturalIndex() && !relaxed)
         for (const auto& [id, e] : ctx_.info->enemyUnits())
-          taken = taken || (!e.type.isWorker() && canAttackGround(e.type) && ctx_.frame - e.lastSeenFrame < 24 * 120 &&
-                            e.position.getApproxDistance(b.center) < 15 * 32);
+          reject(!e.type.isWorker() && canAttackGround(e.type) && ctx_.frame - e.lastSeenFrame < 24 * 120 &&
+                     e.position.getApproxDistance(b.center) < 15 * 32,
+                 "enemies passed by");
       const bool contestedOnly = taken && !takenBefore;
       if (contestedOnly && i == ctx_.map->naturalIndex() && ctx_.frame >= nextContestedLogFrame_)
       {
@@ -496,14 +508,16 @@ namespace bb
                                            ") are more than half our army (", static_cast<int>(army), "); waiting"));
         nextContestedLogFrame_ = ctx_.frame + 24 * 60;
       }
-      if (b.isStartLocation && b.depotTile != ctx_.map->mainTile() && ctx_.info->startStatus(b.depotTile) != StartStatus::Empty)
-        taken = true;
+      reject(b.isStartLocation && b.depotTile != ctx_.map->mainTile() && ctx_.info->startStatus(b.depotTile) != StartStatus::Empty,
+             "enemy start location");
       // Something we can see stands on the spot (enemy units, a building we did not
       // recognise): another base. The third base on Boxer once failed this way twice.
-      if (!taken && Broodwar->isExplored(b.depotTile) && !Broodwar->canBuildHere(b.depotTile, UnitTypes::Terran_Command_Center))
-        taken = true;
-      if (taken || !ctx_.map->groundReachable(main, b.center))
+      reject(!taken && Broodwar->isExplored(b.depotTile) && !Broodwar->canBuildHere(b.depotTile, UnitTypes::Terran_Command_Center),
+             "spot blocked");
+      reject(!ctx_.map->groundReachable(main, b.center), "not reachable");
+      if (taken)
       {
+        reasons += concat(b.depotTile.x, ",", b.depotTile.y, " ", why, "; ");
         // The natural is free but enemies were just there: wait for it rather than
         // taking a base further out (a center base went up while the natural was
         // contested and had nothing to protect it).
@@ -511,12 +525,24 @@ namespace bb
           return nullptr;
         continue;
       }
-      const int d = i == ctx_.map->naturalIndex() ? 0 : main.getApproxDistance(b.center);
+      // Nearest to any base of ours (the bases beside the natural come before the
+      // map center), the natural first.
+      int d = std::numeric_limits<int>::max();
+      for (Unit u : Broodwar->self()->getUnits())
+        if (u->getType().isResourceDepot())
+          d = std::min(d, u->getPosition().getApproxDistance(b.center));
+      if (i == ctx_.map->naturalIndex())
+        d = 0;
       if (d < bestDist)
       {
         bestDist = d;
         best = &b;
       }
+    }
+    if (!best && !reasons.empty() && ctx_.frame >= nextNoBaseLogFrame_)
+    {
+      ctx_.log.info("Production", concat("no base to take", relaxed ? " (relaxed)" : "", ": ", reasons));
+      nextNoBaseLogFrame_ = ctx_.frame + 24 * 120;
     }
     return best;
   }
@@ -530,7 +556,11 @@ namespace bb
     if (depots == 0 || ctx_.workers->mineralsLeftAtBases() >= kLowMineralsLeft || planned(cc) > depots ||
         ctx_.buildings->onCooldown(cc) || ctx_.strategy->baseUnderThreat())
       return;
+    // Our bases are running dry: a base where enemies passed by lately is better than
+    // none (the main and the natural were mined out at 23:00 and 19 SCVs stood idle).
     const BaseLocation* next = nextExpansion();
+    if (!next)
+      next = nextExpansion(true);
     if (!next)
     {
       if (!loggedNoExpansion_)

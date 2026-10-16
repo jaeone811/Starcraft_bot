@@ -55,6 +55,7 @@ namespace bb
       int lastProgressFrame = 0;
       int reissues = 0;        // build orders repeated while Assigned
       bool loggedUnexplored = false;
+      bool scanned = false;    // a far unexplored site was scanned instead of walking an SCV into it
       int dangerSince = -1;    // frame enemies were first seen at the site while waiting (-1: none)
       int builderTrouble = 0;  // builders killed or attacked on the way to a far site
       int pathDangerUntil = -1; // no new builder before this frame (the last one was attacked on the way)
@@ -67,6 +68,8 @@ namespace bb
     bool recentlyBlocked(BWAPI::TilePosition tile) const;
     bool nearArmySpot(const Task& task, BWAPI::TilePosition tile) const;
     bool farFromOurBases(BWAPI::Position site) const;
+    // Scanner Sweep on a far site (keeps one sweep's energy for hidden attackers).
+    bool scanSite(BWAPI::Position site);
     // Two builders lost on the way: the task fails and the site is avoided.
     bool builderTroubleGivesUp(Task& task, BWAPI::Position site, bool& remove);
     bool enemiesAtSite(BWAPI::Position p) const;
