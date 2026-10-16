@@ -178,7 +178,22 @@ TEST_CASE("settings defaults and validation")
 
 TEST_CASE("missing settings file falls back to defaults with a warning")
 {
-  BotSettings s = loadBotSettings({ "does/not/exist.ini" });
+  {
+    // The launcher's per-instance settings win over the file.
+    const EnvLookup env = [](const std::string& name) -> std::optional<std::string> {
+      if (name == "JAETANKBOT_BOT__DIFFICULTY") return std::string("5");
+      if (name == "JAETANKBOT_GAME__LOCAL_SPEED") return std::string("-1");
+      return std::nullopt;
+    };
+    const BotSettings e = parseBotSettings("[bot]\ndifficulty = 2\n[game]\nlocal_speed = 0\n", env);
+    CHECK_EQ(e.difficulty, 5);
+    CHECK_EQ(e.localSpeed, -1);
+    CHECK_EQ(parseBotSettings("[bot]\ndifficulty = 2\n").difficulty, 2);
+    const BotSettings none = loadBotSettings({ "does/not/exist.ini" }, env);
+    CHECK_EQ(none.difficulty, 5);
+    CHECK(none.loadedFrom == "environment");
+  }
+  BotSettings s = loadBotSettings({ "does/not/exist.ini" }, nullptr);
   CHECK_EQ(s.difficulty, 3);
   CHECK(s.loadedFrom.empty());
   CHECK(!s.warnings.empty());

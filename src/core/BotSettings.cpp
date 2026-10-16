@@ -3,10 +3,40 @@
 #include "DifficultyConfig.h"
 #include "IniFile.h"
 
+#include <cctype>
+#include <cstdlib>
+
 namespace bb
 {
   namespace
   {
+    // The keys the environment may set.
+    const std::pair<const char*, const char*> kOverridable[] = {
+      { "bot", "difficulty" }, { "bot", "opening" }, { "log", "level" }, { "log", "directory" },
+      { "game", "local_speed" }, { "game", "frame_skip" }, { "game", "debug_draw" }, { "game", "enable_user_input" } };
+
+    std::string upper(std::string s)
+    {
+      for (char& c : s)
+        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+      return s;
+    }
+
+    // Returns true when the environment set anything.
+    bool applyEnvironment(IniFile& ini, const EnvLookup& env)
+    {
+      if (!env)
+        return false;
+      bool any = false;
+      for (const auto& [section, key] : kOverridable)
+        if (const auto value = env("JAETANKBOT_" + upper(section) + "__" + upper(key)))
+        {
+          ini.set(section, key, *value);
+          any = true;
+        }
+      return any;
+    }
+
     BotSettings fromIni(const IniFile& ini)
     {
       BotSettings s;
@@ -62,26 +92,49 @@ namespace bb
     }
   }
 
-  BotSettings parseBotSettings(const std::string& iniText)
+  std::optional<std::string> processEnvironment(const std::string& name)
+  {
+#ifdef _MSC_VER
+    char* value = nullptr;
+    size_t length = 0;
+    if (_dupenv_s(&value, &length, name.c_str()) != 0 || !value)
+      return std::nullopt;
+    std::string out(value);
+    std::free(value);
+    return out;
+#else
+    const char* value = std::getenv(name.c_str());
+    return value ? std::optional<std::string>(value) : std::nullopt;
+#endif
+  }
+
+  BotSettings parseBotSettings(const std::string& iniText, const EnvLookup& env)
   {
     IniFile ini;
     ini.parse(iniText);
+    applyEnvironment(ini, env);
     return fromIni(ini);
   }
 
-  BotSettings loadBotSettings(const std::vector<std::string>& candidatePaths)
+  BotSettings loadBotSettings(const std::vector<std::string>& candidatePaths, const EnvLookup& env)
   {
     for (const auto& path : candidatePaths)
     {
       IniFile ini;
       if (!ini.load(path))
         continue;
+      const bool fromEnv = applyEnvironment(ini, env);
       BotSettings s = fromIni(ini);
-      s.loadedFrom = path;
+      s.loadedFrom = fromEnv ? path + " + environment" : path;
       return s;
     }
-    BotSettings s;
-    s.warnings.push_back("no settings file found; using defaults (difficulty 3)");
+    IniFile ini;
+    const bool fromEnv = applyEnvironment(ini, env);
+    BotSettings s = fromIni(ini);
+    if (fromEnv)
+      s.loadedFrom = "environment";
+    else
+      s.warnings.push_back("no settings file found; using defaults (difficulty 3)");
     return s;
   }
 

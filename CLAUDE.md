@@ -15,6 +15,9 @@ cmake --build build --config Release                :: rebuild after edits
 ctest --test-dir build -C Release --output-on-failure
 scripts\install_to_starcraft.bat "C:\path\to\StarCraft"
 build\Release\JaeTankBotConfig.exe --list
+build\Release\JaeTankBotPlay.exe                   :: GUI launcher (no Chaoslauncher; per-instance settings via environment)
+python tools\make_package.py                       :: dist\JaeTankBot-<ver>-win32.zip (never includes StarCraft files)
+python tools\make_icon.py                          :: redraws resources\jaetankbot.ico
 build\Release\JaeTankBotConfig.exe --starcraft "C:\path\to\StarCraft" --difficulty 3 --map "maps/(2)XXX.scm" --enemy-race Protoss --apply-bwapi-ini --yes
 python tools\summarize_results.py "C:\path\to\StarCraft\bwapi-data\write\JaeTankBot\results.csv"
 ```

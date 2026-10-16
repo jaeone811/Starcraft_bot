@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(JaeTankBot VERSION 1.0.0 LANGUAGES CXX)
+project(JaeTankBot VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -73,12 +73,19 @@ endif()
 
 # ---------------------------------------------------------------- configurator
 if(JAETANKBOT_BUILD_CONFIGURATOR)
-  add_executable(JaeTankBotConfig tools/configurator/main.cpp)
+  if(WIN32)
+    add_executable(JaeTankBotConfig tools/configurator/main.cpp tools/configurator/configurator.rc)
+    # The game launcher window (no Chaoslauncher needed).
+    add_executable(JaeTankBotPlay WIN32 tools/launcher/main.cpp tools/launcher/launcher.rc)
+    target_link_libraries(JaeTankBotPlay PRIVATE bb_core)
+    target_compile_definitions(JaeTankBotPlay PRIVATE UNICODE _UNICODE JAETANKBOT_VERSION="${PROJECT_VERSION}")
+    if(MSVC)
+      target_link_options(JaeTankBotPlay PRIVATE /MANIFEST:NO)
+    endif()
+  else()
+    add_executable(JaeTankBotConfig tools/configurator/main.cpp)
+  endif()
   target_link_libraries(JaeTankBotConfig PRIVATE bb_core)
-  # The same tool for a human against the bot, made for double-clicking.
-  add_executable(JaeTankBotPlay tools/configurator/main.cpp)
-  target_link_libraries(JaeTankBotPlay PRIVATE bb_core)
-  target_compile_definitions(JaeTankBotPlay PRIVATE JTB_PLAY)
 endif()
 
 # ---------------------------------------------------------------- tests

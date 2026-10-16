@@ -1,0 +1,4 @@
+// JaeTankBotPlay: the tank icon and the manifest (visual styles).
+#include <windows.h>
+1 ICON "../../resources/jaetankbot.ico"
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "launcher.manifest"

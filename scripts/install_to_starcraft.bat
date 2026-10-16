@@ -1,7 +1,8 @@
 @echo off
 rem Copies JaeTankBot into a StarCraft 1.16.1 folder that already has BWAPI 4.4.0.
 rem Only adds files under bwapi-data\AI; it never touches StarCraft's own files.
-rem bwapi.ini is NOT changed here - use tools\JaeTankBotConfig.exe --apply-bwapi-ini for that.
+rem bwapi.ini is NOT changed here: JaeTankBotPlay.exe starts games without changing it
+rem (for Chaoslauncher use tools\JaeTankBotConfig.exe --apply-bwapi-ini).
 rem Usage: install_to_starcraft.bat "C:\path\to\StarCraft"
 setlocal
 set "SC=%~1"
@@ -28,12 +29,12 @@ if not exist "%DLL%" (
 if not exist "%SC%\bwapi-data\AI" mkdir "%SC%\bwapi-data\AI"
 copy /Y "%DLL%" "%SC%\bwapi-data\AI\JaeTankBot.dll" >nul || exit /b 1
 echo Copied JaeTankBot.dll to "%SC%\bwapi-data\AI"
-rem The human-vs-bot launcher finds the StarCraft folder from bwapi-data\AI.
+rem The game launcher (JaeTankBotPlay.exe) finds the StarCraft folder from bwapi-data\AI.
 set "PLAY=%SRC%bwapi-data\AI\JaeTankBotPlay.exe"
 if not exist "%PLAY%" set "PLAY=%SRC%..\build\Release\JaeTankBotPlay.exe"
 if exist "%PLAY%" (
   copy /Y "%PLAY%" "%SC%\bwapi-data\AI\JaeTankBotPlay.exe" >nul || exit /b 1
-  echo Copied JaeTankBotPlay.exe ^(human vs bot^) to "%SC%\bwapi-data\AI"
+  echo Copied JaeTankBotPlay.exe ^(game launcher^) to "%SC%\bwapi-data\AI"
 )
 if exist "%SC%\bwapi-data\AI\JaeTankBot.ini" (
   echo Kept the existing "%SC%\bwapi-data\AI\JaeTankBot.ini"
@@ -42,5 +43,6 @@ if exist "%SC%\bwapi-data\AI\JaeTankBot.ini" (
   echo Copied default JaeTankBot.ini ^(difficulty 3^)
 )
 echo.
-echo Next: set "ai = bwapi-data/AI/JaeTankBot.dll" in "%SC%\bwapi-data\bwapi.ini"
+echo Play: "%SC%\bwapi-data\AI\JaeTankBotPlay.exe" ^(no Chaoslauncher needed^)
+echo With Chaoslauncher: set "ai = bwapi-data/AI/JaeTankBot.dll" in "%SC%\bwapi-data\bwapi.ini"
 echo       or run: JaeTankBotConfig.exe --starcraft "%SC%" --apply-bwapi-ini

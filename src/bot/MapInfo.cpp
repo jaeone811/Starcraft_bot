@@ -231,62 +231,97 @@ namespace bb
   void MapInfo::computeMainArea()
   {
     // Every level: Barracks and Factories go inside the main, behind the Bunker at
-    // its entrance. "Behind the entrance" used to mean "no further from the Command
-    // Center than the entrance", which on Boxer took tiles beside the main, in front
-    // of the Bunker; a fill from the Command Center walled off at the entrance got
-    // out to the natural. Inside the main is where the ground way to the natural
-    // goes through the entrance: distance to the natural = distance to the entrance
-    // + the entrance's distance to the natural (a few tiles of slack).
+    // its entrance. Inside the main is where the ground way to the natural goes
+    // through the entrance: distance to the natural = distance to the entrance + the
+    // entrance's distance to the natural (with a little slack). Walked on BWAPI's
+    // 8-pixel walk grid: on whole tiles, cliff-edge tiles counted as walkable let the
+    // walk climb cliffs (the fill reached the natural; 5 tiles in another game).
     if (natural_ < 0 || mainChoke_ == TilePositions::None)
       return;
-    const int w = Broodwar->mapWidth(), h = Broodwar->mapHeight();
-    const std::vector<char> blocked = blockedTiles();
+    const int w = Broodwar->mapWidth() * 4, h = Broodwar->mapHeight() * 4;
+    std::vector<char> blocked(static_cast<size_t>(w) * h, 0);
+    for (int y = 0; y < h; ++y)
+      for (int x = 0; x < w; ++x)
+        blocked[static_cast<size_t>(y) * w + x] = Broodwar->isWalkable(x, y) ? 0 : 1;
+    auto blockUnit = [&](Unit r) {
+      const TilePosition t = r->getInitialTilePosition();
+      const UnitType type = r->getInitialType();
+      for (int y = t.y * 4; y < (t.y + type.tileHeight()) * 4 && y < h; ++y)
+        for (int x = t.x * 4; x < (t.x + type.tileWidth()) * 4 && x < w; ++x)
+          if (x >= 0 && y >= 0)
+            blocked[static_cast<size_t>(y) * w + x] = 1;
+    };
+    for (Unit m : Broodwar->getStaticMinerals())
+      blockUnit(m);
+    for (Unit g : Broodwar->getStaticGeysers())
+      blockUnit(g);
     constexpr int kFar = std::numeric_limits<int>::max();
-    auto index = [w](TilePosition t) { return static_cast<size_t>(t.y) * w + t.x; };
-    auto distancesFrom = [&](TilePosition from) {
+    auto index = [w](int x, int y) { return static_cast<size_t>(y) * w + x; };
+    // A start cell: the walk cell at the tile's center, or the nearest open one.
+    auto open = [&](TilePosition t) {
+      const int cx = t.x * 4 + 2, cy = t.y * 4 + 2;
+      for (int r = 0; r <= 8; ++r)
+        for (int dy = -r; dy <= r; ++dy)
+          for (int dx = -r; dx <= r; ++dx)
+          {
+            const int x = cx + dx, y = cy + dy;
+            if (x >= 0 && y >= 0 && x < w && y < h && !blocked[index(x, y)])
+              return std::make_pair(x, y);
+          }
+      return std::make_pair(-1, -1);
+    };
+    auto distancesFrom = [&](std::pair<int, int> from) {
       std::vector<int> d(static_cast<size_t>(w) * h, kFar);
-      std::vector<TilePosition> frontier{ from };
-      d[index(from)] = 0;
+      if (from.first < 0)
+        return d;
+      std::vector<std::pair<int, int>> frontier{ from };
+      d[index(from.first, from.second)] = 0;
       for (size_t q = 0; q < frontier.size(); ++q)
       {
-        const TilePosition c = frontier[q];
+        const auto [cx, cy] = frontier[q];
         for (int dy = -1; dy <= 1; ++dy)
           for (int dx = -1; dx <= 1; ++dx)
           {
-            const int nx = c.x + dx, ny = c.y + dy;
+            const int nx = cx + dx, ny = cy + dy;
             if ((dx == 0 && dy == 0) || nx < 0 || ny < 0 || nx >= w || ny >= h)
               continue;
-            const size_t i = static_cast<size_t>(ny) * w + nx;
-            // No cutting corners between two blocked tiles.
-            if (blocked[i] || d[i] != kFar ||
-                (dx != 0 && dy != 0 && (blocked[static_cast<size_t>(c.y) * w + nx] || blocked[static_cast<size_t>(ny) * w + c.x])))
+            const size_t i = index(nx, ny);
+            if (blocked[i] || d[i] != kFar || (dx != 0 && dy != 0 && (blocked[index(nx, cy)] || blocked[index(cx, ny)])))
               continue;
-            d[i] = d[index(c)] + 1;
-            frontier.push_back(TilePosition(nx, ny));
+            d[i] = d[index(cx, cy)] + 1;
+            frontier.emplace_back(nx, ny);
           }
       }
       return d;
     };
-    const std::vector<int> toNatural = distancesFrom(TilePosition(bases_[natural_].center));
-    const std::vector<int> toChoke = distancesFrom(mainChoke_);
-    const int chokeToNatural = toNatural[index(mainChoke_)];
+    const auto chokeCell = open(mainChoke_);
+    const std::vector<int> toNatural = distancesFrom(open(TilePosition(bases_[natural_].center)));
+    const std::vector<int> toChoke = distancesFrom(chokeCell);
+    const int chokeToNatural = chokeCell.first < 0 ? kFar : toNatural[index(chokeCell.first, chokeCell.second)];
     if (chokeToNatural == kFar)
     {
       ctx_.log.info("Map", "main area: no ground way from the entrance to the natural; not used");
       return;
     }
-    std::vector<char> area(static_cast<size_t>(w) * h, 0);
+    // A tile is inside when its center cell is (3 tiles of slack; 4 tiles away from
+    // the entrance, where nothing is built anyway).
+    const int tw = Broodwar->mapWidth(), th = Broodwar->mapHeight();
+    std::vector<char> area(static_cast<size_t>(tw) * th, 0);
     int tiles = 0;
-    for (size_t i = 0; i < area.size(); ++i)
-      if (toNatural[i] != kFar && toChoke[i] != kFar && toChoke[i] >= 4 && toChoke[i] + chokeToNatural <= toNatural[i] + 3)
+    for (int ty = 0; ty < th; ++ty)
+      for (int tx = 0; tx < tw; ++tx)
       {
-        area[i] = 1;
-        ++tiles;
+        const size_t i = index(tx * 4 + 2, ty * 4 + 2);
+        if (toNatural[i] != kFar && toChoke[i] != kFar && toChoke[i] >= 16 && toChoke[i] + chokeToNatural <= toNatural[i] + 12)
+        {
+          area[static_cast<size_t>(ty) * tw + tx] = 1;
+          ++tiles;
+        }
       }
-    const TilePosition cc(mainTile_.x + 2, mainTile_.y + 1);
-    if (!area[index(cc)] || tiles > w * h / 4)
+    const size_t cc = static_cast<size_t>(mainTile_.y + 1) * tw + mainTile_.x + 2;
+    if (!area[cc] || tiles > tw * th / 4)
     {
-      ctx_.log.info("Map", concat("main area: ", tiles, " tiles, the Command Center ", area[index(cc)] ? "inside" : "outside", "; not used"));
+      ctx_.log.info("Map", concat("main area: ", tiles, " tiles, the Command Center ", area[cc] ? "inside" : "outside", "; not used"));
       return;
     }
     mainArea_ = std::move(area);

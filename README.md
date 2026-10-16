@@ -7,7 +7,7 @@ BWAPI 기본 설정(전장의 안개 적용, 보이지 않는 유닛 정보 차�
 > - 1.0.0부터 이름이 **JaeTankBot**이다(0.9.8까지는 BeginnerBot). DLL `JaeTankBot.dll`, 설정 `JaeTankBot.ini`, 로그 `bwapi-data/write/JaeTankBot/`.
 > - 빌드: Windows MSVC 32비트(Win32, Release)와 Linux g++에서 빌드 성공, 단위 테스트/모듈 로드 테스트 통과
 > - 실제 게임: 내장 AI와 Steamhammer(봇 대 봇)를 상대로 반복 실전 테스트 중. 결과는 [docs/VALIDATION.md](docs/VALIDATION.md) 5절
-> - 사람이 봇과 붙는 방법: 아래 5.1절 (`JaeTankBotPlay.exe`)
+> - 게임 시작: 런처 `JaeTankBotPlay.exe`(GUI, Chaoslauncher 불필요, 5.1절) / 배포 zip: 5.2절
 
 ---
 
@@ -92,30 +92,33 @@ map = maps/(2)Boxer.scm
 ```
 실행: BWAPI 설치 폴더의 `Chaoslauncher\Chaoslauncher.exe`를 **관리자 권한**으로 실행 → `BWAPI 4.4.0 Injector [RELEASE]` 체크 (창 모드는 `W-MODE`) → Start.
 `auto_menu = OFF`이면 Single Player → Expansion → Play Custom에서 Terran으로 직접 게임을 만든다.
-게임이 시작되면 화면 왼쪽 위에 `JaeTankBot 1.0.0 - difficulty 3 (Normal)` 문구가 나온다.
+게임이 시작되면 화면 왼쪽 위에 `JaeTankBot 1.1.0 - difficulty 3 (Normal)` 문구가 나온다.
 
-## 5.1 사람 대 JaeTankBot (한 PC)
+## 5.1 게임 런처 JaeTankBotPlay.exe (Chaoslauncher 없이)
 
-StarCraft 두 개를 띄워 첫 번째 창은 봇이 게임을 만들고, 두 번째 창에서 사람이 그 게임에 들어가 플레이한다
-(봇 대 봇과 같은 "Local PC" 방식).
+`install_to_starcraft.bat`로 설치하면 `bwapi-data\AI\JaeTankBotPlay.exe`(탱크 아이콘)가 함께 복사된다. 바탕화면 바로가기를 만들어 두면 편하다.
+창에서 StarCraft 폴더(설치 위치에서 자동으로 찾음), 대전 방식, 봇 난이도, 맵, 상대 봇/종족을 고르고 **게임 시작**을 누른다.
 
-1. `install_to_starcraft.bat`로 설치하면 `bwapi-data\AI\JaeTankBotPlay.exe`가 함께 복사된다. 바로가기를 바탕화면에 만들어 두면 편하다.
-2. `JaeTankBotPlay.exe`를 더블클릭 → 난이도, 사람 종족, 맵을 묻는다(Enter = 기본값).
-   - `JaeTankBot.ini`: 고른 난이도, `local_speed = -1`(보통 속도)
-   - `bwapi.ini`(먼저 `bwapi.ini.jaetankbot-날짜.bak` 백업): `ai = bwapi-data/AI/JaeTankBot.dll, HUMAN`,
-     `auto_menu = LAN`, `lan_mode = Local PC`, `race = Terran, <사람 종족>`, `wait_for_min_players = 2`, `windowed = ON`
-   - `%USERPROFILE%\BWAPI\Chaoslauncher\Chaoslauncher - MultiInstance.exe`를 실행한다(경로가 다르면 `--chaoslauncher`).
-3. Chaoslauncher에서 "BWAPI Injector [RELEASE]"를 체크하고 **Start** → 봇 창(게임을 만들고 사람을 기다림).
-4. **Start**를 한 번 더 → 사람 창. 자동으로 같은 게임에 들어가고, `HUMAN`은 DLL이 아니라서 이 창에는 AI가 없다
-   (BWAPI의 "AI 모듈을 불러오지 못함" 문구는 정상). 이 창에서 직접 플레이한다.
-5. 봇 대 봇으로 돌아가려면 백업한 `bwapi.ini`를 되돌리거나 `ai =` 줄을 다시 바꾼다.
+| 대전 방식 | 하는 일 |
+|---|---|
+| 사람 대 JaeTankBot | ① 사람용 StarCraft를 **일반 게임 그대로**(전체 화면, 소리, 원래 메뉴) 띄운다. ② 봇용 StarCraft를 BWAPI와 함께 최소화해서 띄우면 봇이 "Local PC" 게임을 만들고 기다린다. ③ 사람 창에서 Multiplayer → Brood War → Local PC → 아이디 → 게임 목록의 JaeTankBot 게임에 참가 |
+| JaeTankBot 대 다른 봇 | `bwapi-data\AI`의 다른 봇 DLL(예: Steamhammer)과 StarCraft 두 개로 자동 대전 |
+| JaeTankBot 대 컴퓨터 | 싱글 플레이 자동 대전 |
 
-명령줄: `JaeTankBotConfig.exe --starcraft "C:\StarCraft" --vs-human --difficulty 5 --human-race Protoss --map "maps/(2)Boxer.scm" --launch`
+- **Chaoslauncher가 필요 없다.** 런처가 StarCraft.exe를 일시정지 상태로 시작해 `bwapi-data\BWAPI.dll`을 불러온 뒤 실행한다(Chaoslauncher의 BWAPI Injector와 같은 방식). 백신이 막으면 JaeTankBotPlay.exe를 예외로 등록한다.
+- **bwapi.ini와 JaeTankBot.ini를 바꾸지 않는다.** StarCraft마다 환경 변수로 설정을 준다: BWAPI는 `BWAPI_CONFIG_<섹션>__<키>`(4.4.0의 BWAPI.dll이 지원), 봇은 `JAETANKBOT_<섹션>__<키>`(예: `JAETANKBOT_BOT__DIFFICULTY=5`).
+- **봇 쪽 StarCraft는 기본 무음**(`봇 스타크래프트 소리 끄기`, `BWAPI_CONFIG_STARCRAFT__SOUND=OFF`). 사람 쪽 소리는 그대로다.
+- 사람 쪽 일반 실행이 안 되면(색이 깨지거나 바로 꺼짐) `사람 창도 BWAPI 로`를 체크한다. 이때 사람 창은 BWAPI 창 모드로 뜨고 AI는 불러오지 않는다.
+- 고른 값은 `bwapi-data\AI\JaeTankBotPlay.ini`에 저장된다. Chaoslauncher 방식은 `Chaoslauncher 열기` 버튼으로 그대로 쓸 수 있다.
 
-다른 PC의 사람과 붙을 때는 봇 PC에서 위 설정으로 봇 창만 띄우고(`lan_mode = Local Area Network (UDP)`), 사람은 같은 네트워크에서
-Multiplayer → Local Area Network로 그 게임에 들어가면 된다.
+다른 PC의 사람과 붙으려면 양쪽 모두 StarCraft 1.16.1이 필요하고, 봇 쪽은 Chaoslauncher 방식으로 `lan_mode = Local Area Network (UDP)`를 쓴다.
 
-> 검증되지 않음: 두 번째 인스턴스가 AI 없이 자동 입장하는 동작과 다른 PC와의 대전(양쪽 모두 StarCraft 1.16.1 필요)은 아직 실제 게임에서 확인하지 않았다.
+> 검증되지 않음: 런처로 띄우는 세 가지 대전 방식과 다른 PC 대전은 아직 실제 게임에서 확인하지 않았다(Chaoslauncher 두 인스턴스로 사람 창이 봇 게임에 들어가는 것은 확인됨, VALIDATION 5절).
+
+## 5.2 배포용 zip
+
+`python tools\make_package.py` → `dist\JaeTankBot-<버전>-win32.zip`: 봇 DLL, 설정, 런처, 설정 도구, `install.bat`, BWAPI 4.4.0 실행 파일(LGPL-3.0, 라이선스 포함)과 `install_bwapi.bat`.
+**StarCraft 게임 파일은 넣지 않는다**(Blizzard 저작물). 받는 사람은 각자 설치한 StarCraft: Brood War 1.16.1과 Visual C++ 2015-2022 x86 재배포 패키지가 필요하다.
 
 ## 6. 난이도 / 종족 / 맵 설정
 

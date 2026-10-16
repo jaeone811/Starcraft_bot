@@ -1,6 +1,8 @@
 #pragma once
 // Runtime settings read from JaeTankBot.ini (see config/JaeTankBot.ini).
 
+#include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,12 +27,20 @@ namespace bb
     std::vector<std::string> warnings;
   };
 
+  // Looks up an environment variable (nullopt: not set).
+  using EnvLookup = std::function<std::optional<std::string>(const std::string& name)>;
+  // The process environment.
+  std::optional<std::string> processEnvironment(const std::string& name);
+
   // Tries each path in order and loads the first that exists. Invalid values are
-  // replaced by defaults and reported in `warnings`.
-  BotSettings loadBotSettings(const std::vector<std::string>& candidatePaths);
+  // replaced by defaults and reported in `warnings`. Settings in the environment win
+  // over the file: JAETANKBOT_<SECTION>__<KEY>, e.g. JAETANKBOT_BOT__DIFFICULTY=5 or
+  // JAETANKBOT_GAME__LOCAL_SPEED=-1 (the launcher sets them per StarCraft instance
+  // instead of rewriting the file).
+  BotSettings loadBotSettings(const std::vector<std::string>& candidatePaths, const EnvLookup& env = processEnvironment);
 
   // Same validation for already-loaded INI text (used by tests and the configurator).
-  BotSettings parseBotSettings(const std::string& iniText);
+  BotSettings parseBotSettings(const std::string& iniText, const EnvLookup& env = nullptr);
 
   // Default search paths, relative to the StarCraft folder (BWAPI's working directory).
   std::vector<std::string> defaultSettingsPaths();
