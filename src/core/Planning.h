@@ -63,6 +63,7 @@ namespace bb
     int productionBuildings = 0;   // Gateways, Barracks
     bool spawningPool = false;
     int combatUnits = 0;
+    int proxyBuildings = 0;        // enemy buildings nearer to our main than to theirs (proxy Gateways, Cannons)
   };
   bool rushSigns(const EarlyScouting& s);
 
@@ -205,6 +206,10 @@ namespace bb
 
   bool shouldRetreat(double localOwnStrength, double localEnemyStrength, double retreatRatio,
                      int armyNow, int armyAtWaveStart, double retreatArmyFraction);
+
+  // Enemy buildings at our doorstep (main or natural) are attacked when our army is
+  // clearly stronger than what defends them.
+  bool canClearDoorstep(double ownStrength, double defendersStrength, int ownShooters);
 
   // Defending: the enemy at the edge of the base is clearly stronger than our army
   // there, so the army waits at the rally instead of going out to it.

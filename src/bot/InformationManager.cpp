@@ -1,6 +1,7 @@
 #include "InformationManager.h"
 
 #include "BwapiUtil.h"
+#include "MapInfo.h"
 #include "Planning.h"
 
 using namespace BWAPI;
@@ -103,22 +104,29 @@ namespace bb
         }
       }
 
-    if (rushFrame_ < 0 && ctx_.frame < 24 * 180)
+    if (rushFrame_ < 0 && ctx_.frame < 24 * 300)
     {
       EarlyScouting s;
       s.frame = ctx_.frame;
+      // A building nearer to our main than to the enemy's start is a proxy (resource
+      // depots aside: an expansion is not one).
+      const Position ourMain = ctx_.map->mainPosition();
+      const std::optional<Position> theirMain = enemyMain();
       for (const auto& [id, r] : buildings_)
       {
         if (r.type == UnitTypes::Protoss_Gateway || r.type == UnitTypes::Terran_Barracks)
           ++s.productionBuildings;
         s.spawningPool = s.spawningPool || r.type == UnitTypes::Zerg_Spawning_Pool;
+        if (!r.type.isResourceDepot() && !r.type.isRefinery() && theirMain &&
+            r.position.getApproxDistance(ourMain) < r.position.getApproxDistance(*theirMain))
+          ++s.proxyBuildings;
       }
       s.combatUnits = knownEnemyCombatUnits();
       if (rushSigns(s))
       {
         rushFrame_ = ctx_.frame;
         ctx_.log.info("Info", concat("early attack expected: ", s.productionBuildings, " Gateways/Barracks, pool=", s.spawningPool,
-                                     ", ", s.combatUnits, " fighting units seen"));
+                                     ", ", s.combatUnits, " fighting units seen, ", s.proxyBuildings, " proxy buildings"));
       }
     }
 

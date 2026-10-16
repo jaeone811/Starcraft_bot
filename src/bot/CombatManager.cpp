@@ -607,6 +607,18 @@ namespace bb
     if (army_.empty() || ctx_.frame < nextAttackAllowedFrame_)
       return;
 
+    // Every level: enemy buildings at our doorstep are cleared as soon as the army is
+    // clearly stronger than what defends them, without waiting for the attack size.
+    // A Gateway, a Forge and three Cannons stood at our natural from 3:00 to 13:00 and
+    // kept us on one base; Siege Tanks outrange the Cannons.
+    if (auto door = doorstepTarget(true))
+    {
+      ctx_.log.info("Combat", concat("clearing our doorstep: ", door->reason));
+      startWave(*door);
+      doorstepWave_ = true;
+      return;
+    }
+
     AttackInputs in;
     in.armySize = shooterCount(army_);
     in.frame = ctx_.frame;
@@ -648,6 +660,7 @@ namespace bb
 
   void CombatManager::startWave(const AttackTarget& target)
   {
+    doorstepWave_ = false;
     wave_.clear();
     int marines = 0, medics = 0, firebats = 0, mech = 0;
     for (Unit u : army_)
@@ -721,8 +734,65 @@ namespace bb
     dodges_ = 0;
   }
 
+  std::optional<AttackTarget> CombatManager::doorstepTarget(bool checkStrength) const
+  {
+    const Position main = ctx_.map->mainPosition();
+    const int naturalIdx = ctx_.map->naturalIndex();
+    const Position natural = naturalIdx >= 0 ? ctx_.map->bases()[naturalIdx].center : Positions::None;
+    const EnemyRecord* best = nullptr;
+    int bestDist = std::numeric_limits<int>::max();
+    for (const auto& [id, r] : ctx_.info->enemyBuildings())
+    {
+      const int d = r.position.getApproxDistance(main);
+      const bool atDoor = d < 30 * kTile || (natural.isValid() && r.position.getApproxDistance(natural) < 12 * kTile);
+      if (atDoor && d < bestDist && !ctx_.strategy->isMarkedUnreachable(r.position))
+      {
+        best = &r;
+        bestDist = d;
+      }
+    }
+    if (!best)
+      return std::nullopt;
+    if (checkStrength)
+    {
+      // What defends it: static defense next to it and enemy fighters seen there in
+      // the last 30 s.
+      std::vector<double> defenders;
+      for (const auto& [id, r] : ctx_.info->enemyBuildings())
+        if (canAttackGround(r.type) && r.position.getApproxDistance(best->position) < 9 * kTile)
+          defenders.push_back(typeStrength(r.type));
+      for (const auto& [id, e] : ctx_.info->enemyUnits())
+        if (!e.type.isWorker() && canAttackGround(e.type) && ctx_.frame - e.lastSeenFrame < 24 * 30 &&
+            e.position.getApproxDistance(best->position) < 12 * kTile)
+          defenders.push_back(typeStrength(e.type));
+      if (!canClearDoorstep(strengthOf(army_), combineStrength(defenders), shooterCount(army_)))
+        return std::nullopt;
+    }
+    return AttackTarget{ best->position, concat("enemy ", best->type.c_str(), " at our doorstep") };
+  }
+
+  bool CombatManager::staysSieged(Unit u)
+  {
+    return u->getType() == UnitTypes::Terran_Siege_Tank_Siege_Mode && updateSiege(u) != TankMode::Mobile;
+  }
+
   bool CombatManager::pickNewTarget(Position from)
   {
+    if (doorstepWave_)
+    {
+      // Clearing our doorstep only: the next building there, or the wave is over.
+      auto d = doorstepTarget(false);
+      if (!d)
+        return false;
+      target_ = d->position;
+      targetReason_ = d->reason;
+      bestDistanceToTarget_ = from.getApproxDistance(target_);
+      bestLeadDistance_ = std::numeric_limits<int>::max();
+      noProgressChecks_ = 0;
+      lastProgressCheckFrame_ = ctx_.frame;
+      ctx_.log.info("Combat", concat("new target ", target_.x, ",", target_.y, " [", targetReason_, "]"));
+      return true;
+    }
     auto t = ctx_.strategy->chooseAttackTarget(from);
     if (t && t->position.getApproxDistance(target_) < 3 * kTile && from.getApproxDistance(target_) < 6 * kTile)
     {
@@ -1227,7 +1297,7 @@ namespace bb
           fight(u, airThreat, airOwn, airEnemy);
           continue;
         }
-        if (dodging(u) || settledNear(u, behindBunker, 3 * kTile))
+        if (dodging(u) || staysSieged(u) || settledNear(u, behindBunker, 3 * kTile))
           continue;
         if (isSupport(u))
           ctx_.commander->move(u, behindBunker);
@@ -1256,7 +1326,7 @@ namespace bb
       holdingOutmatched_ = true;
       for (Unit u : army_)
       {
-        if (dodging(u) || settledNear(u, rally, 3 * kTile))
+        if (dodging(u) || staysSieged(u) || settledNear(u, rally, 3 * kTile))
           continue;
         if (isSupport(u))
           ctx_.commander->move(u, rally);
@@ -1294,7 +1364,7 @@ namespace bb
           leashed_.insert(u->getID());
           ++leashCalls_;
         }
-        if (!dodging(u))
+        if (!dodging(u) && !staysSieged(u))
           ctx_.commander->move(u, rally);
         continue;
       }

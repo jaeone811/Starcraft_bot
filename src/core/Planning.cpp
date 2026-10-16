@@ -69,6 +69,10 @@ namespace bb
 
   bool rushSigns(const EarlyScouting& s)
   {
+    // A proxy before 5:00 is an attack on its way (a Gateway at our natural at 2:52,
+    // then a Forge and three Cannons there).
+    if (s.proxyBuildings > 0 && s.frame < 24 * 300)
+      return true;
     if (s.frame >= 24 * 180)
       return false;
     return s.productionBuildings >= 2 || (s.spawningPool && s.frame < 24 * 150) || s.combatUnits >= 2;
@@ -271,6 +275,11 @@ namespace bb
   bool antiAirShort(double enemyAirStrength, double ownAntiAirStrength)
   {
     return enemyAirStrength > 0.0 && ownAntiAirStrength < enemyAirStrength;
+  }
+
+  bool canClearDoorstep(double ownStrength, double defendersStrength, int ownShooters)
+  {
+    return ownShooters >= 4 && ownStrength >= defendersStrength * 1.5;
   }
 
   bool defenseOutmatched(double ownStrength, double enemyStrength)

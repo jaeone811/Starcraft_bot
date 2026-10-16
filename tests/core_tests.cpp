@@ -429,6 +429,22 @@ TEST_CASE("a seen rush wants the whole early army at once")
   EarlyScouting late = twoGates;
   late.frame = 24 * 200;
   CHECK(!rushSigns(late));            // two Gateways after 3:00 are normal
+  EarlyScouting proxy;
+  proxy.frame = 24 * 172;
+  proxy.proxyBuildings = 1;
+  CHECK(rushSigns(proxy));            // a Gateway at our natural
+  proxy.frame = 24 * 280;
+  CHECK(rushSigns(proxy));            // still before 5:00
+  proxy.frame = 24 * 320;
+  CHECK(!rushSigns(proxy));           // later: a forward base, not a rush
+}
+
+TEST_CASE("doorstep: enemy buildings near our bases are cleared when the army is clearly stronger")
+{
+  CHECK(canClearDoorstep(3000.0, 0.0, 4));        // an undefended Pylon / Gateway
+  CHECK(!canClearDoorstep(3000.0, 0.0, 3));       // too few shooters
+  CHECK(!canClearDoorstep(3000.0, 2500.0, 10));   // three Cannons and a Dragoon
+  CHECK(canClearDoorstep(9000.0, 2500.0, 10));    // Siege Tanks and the army
 }
 
 TEST_CASE("SCVs for the next base come before it")

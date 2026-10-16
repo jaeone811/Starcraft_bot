@@ -13,6 +13,7 @@
 #include <BWAPI.h>
 
 #include <map>
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -56,6 +57,11 @@ namespace bb
     void endWave(const char* reason, State next);
     void holdPosition(BWAPI::Position p);
     bool pickNewTarget(BWAPI::Position from);
+    // An enemy building at our doorstep (within 30 tiles of the main or 12 of the
+    // natural), nearest first; with checkStrength only if the army can clear it.
+    std::optional<AttackTarget> doorstepTarget(bool checkStrength) const;
+    // A sieged Tank stays where it is (updateSiege packs it up when nothing is near).
+    bool staysSieged(BWAPI::Unit u);
 
     // Unit-level fighting used by Attack and Defend.
     void fight(BWAPI::Unit u, BWAPI::Position advanceTo, double localOwn, double localEnemy);
@@ -91,6 +97,7 @@ namespace bb
     bool loggedAirInBase_ = false;      // "flyers in the base" logged once
     std::map<int, int> dodgeUntil_;     // unit id -> frame it may take orders again (Scarab dodge)
     int dodges_ = 0;                    // units that stepped aside from Scarabs (reported per wave)
+    bool doorstepWave_ = false;         // the wave clears our doorstep only (no targets beyond it)
     int nextDodgeLogFrame_ = 0;
     int harasserId_ = -1;                // enemy worker attacking our SCVs in a base
     int harassSinceFrame_ = 0;
