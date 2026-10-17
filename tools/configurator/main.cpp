@@ -1,14 +1,14 @@
-// BeginnerBotConfig: pick the AI difficulty (1-5), race and map before a game.
+// JaeTankBotConfig: pick the AI difficulty (1-5), race and map before a game.
 //
-// Writes <StarCraft>/bwapi-data/AI/BeginnerBot.ini (the bot's own settings) and,
+// Writes <StarCraft>/bwapi-data/AI/JaeTankBot.ini (the bot's own settings) and,
 // only when asked (--apply-bwapi-ini or answering "y"), updates bwapi.ini's [ai]
 // and [auto_menu] keys after making a timestamped backup.
 //
-//   BeginnerBotConfig                                  interactive, current folder
-//   BeginnerBotConfig --starcraft "C:\StarCraft"       interactive, writes into StarCraft
-//   BeginnerBotConfig --starcraft DIR --difficulty 4 --map "maps/(2)Lost Temple.scm"
+//   JaeTankBotConfig                                  interactive, current folder
+//   JaeTankBotConfig --starcraft "C:\StarCraft"       interactive, writes into StarCraft
+//   JaeTankBotConfig --starcraft DIR --difficulty 4 --map "maps/(2)Lost Temple.scm"
 //                     --enemy-race Protoss --apply-bwapi-ini --yes
-//   BeginnerBotConfig --list                           show the difficulty levels
+//   JaeTankBotConfig --list                           show the difficulty levels
 
 #include "DifficultyConfig.h"
 #include "IniFile.h"
@@ -53,9 +53,9 @@ namespace
   void printUsage()
   {
     std::cout <<
-      "BeginnerBotConfig - BeginnerBot settings\n"
+      "JaeTankBotConfig - JaeTankBot settings\n"
       "  --starcraft DIR       StarCraft 1.16.1 folder (contains bwapi-data)\n"
-      "  --output FILE         where to write BeginnerBot.ini (default: DIR/bwapi-data/AI/BeginnerBot.ini)\n"
+      "  --output FILE         where to write JaeTankBot.ini (default: DIR/bwapi-data/AI/JaeTankBot.ini)\n"
       "  --difficulty 1-5      AI difficulty (default 3)\n"
       "  --race Terran         bot race (only Terran is implemented)\n"
       "  --map PATH            map for bwapi.ini auto_menu, relative to DIR (e.g. maps/(2)Boxer.scm)\n"
@@ -163,8 +163,8 @@ int main(int argc, char** argv)
     return 1;
   }
   const fs::path botIniPath = !o.output.empty() ? fs::path(o.output)
-                            : scDir.empty() ? fs::path("BeginnerBot.ini")
-                                            : scDir / "bwapi-data" / "AI" / "BeginnerBot.ini";
+                            : scDir.empty() ? fs::path("JaeTankBot.ini")
+                                            : scDir / "bwapi-data" / "AI" / "JaeTankBot.ini";
   const fs::path bwapiIniPath = scDir / "bwapi-data" / "bwapi.ini";
 
   IniFile botIni;
@@ -233,10 +233,10 @@ int main(int argc, char** argv)
       std::cout << "warning: map file '" << (scDir / map).string() << "' does not exist\n";
   }
 
-  // ---- write BeginnerBot.ini (keeps any other keys and comments)
+  // ---- write JaeTankBot.ini (keeps any other keys and comments)
   const DifficultyConfig chosen = makeDifficultyConfig(difficulty);
   if (!hadBotIni)
-    botIni.parse("; BeginnerBot settings - written by BeginnerBotConfig\n"
+    botIni.parse("; JaeTankBot settings - written by JaeTankBotConfig\n"
                  "; difficulty: 1 VeryEasy, 2 Easy, 3 Normal (default), 4 Hard, 5 VeryHard\n");
   botIni.set("bot", "difficulty", std::to_string(difficulty));
   botIni.set("bot", "race", race);
@@ -254,14 +254,14 @@ int main(int argc, char** argv)
   // ---- optionally update bwapi.ini
   if (applyBwapi)
   {
-    const fs::path backup = bwapiIniPath.string() + ".beginnerbot-" + timestampForFileName() + ".bak";
+    const fs::path backup = bwapiIniPath.string() + ".jaetankbot-" + timestampForFileName() + ".bak";
     fs::copy_file(bwapiIniPath, backup, fs::copy_options::none, ec);
     if (ec)
     {
       std::cerr << "error: could not back up bwapi.ini (" << ec.message() << "); bwapi.ini was not changed\n";
       return 1;
     }
-    bwapiIni.set("ai", "ai", "bwapi-data/AI/BeginnerBot.dll");
+    bwapiIni.set("ai", "ai", "bwapi-data/AI/JaeTankBot.dll");
     bwapiIni.set("auto_menu", "auto_menu", "SINGLE_PLAYER");
     bwapiIni.set("auto_menu", "race", race);
     bwapiIni.set("auto_menu", "enemy_count", "1");
@@ -274,7 +274,7 @@ int main(int argc, char** argv)
       std::cerr << "error: could not write " << bwapiIniPath.string() << " (backup: " << backup.string() << ")\n";
       return 1;
     }
-    std::cout << "bwapi.ini 수정됨 (백업: " << backup.string() << ")\n  ai = bwapi-data/AI/BeginnerBot.dll\n"
+    std::cout << "bwapi.ini 수정됨 (백업: " << backup.string() << ")\n  ai = bwapi-data/AI/JaeTankBot.dll\n"
               << "  auto_menu = SINGLE_PLAYER, race = " << race << ", enemy_race = " << enemyRace
               << ", map = " << (map.empty() ? "(unchanged)" : map) << "\n";
   }

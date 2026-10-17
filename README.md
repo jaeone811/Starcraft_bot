@@ -1,12 +1,13 @@
-# BeginnerBot — 스타크래프트: 브루드워 초보 AI 봇 (Terran, 난이도 1~5)
+# JaeTankBot — 스타크래프트: 브루드워 초보 AI 봇 (Terran, 난이도 1~5)
 
 BWAPI 4.4.0으로 게임 상태를 읽고 유닛에 명령을 내리는 C++ AI 모듈(DLL)이다. 화면 인식/마우스 조작은 쓰지 않는다.
 BWAPI 기본 설정(전장의 안개 적용, 보이지 않는 유닛 정보 차단)을 그대로 사용하며 `CompleteMapInformation` 같은 치트 플래그를 켜지 않는다.
 
 > **상태 요약**
-> - 빌드: Windows MSVC 32비트(Win32, Release)와 Linux g++에서 빌드 성공, 단위 테스트/모듈 로드 테스트 통과 (GitHub Actions)
-> - **실제 게임 실행: 아직 검증되지 않음.** 개발 환경(Linux 클라우드 컨테이너)에 StarCraft가 없었다. 자세한 내용은 [docs/VALIDATION.md](docs/VALIDATION.md)
-> - 로컬 Claude Code로 실전 테스트하기: [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md)
+> - 1.0.0부터 이름이 **JaeTankBot**이다(0.9.8까지는 BeginnerBot). DLL `JaeTankBot.dll`, 설정 `JaeTankBot.ini`, 로그 `bwapi-data/write/JaeTankBot/`.
+> - 빌드: Windows MSVC 32비트(Win32, Release)와 Linux g++에서 빌드 성공, 단위 테스트/모듈 로드 테스트 통과
+> - 실제 게임: 내장 AI와 Steamhammer(봇 대 봇)를 상대로 반복 실전 테스트 중. 결과는 [docs/VALIDATION.md](docs/VALIDATION.md) 5절
+> - 게임 시작: 런처 `JaeTankBotPlay.exe`(GUI, Chaoslauncher 불필요, 5.1절) / 배포 zip: 5.2절
 
 ---
 
@@ -63,23 +64,23 @@ ctest --test-dir build -C Release --output-on-failure
 ```
 - 반드시 **Win32(32비트)** + **Release** (BWAPI.dll이 32비트 Release, `/MD` 런타임)
 - `BWAPI_DIR` 은 `include\BWAPI.h` 와 `BWAPILIB\` 가 있는 폴더. BWAPI git 저장소를 쓸 경우 `<저장소>\bwapi` 폴더 (`git clone --branch v4.4.0 https://github.com/bwapi/bwapi.git`)
-- 결과물: `build\Release\BeginnerBot.dll`, `build\Release\BeginnerBotConfig.exe`
+- 결과물: `build\Release\JaeTankBot.dll`, `build\Release\JaeTankBotConfig.exe`
 
-빌드 없이 쓰려면 GitHub Actions의 `BeginnerBot-win32` 아티팩트(zip)를 받는다.
+빌드 없이 쓰려면 GitHub Actions의 `JaeTankBot-win32` 아티팩트(zip)를 받는다.
 
 ## 5. 게임에 설치하고 실행
 
 ```bat
 scripts\install_to_starcraft.bat "C:\Games\StarCraft"
-build\Release\BeginnerBotConfig.exe --starcraft "C:\Games\StarCraft"
+build\Release\JaeTankBotConfig.exe --starcraft "C:\Games\StarCraft"
 ```
-- 설치 스크립트는 `bwapi-data\AI\` 에 `BeginnerBot.dll`(과 없을 때만 `BeginnerBot.ini`)을 **추가**할 뿐 게임 파일이나 `bwapi.ini`를 건드리지 않는다.
-- 설정 도구에서 난이도/종족을 고르고, 원하면 `bwapi.ini`도 수정한다(수정 전 `bwapi.ini.beginnerbot-날짜.bak` 백업 생성, `[ai] ai`와 `[auto_menu]`의 몇 개 키만 변경).
+- 설치 스크립트는 `bwapi-data\AI\` 에 `JaeTankBot.dll`(과 없을 때만 `JaeTankBot.ini`)을 **추가**할 뿐 게임 파일이나 `bwapi.ini`를 건드리지 않는다.
+- 설정 도구에서 난이도/종족을 고르고, 원하면 `bwapi.ini`도 수정한다(수정 전 `bwapi.ini.jaetankbot-날짜.bak` 백업 생성, `[ai] ai`와 `[auto_menu]`의 몇 개 키만 변경).
 
 수동으로 할 경우 `StarCraft\bwapi-data\bwapi.ini`:
 ```ini
 [ai]
-ai = bwapi-data/AI/BeginnerBot.dll
+ai = bwapi-data/AI/JaeTankBot.dll
 
 [auto_menu]            ; 기본 AI와 자동 대전 (선택)
 auto_menu = SINGLE_PLAYER
@@ -91,26 +92,64 @@ map = maps/(2)Boxer.scm
 ```
 실행: BWAPI 설치 폴더의 `Chaoslauncher\Chaoslauncher.exe`를 **관리자 권한**으로 실행 → `BWAPI 4.4.0 Injector [RELEASE]` 체크 (창 모드는 `W-MODE`) → Start.
 `auto_menu = OFF`이면 Single Player → Expansion → Play Custom에서 Terran으로 직접 게임을 만든다.
-게임이 시작되면 화면 왼쪽 위에 `BeginnerBot 0.1.0 difficulty 3 (Normal)` 문구가 나온다.
+게임이 시작되면 화면 왼쪽 위에 `JaeTankBot 1.1.0 - difficulty 3 (Normal)` 문구가 나온다.
+
+## 5.1 게임 런처 JaeTankBotPlay.exe (Chaoslauncher 없이)
+
+`install_to_starcraft.bat`로 설치하면 `bwapi-data\AI\JaeTankBotPlay.exe`(탱크 아이콘)가 함께 복사된다. 바탕화면 바로가기를 만들어 두면 편하다.
+창에서 StarCraft 폴더(설치 위치에서 자동으로 찾음), 대전 방식, 봇 난이도, 맵, 상대 봇/종족을 고르고 **게임 시작**을 누른다.
+
+| 대전 방식 | 하는 일 |
+|---|---|
+| 사람 대 JaeTankBot | ① 사람용 StarCraft를 **일반 게임 그대로**(전체 화면, 소리, 원래 메뉴) 띄운다. ② 봇용 StarCraft를 BWAPI와 함께 최소화해서 띄우면 봇이 "Local PC" 게임을 만들고 기다린다. ③ 사람 창에서 Multiplayer → Brood War → Local PC → 아이디 → 게임 목록의 JaeTankBot 게임에 참가 |
+| JaeTankBot 대 다른 봇 | `bwapi-data\AI`의 다른 봇 DLL(예: Steamhammer)과 StarCraft 두 개로 자동 대전 |
+| JaeTankBot 대 컴퓨터 | 싱글 플레이 자동 대전 |
+
+- **Chaoslauncher가 필요 없다.** 런처가 StarCraft.exe를 일시정지 상태로 시작해 `bwapi-data\BWAPI.dll`을 불러온 뒤 실행한다(Chaoslauncher의 BWAPI Injector와 같은 방식). 백신이 막으면 JaeTankBotPlay.exe를 예외로 등록한다.
+- **bwapi.ini와 JaeTankBot.ini를 바꾸지 않는다.** StarCraft마다 환경 변수로 설정을 준다: BWAPI는 `BWAPI_CONFIG_<섹션>__<키>`(4.4.0의 BWAPI.dll이 지원), 봇은 `JAETANKBOT_<섹션>__<키>`(예: `JAETANKBOT_BOT__DIFFICULTY=5`).
+- **게임 속도**(기본 가장 빠름): 봇이 LAN 게임을 만들기 직전에 StarCraft가 게임 만들기 화면에서 기억하는 속도
+  (`HKCU\Software\Blizzard Entertainment\Starcraft`의 `Game Speed`)를 고른 값으로 맞춘다. 이 값이 `Normal`이라 사람 대 봇 첫 게임이 보통 속도(프레임당 약 69ms)로 돌았다.
+- **봇 쪽 StarCraft는 기본 무음**(`봇 스타크래프트 소리 끄기`, `BWAPI_CONFIG_STARCRAFT__SOUND=OFF`). 사람 쪽 소리는 그대로다.
+- 사람 쪽 일반 실행이 안 되면(색이 깨지거나 바로 꺼짐) `사람 창도 BWAPI 로`를 체크한다. 이때 사람 창은 BWAPI 창 모드로 뜨고 AI는 불러오지 않는다.
+- 고른 값은 `bwapi-data\AI\JaeTankBotPlay.ini`에 저장된다. Chaoslauncher 방식은 `Chaoslauncher 열기` 버튼으로 그대로 쓸 수 있다.
+
+다른 PC의 사람과 붙으려면 양쪽 모두 StarCraft 1.16.1이 필요하고, 봇 쪽은 Chaoslauncher 방식으로 `lan_mode = Local Area Network (UDP)`를 쓴다.
+
+> 검증되지 않음: 런처로 띄우는 세 가지 대전 방식과 다른 PC 대전은 아직 실제 게임에서 확인하지 않았다(Chaoslauncher 두 인스턴스로 사람 창이 봇 게임에 들어가는 것은 확인됨, VALIDATION 5절).
+
+## 5.2 배포용 zip
+
+`python tools\make_package.py` → `dist\JaeTankBot-<버전>-win32.zip`: 봇 DLL, 설정, 런처, 설정 도구, BWAPI 4.4.0 실행 파일(LGPL-3.0),
+상대 봇 Steamhammer 5.3.6(Jay J.P. Scott, MIT)과 UAlbertaBot(David Churchill, MIT)을 변경 없이(`--bots` 폴더에서), 모든 라이선스 원문(`packaging\licenses\`),
+그리고 `packaging\`의 한글 안내 `실행방법.txt`와 한 번에 설치하는 `설치하기.bat`(BWAPI의 없는 파일만 복사 → 봇 설치 → 바탕화면 "JaeTankBot" 바로가기).
+받는 사람은 압축을 풀고 `설치하기.bat`에 스타크래프트 폴더를 끌어다 놓으면 된다(Chaoslauncher·인터넷·네트워크 설정 불필요).
+**StarCraft 게임 파일은 넣지 않는다**(Blizzard 저작물). 받는 사람은 각자 설치한 StarCraft: Brood War 1.16.1과 Visual C++ 2015-2022 x86 재배포 패키지가 필요하다.
 
 ## 6. 난이도 / 종족 / 맵 설정
 
-`StarCraft\bwapi-data\AI\BeginnerBot.ini` (없으면 `bwapi-data\read\BeginnerBot.ini`, 그다음 DLL과 같은 폴더, 모두 없으면 기본값 3).
+`StarCraft\bwapi-data\AI\JaeTankBot.ini` (없으면 `bwapi-data\read\JaeTankBot.ini`, 그다음 DLL과 같은 폴더, 모두 없으면 기본값 3).
 StarCraft 폴더는 작업 폴더에 `bwapi-data`가 있으면 그 폴더, 아니면 DLL 위치(`…\bwapi-data\AI`)의 두 단계 위로 판단하며 로그 첫 부분에 기록된다:
 ```ini
 [bot]
 difficulty = 3      ; 1 매우 쉬움, 2 쉬움, 3 기본(기본값), 4 어려움, 5 매우 어려움
 race = Terran       ; Terran만 구현
+opening = liquipedia ; liquipedia(기본, 0.9.1) | classic(0.8.8 방식)
 ```
+- **오프닝** (`opening`, 2~5단계에 적용):
+  - `liquipedia`: 상대 종족별 Liquipedia 정석.
+    - 프로토스·테란 상대: 두 번째 배럭 자리에 팩토리, 시즈 모드·U-238 먼저.
+    - 저그 상대: 팩토리 자리에 엔지니어링 베이, 스팀·U-238·보병 +1을 시즈 모드보다 먼저.
+  - `classic`: 난이도의 빌드 순서를 종족과 상관없이 그대로 씀.
+  - 0.8.8을 그대로 쓰고 싶으면 `bwapi.ini`에서 `ai = bwapi-data/AI/JaeTankBot_0.8.8.dll`로 지정한다(VALIDATION.md 4.2).
 | 단계 | 이름 | 설명 |
 |---|---|---|
 | 1 | 매우 쉬움 (VeryEasy) | 단순한 빌드, 늦은 정찰과 공격, 집중 공격/후퇴 판단 제한 |
 | 2 | 쉬움 (Easy) | 안정적인 운영, 기본 정찰/공격, 최적화되지 않은 조합과 타이밍 |
 | 3 | 기본 (Normal) | 기본 AI 수준 **목표**: 표준 빌드, 기본 정찰, 집결 후 공격, 기본 집중 공격 |
 | 4 | 어려움 (Hard) | 높은 가동률, 보급 예측, 정찰 정보 기반 조합/공격 시점, 효율적인 집중 공격과 후퇴 |
-| 5 | 매우 어려움 (VeryHard) | 앞마당 확장, 업그레이드, 위협 우선순위 집중 공격, 손실 기반 재판단 |
+| 5 | 매우 어려움 (VeryHard) | 이른 다중 확장, 업그레이드, 위협 우선순위 집중 공격, 손실 기반 재판단 |
 
-모든 수치와 코드 위치: [docs/DIFFICULTY.md](docs/DIFFICULTY.md). `BeginnerBotConfig.exe --list`로도 볼 수 있다.
+모든 수치와 코드 위치: [docs/DIFFICULTY.md](docs/DIFFICULTY.md). `JaeTankBotConfig.exe --list`로도 볼 수 있다.
 
 - **종족**: 실제 플레이 종족은 로비 또는 `bwapi.ini [auto_menu] race`가 결정한다. Terran이 아니면 봇은 로그에 ERROR를 남기고 일꾼 채취만 한다.
 - **맵**: `bwapi.ini [auto_menu] map` (자동 시작 시). 처음에는 2인용 맵 하나로만 테스트할 것.
@@ -119,8 +158,8 @@ race = Terran       ; Terran만 구현
 
 | 파일 | 내용 |
 |---|---|
-| `StarCraft\bwapi-data\write\BeginnerBot\BeginnerBot_YYYYMMDD_HHMMSS.log` | 게임별 로그 |
-| `StarCraft\bwapi-data\write\BeginnerBot\results.csv` | 경기마다 한 줄: 결과, 시간, 일꾼/자원/보급 막힘/생산 유휴/웨이브/막힘/예외 수 |
+| `StarCraft\bwapi-data\write\JaeTankBot\JaeTankBot_YYYYMMDD_HHMMSS.log` | 게임별 로그 |
+| `StarCraft\bwapi-data\write\JaeTankBot\results.csv` | 경기마다 한 줄: 결과, 시간, 일꾼/자원/보급 막힘/생산 유휴/웨이브/막힘/예외 수 |
 
 경로는 `[log] directory`로 바꿀 수 있다 (StarCraft 폴더 기준 상대 경로). 형식:
 ```
@@ -129,7 +168,7 @@ race = Terran       ; Terran만 구현
 - 시작 부분 `APPLIED difficulty=…` 줄 = 실제 적용된 난이도 설정 전체
 - 약 30초마다 `Snapshot` 줄 = 보급/자원/일꾼 역할/병력/전투 상태/생산 계획
 - 끝에 `metrics:` 줄과 `game over: WIN/LOSS`
-- 요약: `python tools\summarize_results.py "C:\Games\StarCraft\bwapi-data\write\BeginnerBot\results.csv"`
+- 요약: `python tools\summarize_results.py "C:\Games\StarCraft\bwapi-data\write\JaeTankBot\results.csv"`
 
 ## 8. 문제 해결
 
@@ -155,7 +194,7 @@ src/core/   BWAPI 없이 테스트 가능한 로직
   CommandHistory    같은 명령 반복 방지 + 반복 감지
   Logger, Metrics   로그와 검증용 지표
 src/bot/    BWAPI 레이어
-  BeginnerBot       AIModule: 이벤트 처리, 매니저 호출, 예외 격리, 로그/결과 기록
+  JaeTankBot       AIModule: 이벤트 처리, 매니저 호출, 예외 격리, 로그/결과 기록
   Commander         모든 유닛 명령의 단일 통로 (중복 제거, 실패 로그)
   MapInfo           시작 위치, 광물 클러스터로 기지 위치/앞마당/집결지 계산
   InformationManager 본 적 있는 적 건물/유닛만 기억, 적 본진 확인/추론
@@ -166,7 +205,7 @@ src/bot/    BWAPI 레이어
   ScoutManager      일꾼 정찰
   CombatManager     (전투) 집결/공격/후퇴/방어, 집중 공격, 재집결, 막힘 감지, 스팀/스캔
   StrategyManager   공격 조건 적응, 공격 목표 선택, 기지 위협 감지
-tools/configurator  BeginnerBotConfig.exe (난이도/종족/맵 설정)
+tools/configurator  JaeTankBotConfig.exe (난이도/종족/맵 설정)
 tests/              단위 테스트, BWAPI 데이터 테스트, 모듈 로드 테스트
 ```
 외부 라이브러리는 BWAPI 4.4.0 외에 없다 (지형 분석 라이브러리 BWEM/BWTA 미사용).
@@ -175,9 +214,12 @@ tests/              단위 테스트, BWAPI 데이터 테스트, 모듈 로드 �
 
 - SCV 연속 생산(난이도별 목표 수), 광물 패치 균등 배분, 정제소당 SCV 3기, 기지 간 일꾼 재분배
 - 서플라이 디포: 고정 여유 또는 생산량 기반 예측, 보급 막힘 시 무조건 건설, 막힌 뒤 여유 확대(3단계 이상)
-- 빌드 오더(인구수 트리거), 배럭/정제소/아카데미/엔지니어링 베이, 자원이 쌓이면 배럭 추가(4~5), 앞마당 확장(5)
+- 빌드 오더(인구수 트리거), 배럭/정제소/아카데미/엔지니어링 베이, 자원이 쌓이면 배럭 추가(4~5), 모든 단계 확장(시점·최대 기지 수는 난이도별: 1~2단계 2기지, 3~4단계 3기지, 5단계 4기지)
 - 마린/메딕/파이어뱃 생산(근접 적을 본 경우 파이어뱃), 가스 부족 시 마린으로 대체
-- 스팀팩, U-238, 보병 공격/방어 업그레이드(난이도별), 컴셋 스테이션과 클로킹 유닛 스캔(3단계 이상)
+- 메카닉(2단계 이상): 팩토리·머신샵·아머리, 벌처/시즈 탱크/골리앗. 정찰한 적 조합(근접·중장갑·경보병·공중)에 따라 메카닉 비중과 팩토리 수를 조절(3단계 이상). 탱크는 위협이 사거리에 들어오면 시즈, 3초간 없으면 해제
+- 상위 테크(4~5단계): 아머리(골리앗, 차량 업그레이드, 카론 부스터), 스타포트(레이스), 사이언스 퍼실리티(사이언스 베슬), 5단계는 배틀크루저
+- 근접 유닛과 사거리가 짧은 원거리 유닛(드라군 등) 상대 카이팅(마린·벌처·골리앗·탱크), 탱크는 앞장서지 않음, 피해 유형을 반영한 집중 공격
+- 스팀팩, 시즈 모드, 스파이더 마인(전투 중 발밑에, 입구 밖에 마인 지대), U-238, 보병 공격/방어 업그레이드(난이도별), 컴셋 스테이션과 클로킹 유닛 스캔(3단계 이상)
 - 자원 예약(건설 이동 중 돈 중복 사용 방지), 우선순위 예산(탐욕/저축)
 - 건설 실패 처리: 위치 재선정, 일꾼 사망 시 교체, 건설 중단 시 다른 SCV로 이어짓기, 반복 실패 시 쿨다운
 - 정찰: 미확인 시작 위치 순회, 적 본진 관찰, 다치면 귀환, 사망 시 재정찰(4~5)
@@ -190,11 +232,11 @@ tests/              단위 테스트, BWAPI 데이터 테스트, 모듈 로드 �
 ## 11. 아직 구현되지 않은 것 / 한계
 
 - Protoss, Zerg 플레이 (Terran만)
-- 메카닉/공중 유닛, 탱크, 벙커, 터렛, 드랍, 리프트 오프 등 고급 테란 운영
+- 공중 유닛(레이스·베슬·드랍십), 벙커, 터렛, 드랍, 스파이더 마인, 메카닉 업그레이드, 리프트 오프 등 고급 테란 운영
 - 지형 분석(초크/램프): 집결지는 본진~앞마당 사이 지점, 건물 배치는 BWAPI `getBuildLocation` 기본 알고리즘이라 입구/자원줄을 막을 수 있음
 - 섬 맵(지상 경로 없음) 공격, 공중으로 뜬 건물 추적
 - 개별 유닛 컨트롤(카이팅, 산개), 스펠 대응
-- 적 확장/전략 예측, 테크 대응(예: 다크 템플러 대비 선 컴셋은 3단계 이상, 터렛 없음)
+- 적 확장/전략 예측, 테크 대응(예: 다크 템플러를 본 뒤에야 터렛을 지음, 미리 대비하지 않음; 스캔은 3단계 이상)
 - 다인전(2명 이상 적) 전략 (동작은 하지만 1:1 기준으로 설계)
 - **실제 게임 검증, 난이도별 승률 측정, 3단계와 기본 AI의 동등성 검증** — [docs/VALIDATION.md](docs/VALIDATION.md)의 절차로 진행 필요
 

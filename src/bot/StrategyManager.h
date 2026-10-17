@@ -43,13 +43,30 @@ namespace bb
     // Visible enemy units close to any of our buildings.
     const std::vector<BWAPI::Unit>& baseThreats() const { return threats_; }
     bool baseUnderThreat() const { return !threats_.empty(); }
+    // A threat our army cannot shrug off: its strength is more than half of our whole
+    // army's. One Zealot poking the base for five minutes made every frame "army
+    // first" and kept Stim, Siege Mode and the natural waiting until 10:00.
+    bool seriousThreat() const;
     BWAPI::Position threatCenter() const { return threatCenter_; }
 
     // Whether firebats should be mixed in (enemy melee units were seen).
     double firebatShare() const;
 
+    // Share of the army Factories should build, adapted to the enemy army seen.
+    double mechShare() const { return mechShare_; }
+
+    // Known enemy air attackers outmatch our Marines, Goliaths, Turrets and Bunkers:
+    // anti-air comes first (Goliaths keep their gas, no Firebats, research that does
+    // not help waits). Re-evaluated every few seconds.
+    bool antiAirShort() const { return antiAirShort_; }
+
+    // The enemy army is mostly one unit type: what we mass against it (levels that
+    // counter what they know). Re-evaluated every few seconds.
+    Counter counter() const { return counter_; }
+
   private:
     void detectThreats();
+    void updateArmyMix();
 
     BotContext& ctx_;
     int attackSize_;
@@ -57,5 +74,10 @@ namespace bb
     std::map<std::pair<int, int>, int> unreachableUntil_; // tile -> frame
     std::vector<BWAPI::Unit> threats_;
     BWAPI::Position threatCenter_;
+    double mechShare_;
+    double loggedMechShare_;
+    int lastMixFrame_ = -10000;
+    bool antiAirShort_ = false;
+    Counter counter_ = Counter::None;
   };
 }

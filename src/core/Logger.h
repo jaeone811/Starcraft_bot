@@ -18,7 +18,6 @@ namespace bb
     // the logger then silently drops messages (the bot keeps running).
     bool open(const std::string& directory, const std::string& fileName);
     void close();
-    bool isOpen() const { return out_.is_open(); }
     const std::string& path() const { return path_; }
 
     void setLevel(LogLevel level) { level_ = level; }

@@ -5,11 +5,14 @@
 // and they are gone (or, for mobile units, after a while).
 
 #include "BotContext.h"
+#include "Planning.h"
 
+#include <algorithm>
 #include <BWAPI.h>
 
 #include <map>
 #include <optional>
+#include <set>
 #include <vector>
 
 namespace bb
@@ -48,7 +51,26 @@ namespace bb
     BWAPI::Race enemyRace() const { return enemyRace_; }
     int recentMeleeUnits() const;          // remembered melee units (zealots, lings, ...)
     double knownEnemyArmyStrength() const; // remembered non-worker combat units + static defense
+    double knownEnemyAirStrength() const;  // remembered flyers that attack ground (Mutalisks, Wraiths, ...)
+    // The largest enemy army strength we have known, fading by half over 5 minutes:
+    // an army out of sight is not gone (waves of 15-22 walked into sieged Tanks
+    // while the known strength read 0-560).
+    double estimatedEnemyArmyStrength() const { return std::max(knownEnemyArmyStrength(), peakEnemyStrength_); }
+    double knownEnemyAirFraction() const;  // their share of the remembered army's strength
     int knownEnemyCombatUnits() const;
+    EnemyMix enemyMix() const;             // remembered enemy army by counter group
+    EnemyMix expectedEnemyMix() const;     // enemyMix plus what the enemy race usually opens with, early on
+    EnemyRace enemyRaceKind() const;       // enemyRace() as the core enum (Unknown for Random until seen)
+    // An enemy that attacks while hidden (Dark Templar, Lurker, cloaked Ghost/Wraith)
+    // has been seen this game: we need detection.
+    bool hiddenAttackerSeen() const { return hiddenAttackerFrame_ >= 0; }
+    // Enemy Spider Mines were seen (a Comsat scans them; Turrets by our buildings do
+    // not reach the mines on the roads).
+    bool enemyMinesSeen() const { return loggedMine_; }
+    // A Citadel of Adun or Templar Archives (Dark Templar tech) has been seen.
+    bool hiddenTechSeen() const { return hiddenTechFrame_ >= 0; }
+    // Signs of an early attack seen before 3:00 (Planning::rushSigns).
+    bool rushSeen() const { return rushFrame_ >= 0; }
 
     // Visible enemy units within `radius` pixels of `p` (only units we can currently see).
     std::vector<BWAPI::Unit> visibleEnemiesNear(BWAPI::Position p, int radius) const;
@@ -62,5 +84,11 @@ namespace bb
     std::map<std::pair<int, int>, StartStatus> starts_;
     BWAPI::Race enemyRace_ = BWAPI::Races::Unknown;
     bool loggedInference_ = false;
+    int hiddenAttackerFrame_ = -1;
+    int hiddenTechFrame_ = -1;
+    double peakEnemyStrength_ = 0.0;
+    bool loggedMine_ = false;
+    std::set<int> typesSeen_;           // enemy unit types logged once when first seen
+    int rushFrame_ = -1;
   };
 }

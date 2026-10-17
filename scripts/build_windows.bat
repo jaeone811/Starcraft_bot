@@ -1,5 +1,5 @@
 @echo off
-rem Builds BeginnerBot.dll (32-bit, Release) with Visual Studio + CMake.
+rem Builds JaeTankBot.dll (32-bit, Release) with Visual Studio + CMake.
 rem Usage: scripts\build_windows.bat [BWAPI folder]
 rem The BWAPI folder defaults to %USERPROFILE%\BWAPI (BWAPI 4.4.0 installer default).
 setlocal
@@ -18,6 +18,6 @@ cmake --build build --config Release || exit /b 1
 ctest --test-dir build -C Release --output-on-failure || exit /b 1
 
 echo.
-echo Built: %CD%\build\Release\BeginnerBot.dll
-echo        %CD%\build\Release\BeginnerBotConfig.exe
+echo Built: %CD%\build\Release\JaeTankBot.dll
+echo        %CD%\build\Release\JaeTankBotConfig.exe
 echo Next:  scripts\install_to_starcraft.bat "C:\path\to\StarCraft"

@@ -12,7 +12,7 @@
 
 namespace bb
 {
-  enum class WorkerRole { Minerals, Gas, Build, Scout };
+  enum class WorkerRole { Minerals, Gas, Build, Scout, Repair, Defend };
 
   class WorkerManager
   {
@@ -26,10 +26,17 @@ namespace bb
     // Takes the most suitable mineral worker near `near`; nullptr if none is free.
     BWAPI::Unit acquireWorker(BWAPI::Position near, WorkerRole role);
     void release(BWAPI::Unit worker);
+    // A worker that refused a build order (Unit_Busy) is not chosen as a builder again
+    // until `untilFrame`; it was picked as the closest one every time before.
+    void avoidAsBuilder(BWAPI::Unit worker, int untilFrame);
+    // Gas wanted in the bank for now (-1: no limit beyond the usual one). Above it
+    // the gas workers mine minerals.
+    void setGasCap(int cap) { gasCap_ = cap; }
 
     int workerCount() const { return static_cast<int>(workers_.size()); }
     int countRole(WorkerRole role) const;
     int mineralPatchesAtBases() const { return mineralPatches_; }
+    int mineralsLeftAtBases() const { return mineralsLeft_; }   // remaining minerals at our completed bases
     int gasRefineries() const { return refineries_; }
     const std::vector<BWAPI::Unit>& depots() const { return depots_; }
 
@@ -59,10 +66,15 @@ namespace bb
     BotContext& ctx_;
     std::map<int, WorkerData> workers_;
     std::map<int, int> mineralLoad_;
+    std::map<int, int> avoidAsBuilderUntil_;   // worker id -> frame
     std::vector<Base> bases_;
     std::vector<BWAPI::Unit> depots_;
     int mineralPatches_ = 0;
+    int mineralsLeft_ = 0;
     int refineries_ = 0;
+    bool gasPaused_ = false;
+    int gasCap_ = -1;
+    int nextGasSwitchFrame_ = 0;
     int lastRebalanceFrame_ = 0;
   };
 }

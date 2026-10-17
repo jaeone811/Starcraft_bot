@@ -16,18 +16,28 @@ namespace bb
     case BuildItem::Academy: return UnitTypes::Terran_Academy;
     case BuildItem::EngineeringBay: return UnitTypes::Terran_Engineering_Bay;
     case BuildItem::CommandCenter: return UnitTypes::Terran_Command_Center;
+    case BuildItem::Factory: return UnitTypes::Terran_Factory;
+    case BuildItem::Armory: return UnitTypes::Terran_Armory;
+    case BuildItem::Starport: return UnitTypes::Terran_Starport;
+    case BuildItem::ScienceFacility: return UnitTypes::Terran_Science_Facility;
     }
     return UnitTypes::None;
   }
 
   bool isResearchItemTech(ResearchItem item)
   {
-    return item == ResearchItem::StimPacks;
+    return item == ResearchItem::StimPacks || item == ResearchItem::SiegeMode || item == ResearchItem::SpiderMines;
   }
 
   TechType toTechType(ResearchItem item)
   {
-    return item == ResearchItem::StimPacks ? TechTypes::Stim_Packs : TechTypes::None;
+    switch (item)
+    {
+    case ResearchItem::StimPacks: return TechTypes::Stim_Packs;
+    case ResearchItem::SiegeMode: return TechTypes::Tank_Siege_Mode;
+    case ResearchItem::SpiderMines: return TechTypes::Spider_Mines;
+    default: return TechTypes::None;
+    }
   }
 
   UpgradeType toUpgradeType(ResearchItem item)
@@ -37,6 +47,9 @@ namespace bb
     case ResearchItem::U238Shells: return UpgradeTypes::U_238_Shells;
     case ResearchItem::InfantryWeapons1: return UpgradeTypes::Terran_Infantry_Weapons;
     case ResearchItem::InfantryArmor1: return UpgradeTypes::Terran_Infantry_Armor;
+    case ResearchItem::VehicleWeapons1: return UpgradeTypes::Terran_Vehicle_Weapons;
+    case ResearchItem::VehiclePlating1: return UpgradeTypes::Terran_Vehicle_Plating;
+    case ResearchItem::CharonBoosters: return UpgradeTypes::Charon_Boosters;
     default: return UpgradeTypes::None;
     }
   }
@@ -71,13 +84,86 @@ namespace bb
 
   bool isOurArmyType(UnitType type)
   {
-    return type == UnitTypes::Terran_Marine || type == UnitTypes::Terran_Firebat || type == UnitTypes::Terran_Medic;
+    return type == UnitTypes::Terran_Marine || type == UnitTypes::Terran_Firebat || type == UnitTypes::Terran_Medic ||
+           isMechType(type) || isAirArmyType(type);
+  }
+
+  bool isAirArmyType(UnitType type)
+  {
+    return type == UnitTypes::Terran_Wraith || type == UnitTypes::Terran_Battlecruiser || type == UnitTypes::Terran_Science_Vessel;
+  }
+
+  bool isMechType(UnitType type)
+  {
+    return isSiegeTank(type) || type == UnitTypes::Terran_Vulture || type == UnitTypes::Terran_Goliath;
+  }
+
+  void addToEnemyMix(EnemyMix& mix, UnitType type)
+  {
+    if (type.isWorker() || type.isBuilding())
+      return;
+    const bool fightsAir = type.airWeapon() != WeaponTypes::None;
+    if (type.isFlyer())
+    {
+      if (canAttackGround(type) || fightsAir)
+        ++mix.air; // overlords, observers and shuttles do not count
+      return;
+    }
+    if (!canAttackGround(type))
+      return;
+    if (isMeleeType(type))
+      ++mix.melee;
+    else if (type == UnitTypes::Protoss_Dragoon || type == UnitTypes::Protoss_Archon || type == UnitTypes::Protoss_Reaver ||
+             type == UnitTypes::Zerg_Lurker || isSiegeTank(type) || type == UnitTypes::Terran_Goliath)
+      ++mix.heavy;
+    else
+      ++mix.light;
+  }
+
+  Counter counterFor(UnitType t)
+  {
+    // Tanks outrange and out-damage the ranged ground armies (Dragoons, Hydralisks,
+    // Lurkers, Terran bio and mech); Vultures and Firebats beat small melee units;
+    // Goliaths answer the air; Marines with Medics stand against Ultralisks.
+    if (t == UnitTypes::Protoss_Dragoon || t == UnitTypes::Protoss_Archon || t == UnitTypes::Zerg_Hydralisk ||
+        t == UnitTypes::Zerg_Lurker || t == UnitTypes::Terran_Marine || t == UnitTypes::Terran_Firebat ||
+        t == UnitTypes::Terran_Medic || isSiegeTank(t) || t == UnitTypes::Terran_Goliath)
+      return Counter::SiegeTanks;
+    if (t == UnitTypes::Protoss_Zealot || t == UnitTypes::Protoss_Reaver || t == UnitTypes::Protoss_Dark_Templar)
+      return Counter::Vultures;
+    if (t == UnitTypes::Zerg_Zergling)
+      return Counter::Firebats;
+    if (t == UnitTypes::Zerg_Ultralisk)
+      return Counter::Marines;
+    if (t == UnitTypes::Terran_Vulture || (t.isFlyer() && (canAttackGround(t) || t.airWeapon() != WeaponTypes::None)))
+      return Counter::Goliaths;
+    return Counter::None;
+  }
+
+  bool isDropTransport(UnitType type)
+  {
+    return type == UnitTypes::Protoss_Shuttle || type == UnitTypes::Terran_Dropship;
+  }
+
+  bool isSiegeTank(UnitType type)
+  {
+    return type == UnitTypes::Terran_Siege_Tank_Tank_Mode || type == UnitTypes::Terran_Siege_Tank_Siege_Mode;
   }
 
   bool isMeleeType(UnitType type)
   {
     return type == UnitTypes::Protoss_Zealot || type == UnitTypes::Zerg_Zergling ||
            type == UnitTypes::Zerg_Ultralisk || type == UnitTypes::Protoss_Dark_Templar;
+  }
+
+  double damageFactor(WeaponType weapon, UnitSizeType size)
+  {
+    const DamageType d = weapon.damageType();
+    if (d == DamageTypes::Concussive)
+      return size == UnitSizeTypes::Large ? 0.25 : size == UnitSizeTypes::Medium ? 0.5 : 1.0;
+    if (d == DamageTypes::Explosive)
+      return size == UnitSizeTypes::Small ? 0.5 : size == UnitSizeTypes::Medium ? 0.75 : 1.0;
+    return 1.0;
   }
 
   double groundDamagePerFrame(UnitType type)
@@ -96,6 +182,24 @@ namespace bb
            w.damageCooldown();
   }
 
+  double airDamagePerFrame(UnitType type)
+  {
+    if (type == UnitTypes::Terran_Bunker)
+      return 4 * airDamagePerFrame(UnitTypes::Terran_Marine); // assume it is loaded
+    if (type == UnitTypes::Protoss_Carrier)
+      return groundDamagePerFrame(type);                       // interceptors hit air too
+    WeaponType w = type.airWeapon();
+    if (w == WeaponTypes::None || w == WeaponTypes::Unknown || w.damageCooldown() <= 0)
+      return 0.0;
+    return static_cast<double>(w.damageAmount()) * std::max(1, w.damageFactor()) * std::max(1, type.maxAirHits()) /
+           w.damageCooldown();
+  }
+
+  bool canAttackAir(UnitType type)
+  {
+    return airDamagePerFrame(type) > 0.0;
+  }
+
   bool canAttackGround(UnitType type)
   {
     return groundDamagePerFrame(type) > 0.0;
@@ -109,19 +213,38 @@ namespace bb
     return unitStrength(type.maxHitPoints(), type.maxShields(), dpf);
   }
 
-  double unitStrengthNow(Unit unit)
+  double unitStrengthNow(Unit unit, double enemyAirFraction)
   {
     if (!unit)
       return 0.0;
     UnitType type = unit->getType();
-    double dpf = groundDamagePerFrame(type);
+    double ground = groundDamagePerFrame(type);
+    double air = airDamagePerFrame(type);
     if (type == UnitTypes::Terran_Medic)
-      dpf = 0.5 * groundDamagePerFrame(UnitTypes::Terran_Marine);
+    {
+      ground = 0.5 * groundDamagePerFrame(UnitTypes::Terran_Marine);
+      air = 0.5 * airDamagePerFrame(UnitTypes::Terran_Marine);
+    }
     if (type.isWorker())
-      dpf *= 0.25; // workers rarely fight
+      ground *= 0.25; // workers rarely fight
     if (!unit->isCompleted())
       return 0.0;
-    return unitStrength(unit->getHitPoints(), unit->getShields(), dpf);
+    return unitStrength(unit->getHitPoints(), unit->getShields(), mixedDamagePerFrame(ground, air, enemyAirFraction));
+  }
+
+  double enemyAirFraction(const std::vector<Unit>& enemies)
+  {
+    double air = 0.0, all = 0.0;
+    for (Unit e : enemies)
+    {
+      if (!e || !e->exists() || !canAttackGround(e->getType()))
+        continue;
+      const double s = unitStrengthNow(e);
+      all += s;
+      if (e->isFlying())
+        air += s;
+    }
+    return all > 0.0 ? air / all : 0.0;
   }
 
   bool isValid(Unit unit)

@@ -1,4 +1,4 @@
-# CLAUDE.md — BeginnerBot
+# CLAUDE.md — JaeTankBot
 
 StarCraft: Brood War AI bot (Terran, difficulty 1-5) built as a BWAPI 4.4.0 AI module DLL.
 Read README.md first, then docs/VALIDATION.md (what is verified / how to test) and docs/DIFFICULTY.md.
@@ -14,9 +14,12 @@ scripts\build_windows.bat [BWAPI folder]          :: configure (-A Win32) + buil
 cmake --build build --config Release                :: rebuild after edits
 ctest --test-dir build -C Release --output-on-failure
 scripts\install_to_starcraft.bat "C:\path\to\StarCraft"
-build\Release\BeginnerBotConfig.exe --list
-build\Release\BeginnerBotConfig.exe --starcraft "C:\path\to\StarCraft" --difficulty 3 --map "maps/(2)XXX.scm" --enemy-race Protoss --apply-bwapi-ini --yes
-python tools\summarize_results.py "C:\path\to\StarCraft\bwapi-data\write\BeginnerBot\results.csv"
+build\Release\JaeTankBotConfig.exe --list
+build\Release\JaeTankBotPlay.exe                   :: GUI launcher (no Chaoslauncher; per-instance settings via environment)
+python tools\make_package.py                       :: dist\JaeTankBot-<ver>-win32.zip (never includes StarCraft files)
+python tools\make_icon.py                          :: redraws resources\jaetankbot.ico
+build\Release\JaeTankBotConfig.exe --starcraft "C:\path\to\StarCraft" --difficulty 3 --map "maps/(2)XXX.scm" --enemy-race Protoss --apply-bwapi-ini --yes
+python tools\summarize_results.py "C:\path\to\StarCraft\bwapi-data\write\JaeTankBot\results.csv"
 ```
 BWAPI folder default: `%USERPROFILE%\BWAPI` (must contain `include\BWAPI.h` and `BWAPILIB\`).
 CI (.github/workflows/build.yml) builds the same on windows-latest (Win32) and ubuntu (compile check); keep both green.
@@ -30,7 +33,7 @@ CI (.github/workflows/build.yml) builds the same on windows-latest (Win32) and u
 
 ## Rules
 - Never modify StarCraft's own files. Only add files under `bwapi-data\AI\` and `bwapi-data\write\`.
-  `bwapi.ini` may only be changed through BeginnerBotConfig (it makes a timestamped backup) or after asking the user.
+  `bwapi.ini` may only be changed through JaeTankBotConfig (it makes a timestamped backup) or after asking the user.
 - No cheat flags (`CompleteMapInformation`), no reading information about units that are not visible.
 - Difficulty must come from strategy/decision quality. No random sabotage, no intentional resource waste,
   no invalid/endless repeated commands, no suicide attacks at any level.
@@ -42,11 +45,11 @@ CI (.github/workflows/build.yml) builds the same on windows-latest (Win32) and u
 
 ## In-game test loop
 1. Build + ctest must pass. Install with `install_to_starcraft.bat`.
-2. Configure `bwapi.ini` via BeginnerBotConfig: `auto_menu = SINGLE_PLAYER`, one 2-player map, enemy Protoss.
-   For repeated games also set `auto_restart = ON` in `[auto_menu]` (ask the user first; BeginnerBotConfig does not set it).
-   For fast games set `local_speed = 0` in `bwapi-data\AI\BeginnerBot.ini`.
+2. Configure `bwapi.ini` via JaeTankBotConfig: `auto_menu = SINGLE_PLAYER`, one 2-player map, enemy Protoss.
+   For repeated games also set `auto_restart = ON` in `[auto_menu]` (ask the user first; JaeTankBotConfig does not set it).
+   For fast games set `local_speed = 0` in `bwapi-data\AI\JaeTankBot.ini`.
 3. **The user must start the game**: run Chaoslauncher as administrator, tick "BWAPI Injector [RELEASE]", press Start.
    Claude cannot click GUI buttons; ask the user and wait.
-4. After the game(s), read the newest `bwapi-data\write\BeginnerBot\BeginnerBot_*.log` and `results.csv`.
+4. After the game(s), read the newest `bwapi-data\write\JaeTankBot\JaeTankBot_*.log` and `results.csv`.
    Checklist of log lines: docs/VALIDATION.md section 3.
 5. Fix the cause in code (not by inflating numbers), rebuild, ctest, reinstall, ask the user for the next run.

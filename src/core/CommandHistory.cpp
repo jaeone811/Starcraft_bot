@@ -23,7 +23,6 @@ namespace bb
 
   int CommandHistory::record(int unitId, const CommandKey& cmd, int frame)
   {
-    ++issued_;
     Entry& e = last_[unitId];
     if (e.sameInARow > 0 && sameCommand(e.cmd, cmd, 0))
     {

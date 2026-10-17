@@ -18,7 +18,6 @@ namespace bb
 
     void update();
     void onUnitDestroy(BWAPI::Unit unit);
-    bool active() const { return scout_ != nullptr; }
     const char* stateName() const;
 
   private:

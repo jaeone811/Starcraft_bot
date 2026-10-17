@@ -1,4 +1,4 @@
-#include "BeginnerBot.h"
+#include "JaeTankBot.h"
 
 #include "BuildingManager.h"
 #include "BwapiUtil.h"
@@ -26,7 +26,10 @@ namespace bb
 {
   namespace
   {
-    const char* kBotVersion = "0.1.0";
+#ifndef JAETANKBOT_VERSION
+#define JAETANKBOT_VERSION "dev"
+#endif
+    const char* kBotVersion = JAETANKBOT_VERSION; // from project(VERSION) in CMakeLists.txt
 
     // Update intervals in frames. Commands take effect after the network latency
     // (2+ frames), so running every frame would only produce duplicate orders.
@@ -36,11 +39,11 @@ namespace bb
     constexpr int kCombatInterval = 6;
   }
 
-  BeginnerBot::BeginnerBot() = default;
-  BeginnerBot::~BeginnerBot() = default;
+  JaeTankBot::JaeTankBot() = default;
+  JaeTankBot::~JaeTankBot() = default;
 
   template <typename F>
-  void BeginnerBot::guarded(const char* where, F&& f)
+  void JaeTankBot::guarded(const char* where, F&& f)
   {
     try
     {
@@ -58,7 +61,7 @@ namespace bb
     }
   }
 
-  void BeginnerBot::createModules()
+  void JaeTankBot::createModules()
   {
     commander_ = std::make_unique<Commander>(ctx_);
     map_ = std::make_unique<MapInfo>(ctx_);
@@ -82,7 +85,7 @@ namespace bb
     ctx_.strategy = strategy_.get();
   }
 
-  void BeginnerBot::onStart()
+  void JaeTankBot::onStart()
   {
     // Paths in the settings are relative to the StarCraft folder; do not rely on the
     // process working directory alone.
@@ -92,17 +95,17 @@ namespace bb
       settingsPaths.push_back((root / p).string());
     const std::filesystem::path moduleDir = moduleDirectory();
     if (!moduleDir.empty())
-      settingsPaths.push_back((moduleDir / "BeginnerBot.ini").string());
+      settingsPaths.push_back((moduleDir / "JaeTankBot.ini").string());
     ctx_.settings = loadBotSettings(settingsPaths);
     if (std::filesystem::path(ctx_.settings.logDirectory).is_relative())
       ctx_.settings.logDirectory = (root / ctx_.settings.logDirectory).string();
     ctx_.config = makeDifficultyConfig(ctx_.settings.difficulty);
     ctx_.log.setLevel(parseLogLevel(ctx_.settings.logLevel));
-    const bool logOpen = ctx_.log.open(ctx_.settings.logDirectory, "BeginnerBot_" + timestampForFileName() + ".log");
+    const bool logOpen = ctx_.log.open(ctx_.settings.logDirectory, "JaeTankBot_" + timestampForFileName() + ".log");
 
     try
     {
-      ctx_.log.info("Bot", concat("BeginnerBot ", kBotVersion, " compiled against BWAPI ", BWAPI_VER,
+      ctx_.log.info("Bot", concat("JaeTankBot ", kBotVersion, " compiled against BWAPI ", BWAPI_VER,
                                   " (StarCraft ", STARCRAFT_VER, ")"));
       ctx_.log.info("Bot", concat("StarCraft folder: ", root.string(), "  module folder: ", moduleDir.string()));
       ctx_.log.info("Bot", concat("settings: ", ctx_.settings.loadedFrom.empty() ? std::string("<defaults>") : ctx_.settings.loadedFrom));
@@ -113,7 +116,7 @@ namespace bb
       if (Broodwar->isReplay())
       {
         ctx_.log.info("Bot", "replay detected; the bot stays passive");
-        Broodwar->printf("BeginnerBot: replay, AI inactive");
+        Broodwar->printf("JaeTankBot: replay, AI inactive");
         return;
       }
       if (!Broodwar->self())
@@ -132,7 +135,7 @@ namespace bb
                                      Broodwar->self()->getRace().c_str(),
                                      ". Set race = Terran in bwapi.ini [auto_menu] or pick Terran in the lobby. "
                                      "Falling back to mining only."));
-        Broodwar->printf("BeginnerBot: only Terran is supported; mining only");
+        Broodwar->printf("JaeTankBot: only Terran is supported; mining only");
       }
 
       Broodwar->setCommandOptimizationLevel(2);
@@ -150,7 +153,7 @@ namespace bb
       active_ = true;
 
       // Game text is plain ASCII: StarCraft 1.16.1 does not render UTF-8.
-      Broodwar->printf("BeginnerBot %s - difficulty %d (%s)%s", kBotVersion, ctx_.config.level, ctx_.config.name.c_str(),
+      Broodwar->printf("JaeTankBot %s - difficulty %d (%s)%s", kBotVersion, ctx_.config.level, ctx_.config.name.c_str(),
                        logOpen ? "" : " [log file could not be opened]");
     }
     catch (const std::exception& e)
@@ -161,7 +164,7 @@ namespace bb
     ctx_.log.flush();
   }
 
-  void BeginnerBot::onFrame()
+  void JaeTankBot::onFrame()
   {
     if (!active_ || Broodwar->isPaused())
       return;
@@ -221,7 +224,7 @@ namespace bb
       guarded("Draw", [&] { drawDebug(); });
   }
 
-  void BeginnerBot::logSnapshot()
+  void JaeTankBot::logSnapshot()
   {
     Player self = Broodwar->self();
     ctx_.log.info("Snapshot", concat(
@@ -232,16 +235,23 @@ namespace bb
       " gas=", workers_->countRole(WorkerRole::Gas), " build=", workers_->countRole(WorkerRole::Build),
       " scout=", workers_->countRole(WorkerRole::Scout), ")",
       " barracks=", self->completedUnitCount(UnitTypes::Terran_Barracks),
+      " factories=", self->completedUnitCount(UnitTypes::Terran_Factory),
+      " mech=", self->completedUnitCount(UnitTypes::Terran_Vulture), "v/",
+      self->completedUnitCount(UnitTypes::Terran_Siege_Tank_Tank_Mode) +
+        self->completedUnitCount(UnitTypes::Terran_Siege_Tank_Siege_Mode), "t/",
+      self->completedUnitCount(UnitTypes::Terran_Goliath), "g (target ", static_cast<int>(strategy_->mechShare() * 100), "%)",
+      " air=", self->completedUnitCount(UnitTypes::Terran_Wraith), "w/", self->completedUnitCount(UnitTypes::Terran_Science_Vessel), "v/",
+      self->completedUnitCount(UnitTypes::Terran_Battlecruiser), "b",
       " army=", combat_->armySize(), " combat=", combat_->stateName(), " wave=", combat_->waveSize(),
       " attackSize=", strategy_->attackSize(), " buildTasks=", buildings_->taskCount(),
       " knownEnemyBuildings=", info_->enemyBuildings().size(), " knownEnemyUnits=", info_->enemyUnits().size(),
       " supplyBlockedFrames=", ctx_.metrics.supplyBlockedFrames, " plan=[", production_->lastPlan(), "]"));
   }
 
-  void BeginnerBot::drawDebug()
+  void JaeTankBot::drawDebug()
   {
     Player self = Broodwar->self();
-    Broodwar->drawTextScreen(5, 5, "BeginnerBot %s  difficulty %d (%s)", kBotVersion, ctx_.config.level, ctx_.config.name.c_str());
+    Broodwar->drawTextScreen(5, 5, "JaeTankBot %s  difficulty %d (%s)", kBotVersion, ctx_.config.level, ctx_.config.name.c_str());
     Broodwar->drawTextScreen(5, 17, "workers %d  army %d  combat %s  attackSize %d  scout %s",
                              workers_->workerCount(), combat_->armySize(), combat_->stateName(),
                              strategy_->attackSize(), scout_->stateName());
@@ -252,7 +262,7 @@ namespace bb
     Broodwar->drawCircleMap(rally, 32, Colors::Green);
   }
 
-  void BeginnerBot::onEnd(bool isWinner)
+  void JaeTankBot::onEnd(bool isWinner)
   {
     try
     {
@@ -275,7 +285,7 @@ namespace bb
     ctx_.log.close();
   }
 
-  void BeginnerBot::writeResultRow(bool isWinner)
+  void JaeTankBot::writeResultRow(bool isWinner)
   {
     const std::string path = (std::filesystem::path(ctx_.settings.logDirectory) / "results.csv").string();
     ensureDirectory(ctx_.settings.logDirectory);
@@ -299,49 +309,49 @@ namespace bb
     ctx_.log.info("Bot", concat("result appended to ", path));
   }
 
-  void BeginnerBot::onSendText(std::string text)
+  void JaeTankBot::onSendText(std::string text)
   {
     // Only reachable when enable_user_input is on: forward what the user typed.
     Broodwar->sendText("%s", text.c_str());
   }
 
-  void BeginnerBot::onPlayerLeft(Player player)
+  void JaeTankBot::onPlayerLeft(Player player)
   {
     if (player)
       ctx_.log.info("Bot", concat("player left: ", player->getName()));
   }
 
-  void BeginnerBot::onUnitDiscover(Unit unit)
+  void JaeTankBot::onUnitDiscover(Unit unit)
   {
     if (active_)
       guarded("Info", [&] { info_->onUnitSeen(unit); });
   }
 
-  void BeginnerBot::onUnitShow(Unit unit)
+  void JaeTankBot::onUnitShow(Unit unit)
   {
     if (active_)
       guarded("Info", [&] { info_->onUnitSeen(unit); });
   }
 
-  void BeginnerBot::onUnitMorph(Unit unit)
+  void JaeTankBot::onUnitMorph(Unit unit)
   {
     if (active_)
       guarded("Info", [&] { info_->onUnitSeen(unit); });
   }
 
-  void BeginnerBot::onUnitRenegade(Unit unit)
+  void JaeTankBot::onUnitRenegade(Unit unit)
   {
     if (active_)
       guarded("Info", [&] { info_->onUnitSeen(unit); });
   }
 
-  void BeginnerBot::onUnitCreate(Unit unit)
+  void JaeTankBot::onUnitCreate(Unit unit)
   {
     if (active_ && unit && unit->getPlayer() == Broodwar->self())
       ctx_.log.debug("Units", concat("created ", unit->getType().c_str(), "#", unit->getID()));
   }
 
-  void BeginnerBot::onUnitComplete(Unit unit)
+  void JaeTankBot::onUnitComplete(Unit unit)
   {
     if (!active_ || !unit)
       return;
@@ -350,7 +360,7 @@ namespace bb
       ctx_.log.debug("Units", concat("completed ", unit->getType().c_str(), "#", unit->getID()));
   }
 
-  void BeginnerBot::onUnitDestroy(Unit unit)
+  void JaeTankBot::onUnitDestroy(Unit unit)
   {
     if (!active_ || !unit)
       return;
@@ -360,6 +370,10 @@ namespace bb
         ++ctx_.metrics.ownUnitsLost;
         if (unit->getType().isBuilding())
           ctx_.log.warn("Units", concat("lost building ", unit->getType().c_str(), "#", unit->getID()));
+        // A Command Center lost away from the main (finished or not): the planner does
+        // not send the next one into the same Tanks right away.
+        if (unit->getType().isResourceDepot() && unit->getDistance(ctx_.map->mainPosition()) > 12 * 32)
+          buildings_->avoidSite(unit->getPosition());
         else
           ctx_.log.debug("Units", concat("lost ", unit->getType().c_str(), "#", unit->getID()));
       }

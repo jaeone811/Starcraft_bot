@@ -10,11 +10,11 @@
 
 namespace bb
 {
-  class BeginnerBot : public BWAPI::AIModule
+  class JaeTankBot : public BWAPI::AIModule
   {
   public:
-    BeginnerBot();
-    ~BeginnerBot() override;
+    JaeTankBot();
+    ~JaeTankBot() override;
 
     void onStart() override;
     void onEnd(bool isWinner) override;

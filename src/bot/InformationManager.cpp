@@ -1,6 +1,7 @@
 #include "InformationManager.h"
 
 #include "BwapiUtil.h"
+#include "MapInfo.h"
 #include "Planning.h"
 
 using namespace BWAPI;
@@ -13,7 +14,9 @@ namespace bb
 
     bool ignoredType(UnitType t)
     {
-      return t == UnitTypes::Zerg_Larva || t == UnitTypes::Zerg_Egg || t == UnitTypes::Zerg_Lurker_Egg ||
+      // Spells (an enemy Scanner Sweep) are not units: 22 attack orders on one failed
+      // with Incompatible_UnitType.
+      return t.isSpell() || t == UnitTypes::Zerg_Larva || t == UnitTypes::Zerg_Egg || t == UnitTypes::Zerg_Lurker_Egg ||
              t == UnitTypes::Protoss_Interceptor || t == UnitTypes::Protoss_Scarab ||
              t == UnitTypes::Terran_Vulture_Spider_Mine;
     }
@@ -62,6 +65,11 @@ namespace bb
       if (buildings_.find(id) == buildings_.end())
         ctx_.log.info("Info", concat("enemy building seen: ", type.c_str(), " at ", rec.tile.x, ",", rec.tile.y));
       buildings_[id] = rec;
+      if (hiddenTechFrame_ < 0 && (type == UnitTypes::Protoss_Templar_Archives || type == UnitTypes::Protoss_Citadel_of_Adun))
+      {
+        hiddenTechFrame_ = ctx_.frame;
+        ctx_.log.info("Info", concat("Dark Templar tech seen (", type.c_str(), "): detection now"));
+      }
     }
     else
     {
@@ -83,7 +91,60 @@ namespace bb
   {
     for (Player enemy : Broodwar->enemies())
       for (Unit u : enemy->getUnits())
+      {
         onUnitSeen(u);
+        // BWAPI reports hidden enemy units next to ours with isDetected() == false
+        // (the level 3 games scanned Lurkers this way).
+        const UnitType type = u->getType();
+        if (!loggedMine_ && u->exists() && type == UnitTypes::Terran_Vulture_Spider_Mine)
+        {
+          loggedMine_ = true;
+          ctx_.log.info("Info", concat("enemy Spider Mine seen at ", u->getTilePosition().x, ",", u->getTilePosition().y,
+                                       u->isDetected() ? " (detected)" : " (hidden)"));
+        }
+        // The first of each kind is logged: a game was lost to Reavers that the log
+        // never named.
+        if (u->exists() && !type.isBuilding() && !type.isWorker() && !ignoredType(type) &&
+            typesSeen_.insert(type.getID()).second)
+          ctx_.log.info("Info", concat("enemy unit first seen: ", type.c_str(), " at ", u->getTilePosition().x, ",",
+                                       u->getTilePosition().y));
+        const bool hidden = type.hasPermanentCloak() || type == UnitTypes::Zerg_Lurker || u->isCloaked() || u->isBurrowed();
+        // Spider Mines are not counted: Turrets went up by the Command Centers, 15
+        // tiles from the mines at the ramp.
+        if (hiddenAttackerFrame_ < 0 && u->exists() && hidden && !type.isWorker() && canAttackGround(type) &&
+            type != UnitTypes::Terran_Vulture_Spider_Mine)
+        {
+          hiddenAttackerFrame_ = ctx_.frame;
+          ctx_.log.info("Info", concat("hidden attacker seen: ", type.c_str(), " at ", u->getTilePosition().x, ",",
+                                       u->getTilePosition().y, (u->isDetected() ? "" : " (not detected)")));
+        }
+      }
+
+    if (rushFrame_ < 0 && ctx_.frame < 24 * 300)
+    {
+      EarlyScouting s;
+      s.frame = ctx_.frame;
+      // A building nearer to our main than to the enemy's start is a proxy (resource
+      // depots aside: an expansion is not one).
+      const Position ourMain = ctx_.map->mainPosition();
+      const std::optional<Position> theirMain = enemyMain();
+      for (const auto& [id, r] : buildings_)
+      {
+        if (r.type == UnitTypes::Protoss_Gateway || r.type == UnitTypes::Terran_Barracks)
+          ++s.productionBuildings;
+        s.spawningPool = s.spawningPool || r.type == UnitTypes::Zerg_Spawning_Pool;
+        if (!r.type.isResourceDepot() && !r.type.isRefinery() && theirMain &&
+            r.position.getApproxDistance(ourMain) < r.position.getApproxDistance(*theirMain))
+          ++s.proxyBuildings;
+      }
+      s.combatUnits = knownEnemyCombatUnits();
+      if (rushSigns(s))
+      {
+        rushFrame_ = ctx_.frame;
+        ctx_.log.info("Info", concat("early attack expected: ", s.productionBuildings, " Gateways/Barracks, pool=", s.spawningPool,
+                                     ", ", s.combatUnits, " fighting units seen, ", s.proxyBuildings, " proxy buildings"));
+      }
+    }
 
     // Buildings: if we can see the spot and the building is not there, it is gone.
     for (auto it = buildings_.begin(); it != buildings_.end();)
@@ -99,6 +160,8 @@ namespace bb
       else
         ++it;
     }
+    // Peak enemy army, halving over 5 minutes (per frame: 0.5^(1/7200)).
+    peakEnemyStrength_ = std::max(knownEnemyArmyStrength(), peakEnemyStrength_ * 0.99990373);
     // Mobile units: keep them for the strength estimate until they are old.
     for (auto it = units_.begin(); it != units_.end();)
     {
@@ -205,6 +268,48 @@ namespace bb
     return combineStrength(s);
   }
 
+  double InformationManager::knownEnemyAirStrength() const
+  {
+    std::vector<double> s;
+    for (const auto& [id, r] : units_)
+      if (r.type.isFlyer() && !r.type.isWorker() && canAttackGround(r.type))
+        s.push_back(typeStrength(r.type));
+    return combineStrength(s);
+  }
+
+  double InformationManager::knownEnemyAirFraction() const
+  {
+    double air = 0.0, all = 0.0;
+    for (const auto& [id, r] : units_)
+      if (!r.type.isWorker() && canAttackGround(r.type))
+      {
+        all += typeStrength(r.type);
+        if (r.type.isFlyer())
+          air += typeStrength(r.type);
+      }
+    return all > 0.0 ? air / all : 0.0;
+  }
+
+  EnemyMix InformationManager::enemyMix() const
+  {
+    EnemyMix mix;
+    for (const auto& [id, r] : units_)
+      addToEnemyMix(mix, r.type);
+    return mix;
+  }
+
+  EnemyRace InformationManager::enemyRaceKind() const
+  {
+    return enemyRace_ == Races::Protoss ? EnemyRace::Protoss
+         : enemyRace_ == Races::Zerg    ? EnemyRace::Zerg
+         : enemyRace_ == Races::Terran  ? EnemyRace::Terran : EnemyRace::Unknown;
+  }
+
+  EnemyMix InformationManager::expectedEnemyMix() const
+  {
+    return withRacePrior(enemyMix(), enemyRaceKind());
+  }
+
   int InformationManager::knownEnemyCombatUnits() const
   {
     int n = 0;
@@ -219,8 +324,9 @@ namespace bb
     std::vector<Unit> result;
     for (Player enemy : Broodwar->enemies())
       for (Unit u : enemy->getUnits())
-        if (u->exists() && u->isVisible() && !ignoredType(u->getType()) && u->getPosition().getApproxDistance(p) <= radius)
-          result.push_back(u);
+        if (u->exists() && u->isVisible() && (!ignoredType(u->getType()) || u->getType() == UnitTypes::Terran_Vulture_Spider_Mine) &&
+            u->getPosition().getApproxDistance(p) <= radius)
+          result.push_back(u);   // Spider Mines too: they are shot first and avoided while hidden
     return result;
   }
 }

@@ -1,0 +1,115 @@
+JaeTankBot {version} 실행 방법
+==============================
+
+스타크래프트: 브루드워에서 테란 AI(JaeTankBot)와 대전하는 프로그램입니다.
+난이도는 1(매우 쉬움)부터 5(매우 어려움)까지 고를 수 있습니다.
+
+
+1. 준비물 (처음 한 번)
+----------------------
+  (1) StarCraft: Brood War 1.16.1
+      - 이 압축 파일에는 스타크래프트가 들어 있지 않습니다. 각자 설치한 것을 씁니다.
+      - 반드시 1.16.1 이어야 합니다. 리마스터, 1.18 이후 버전은 쓸 수 없습니다.
+      - 설치된 폴더(StarCraft.exe 가 있는 폴더)를 알아 두세요.
+        예) C:\StarCraft
+
+  (2) Microsoft Visual C++ 재배포 패키지 2015-2022 (x86, 32비트)
+      - 대부분의 PC에는 이미 있습니다. 설치하기.bat 이 없으면 알려 줍니다.
+      - 받는 곳: https://aka.ms/vs/17/release/vc_redist.x86.exe
+
+  Chaoslauncher, 인터넷 연결, 네트워크 설정은 필요 없습니다.
+
+
+2. 설치 (처음 한 번)
+--------------------
+  (1) 이 압축 파일을 아무 곳에나 풉니다. (예: 바탕화면)
+  (2) 풀린 폴더의 "설치하기.bat" 을 더블클릭합니다.
+  (3) 검은 창이 뜨면 스타크래프트 폴더를 창 안으로 끌어다 놓고 Enter 를 누릅니다.
+      (경로를 직접 입력해도 됩니다. 예: C:\StarCraft)
+  (4) 다음이 자동으로 진행됩니다.
+      - BWAPI 4.4.0 설치 (이미 있는 파일은 그대로 둡니다)
+      - JaeTankBot 과 상대 봇(Steamhammer, UAlbertaBot) 설치 (스타크래프트 폴더\bwapi-data\AI,
+        이미 있는 상대 봇 파일은 그대로 둡니다)
+      - 바탕화면에 "JaeTankBot" 바로가기(탱크 아이콘) 만들기
+  (5) "설치 완료" 가 나오면 아무 키나 눌러 창을 닫습니다.
+
+  ※ 스타크래프트가 C:\Program Files 안에 있으면 "설치하기.bat" 을
+     마우스 오른쪽 → "관리자 권한으로 실행" 으로 실행하세요.
+
+
+3. 게임하기
+-----------
+  바탕화면의 "JaeTankBot" 을 실행하면 런처 창이 뜹니다.
+
+  (1) 봇 난이도와 맵을 고릅니다.
+  (2) 대전 방식을 고르고 [게임 시작] 을 누릅니다.
+
+  ■ 사람 대 JaeTankBot (내가 직접 플레이)
+     - 스타크래프트 창이 두 개 뜹니다.
+         · 내 창: 평소의 스타크래프트 화면 (전체 화면, 소리 있음)
+         · 봇 창: 작업 표시줄에 최소화되어 소리 없이 기다립니다
+     - 내 창에서 다음 순서로 들어갑니다.
+         Multiplayer → Expansion(Brood War) → Local PC → 아이디 선택(없으면 새로 만들기)
+         → 게임 목록에 보이는 JaeTankBot 의 게임을 골라 Join
+     - 내가 들어가면 봇이 곧 게임을 시작합니다. 대기실에서 종족을 빨리 고르세요.
+     - 게임 목록에 아무것도 없으면 봇 창이 아직 준비 중입니다. 10~20초 기다렸다가
+       목록을 새로 보세요.
+
+  ■ JaeTankBot 대 컴퓨터
+     - 스타크래프트 기본 컴퓨터(AI)와 봇이 자동으로 싸웁니다. 구경만 하면 됩니다.
+
+  ■ JaeTankBot 대 다른 봇
+     - 함께 설치되는 상대 봇: Steamhammer 5.3.6, UAlbertaBot
+       ("상대 봇 (DLL)" 에서 고르고, "상대 봇 종족" 에서 그 봇의 종족을 고릅니다.
+        두 봇 모두 테란, 프로토스, 저그를 할 수 있습니다)
+     - 스타크래프트폴더\bwapi-data\AI 에 다른 봇 DLL 을 넣으면 그것도 목록에 나옵니다.
+
+  옵션
+     - 게임 속도: 기본은 "가장 빠름(Fastest)" 으로 래더와 같은 속도입니다.
+       게임 안에서는 바꿀 수 없으니 시작 전에 고르세요. (스타크래프트가 게임 만들기
+       화면에서 기억하는 속도 값을 이 값으로 바꿔 둡니다)
+     - 봇 스타크래프트 소리 끄기: 기본으로 켜져 있습니다 (봇 쪽 창만 무음).
+     - 봇끼리는 최고 속도: 봇끼리 싸울 때 게임을 빠르게 돌립니다.
+     - 사람 창도 BWAPI 로: 내 창이 색이 깨지거나 바로 꺼질 때 체크하세요
+       (창 모드로 뜹니다).
+
+
+4. 문제가 생기면
+----------------
+  - 런처가 실행되지 않거나 "BWAPI.dll 을 불러오지 못했습니다" 가 나옴
+      → 백신 프로그램이 막은 것일 수 있습니다. JaeTankBotPlay.exe 를 예외(허용)로
+        등록하세요. (Chaoslauncher 와 같은 방식으로 스타크래프트에 BWAPI 를 불러옵니다)
+  - "관리자 권한이 필요합니다"
+      → 바탕화면의 JaeTankBot 을 마우스 오른쪽 → 관리자 권한으로 실행
+  - 스타크래프트가 실행되자마자 꺼짐 / "MSVCP140.dll 이 없습니다"
+      → 1.의 (2) Visual C++ 재배포 패키지(x86)를 설치하세요.
+  - 이미 다른 버전의 BWAPI 가 깔려 있음
+      → JaeTankBot 은 BWAPI 4.4.0 이 필요합니다. 스타크래프트폴더\bwapi-data\BWAPI.dll
+        을 다른 곳에 옮겨 두고 설치하기.bat 을 다시 실행하세요.
+  - 내 창 색이 이상함 (윈도우 10/11 에서 1.16.1 전체 화면 색 문제)
+      → 런처에서 "사람 창도 BWAPI 로" 를 체크하고 다시 시작하세요.
+
+
+5. 기록과 설정
+--------------
+  - 경기 기록: 스타크래프트폴더\bwapi-data\write\JaeTankBot\ (로그, results.csv)
+  - 런처에서 고른 값: 스타크래프트폴더\bwapi-data\AI\JaeTankBotPlay.ini
+  - 기본 설정: 스타크래프트폴더\bwapi-data\AI\JaeTankBot.ini
+
+
+6. 지우기
+---------
+  스타크래프트폴더\bwapi-data\AI 의 JaeTankBot.dll, JaeTankBot.ini,
+  JaeTankBotPlay.exe, JaeTankBotPlay.ini 와 바탕화면 바로가기를 지우면 됩니다.
+  (BWAPI 는 다른 봇에도 쓰이므로 필요할 때만 지우세요)
+
+
+라이선스와 만든 사람
+--------------------
+  licenses 폴더에 원문이 있습니다 (목록: licenses\README.txt).
+  - BWAPI 4.4.0: LGPL-3.0, https://github.com/bwapi/bwapi
+  - Steamhammer 5.3.6: Jay J.P. Scott, MIT, https://satirist.org/ai/starcraft/steamhammer
+      (UAlbertaBot 의 MIT 와 FAP(Hannes Bredberg)의 MIT 포함)
+  - UAlbertaBot: David Churchill, MIT, https://github.com/davechurchill/ualbertabot
+  다른 봇들은 만든 사람의 파일을 바꾸지 않고 그대로 넣었습니다.
+  StarCraft 는 Blizzard Entertainment 의 상표이자 저작물이며 이 배포본에 포함되어 있지 않습니다.

@@ -10,7 +10,7 @@ namespace bb
   enum class CommandKind
   {
     Move, AttackMove, AttackUnit, Gather, ReturnCargo, Build, RightClickUnit,
-    Train, Research, Upgrade, UseTech, Stop, SetRally
+    Train, Research, Upgrade, UseTech, Stop, SetRally, Siege, Unsiege, Load, UnloadAll, Repair
   };
 
   struct CommandKey
@@ -34,9 +34,6 @@ namespace bb
     int record(int unitId, const CommandKey& cmd, int frame);
     void forget(int unitId);
 
-    void noteSuppressed() { ++suppressed_; }
-    int issuedCount() const { return issued_; }
-    int suppressedCount() const { return suppressed_; }
     int repeatedCount() const { return repeated_; }
 
     static bool sameCommand(const CommandKey& a, const CommandKey& b, int positionTolerance);
@@ -49,8 +46,6 @@ namespace bb
       int sameInARow = 0;
     };
     std::unordered_map<int, Entry> last_;
-    int issued_ = 0;
-    int suppressed_ = 0;
     int repeated_ = 0; // same command re-sent after the cooldown (possible stuck unit)
   };
 }

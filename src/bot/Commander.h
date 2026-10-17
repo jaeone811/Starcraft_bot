@@ -31,6 +31,11 @@ namespace bb
     bool useTechAt(BWAPI::Unit u, BWAPI::TechType tech, BWAPI::Position p, int cooldown = 72);
     bool setRally(BWAPI::Unit building, BWAPI::Position p, int cooldown = 240);
     bool stop(BWAPI::Unit u, int cooldown = 24);
+    bool siege(BWAPI::Unit tank, int cooldown = 48);
+    bool unsiege(BWAPI::Unit tank, int cooldown = 48);
+    bool enterBunker(BWAPI::Unit u, BWAPI::Unit bunker, int cooldown = 48);
+    bool unloadAll(BWAPI::Unit bunker, int cooldown = 48);
+    bool repair(BWAPI::Unit worker, BWAPI::Unit target, int cooldown = 48);
 
     void forget(BWAPI::Unit u);
     // True if the last call was dropped as a duplicate (not sent, not a failure).
@@ -39,6 +44,7 @@ namespace bb
   private:
     template <typename Send>
     bool issue(BWAPI::Unit u, const CommandKey& key, int cooldown, const char* what, Send send);
+    bool alreadyHeading(BWAPI::Unit u, BWAPI::Order order, BWAPI::Position p);
 
     BotContext& ctx_;
     bool lastSuppressed_ = false;

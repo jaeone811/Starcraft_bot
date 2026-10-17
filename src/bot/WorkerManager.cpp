@@ -14,6 +14,10 @@ namespace bb
   {
     constexpr int kBaseRadius = 10 * 32;   // minerals/refineries this close to a depot belong to it
     constexpr int kGasWorkersPerRefinery = 3;
+    // Gas bank at which gas workers move to minerals, and where they go back to gas.
+    // Every infantry unit needs minerals; an unused gas bank only stands for minerals not mined.
+    constexpr int kGasBankHigh = 800;
+    constexpr int kGasBankLow = 300;
   }
 
   void WorkerManager::onUnitComplete(Unit unit)
@@ -92,8 +96,13 @@ namespace bb
       bases_.push_back(b);
     }
     mineralPatches_ = 0;
+    mineralsLeft_ = 0;
     for (const auto& b : bases_)
+    {
       mineralPatches_ += static_cast<int>(b.minerals.size());
+      for (Unit m : b.minerals)
+        mineralsLeft_ += m->getResources();
+    }
 
     // Drop stale targets (mined-out patches) and recount assignments.
     mineralLoad_.clear();
@@ -159,6 +168,32 @@ namespace bb
 
   void WorkerManager::assignGas()
   {
+    const int gas = Broodwar->self()->gas();
+    // While the early army is short only a little gas is needed (Factory, Machine
+    // Shop, a few Firebats/Medics); 3 SCVs on gas with 500 in the bank were 3 SCVs
+    // short on minerals during a zealot rush.
+    // Minerals are what is short (0-70 minerals with 400-1100 gas banked for minutes
+    // against Steamhammer): the gas workers mine minerals from 400 gas.
+    const bool mineralStarved = Broodwar->self()->minerals() < 150;
+    const int high = gasCap_ >= 0 ? std::min(kGasBankHigh, gasCap_) : mineralStarved ? kGasBankHigh / 2 : kGasBankHigh;
+    const int low = gasCap_ >= 0 ? std::min(kGasBankLow, gasCap_ / 2) : kGasBankLow;
+    // At most one switch per 20 seconds: SCVs walking between gas and minerals mine
+    // nothing (the cap went on and off every ten seconds once).
+    const bool canSwitch = ctx_.frame >= nextGasSwitchFrame_;
+    if (canSwitch && !gasPaused_ && gas >= high && mineralPatches_ > 0)
+    {
+      nextGasSwitchFrame_ = ctx_.frame + 24 * 20;
+      gasPaused_ = true;
+      ctx_.log.info("Workers", concat("gas bank ", gas, " is more than needed now (", high, "): gas workers move to minerals"));
+    }
+    else if (canSwitch && gasPaused_ && (gas < low || mineralPatches_ == 0))
+    {
+      nextGasSwitchFrame_ = ctx_.frame + 24 * 20;
+      gasPaused_ = false;
+      ctx_.log.info("Workers", concat("gas bank ", gas, ": mining gas again"));
+    }
+    const int perRefinery = gasPaused_ ? 0 : kGasWorkersPerRefinery;
+
     refineries_ = 0;
     for (Unit r : Broodwar->self()->getUnits())
     {
@@ -171,10 +206,19 @@ namespace bb
         continue;
       ++refineries_;
       int assigned = 0;
-      for (const auto& [id, w] : workers_)
-        if (w.role == WorkerRole::Gas && w.target == r)
+      for (auto& [id, w] : workers_)
+      {
+        if (w.role != WorkerRole::Gas || w.target != r)
+          continue;
+        if (assigned < perRefinery)
           ++assigned;
-      while (assigned < kGasWorkersPerRefinery)
+        else
+        {
+          w.role = WorkerRole::Minerals; // delivers its gas first (handleMineralWorker)
+          w.target = nullptr;
+        }
+      }
+      while (assigned < perRefinery)
       {
         Unit worker = acquireWorker(r->getPosition(), WorkerRole::Gas);
         if (!worker)
@@ -207,6 +251,8 @@ namespace bb
   void WorkerManager::handleMineralWorker(WorkerData& w)
   {
     Unit u = w.unit;
+    if (u->isConstructing())
+      return;   // still finishing a building; it mines afterwards
     if (bases_.empty())
       return; // no Command Center: nothing to mine until one is rebuilt
 
@@ -274,7 +320,7 @@ namespace bb
         handleMineralWorker(w);
       else if (w.role == WorkerRole::Gas)
         handleGasWorker(w);
-      // Build and Scout workers are driven by their owners.
+      // Build, Scout, Repair and Defend workers are driven by their owners.
     }
   }
 
@@ -286,6 +332,12 @@ namespace bb
     {
       if (w.role != WorkerRole::Minerals || !isValid(w.unit) || !w.unit->isCompleted() || w.unit->isConstructing())
         continue;
+      if (role == WorkerRole::Build)
+      {
+        auto avoid = avoidAsBuilderUntil_.find(id);
+        if (avoid != avoidAsBuilderUntil_.end() && ctx_.frame < avoid->second)
+          continue;
+      }
       int score = near.isValid() ? w.unit->getDistance(near) : 0;
       if (w.unit->isCarryingMinerals())
         score += 64; // prefer workers that are not about to deliver
@@ -300,6 +352,12 @@ namespace bb
     setTarget(*best, nullptr);
     best->role = role;
     return best->unit;
+  }
+
+  void WorkerManager::avoidAsBuilder(Unit worker, int untilFrame)
+  {
+    if (worker)
+      avoidAsBuilderUntil_[worker->getID()] = untilFrame;
   }
 
   void WorkerManager::release(Unit worker)

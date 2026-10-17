@@ -30,7 +30,7 @@ int main(int argc, char** argv)
 {
   if (argc < 2)
   {
-    std::printf("usage: %s <path to BeginnerBot module>\n", argv[0]);
+    std::printf("usage: %s <path to JaeTankBot module>\n", argv[0]);
     return 2;
   }
   LibHandle lib = openLib(argv[1]);

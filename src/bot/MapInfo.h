@@ -21,6 +21,14 @@ namespace bb
     int lastSeenFrame = -1;                                     // last frame the depot tile was visible
   };
 
+  // A square of the map for searching hidden buildings: a ground-reachable point
+  // in it and the last frame that point was visible.
+  struct SearchCell
+  {
+    BWAPI::Position point;
+    int lastSeenFrame = -1;
+  };
+
   class MapInfo
   {
   public:
@@ -35,15 +43,34 @@ namespace bb
     BWAPI::Position mainPosition() const;
     int naturalIndex() const { return natural_; }             // -1 if none was found
     const BaseLocation* natural() const;
-    BWAPI::Position rallyPoint() const { return rally_; }      // where the army waits
-    const std::vector<BWAPI::TilePosition>& otherStartLocations() const { return otherStarts_; }
+    // Where the army waits: the main's entrance (right behind our Bunker there once it
+    // stands), and once the natural is ours, in front of the natural.
+    BWAPI::Position rallyPoint() const;
+    BWAPI::TilePosition mainChoke() const { return mainChoke_; } // the main's entrance (narrowest point on the way out); None if not found
+    BWAPI::Position bunkerSpot() const { return bunkerSpot_; }   // just inside the ramp, covering it
+    BWAPI::Position bunkerRally() const { return bunkerRally_; } // right behind our Bunker there; None without one
+    // Where Vultures lay a Spider Mine field: just outside the main's entrance, and
+    // once the natural is ours a few tiles further out than its rally point. None if unknown.
+    BWAPI::Position mineFieldSpot() const { return naturalOwned_ && naturalMineField_.isValid() ? naturalMineField_ : mainMineField_; }
+    const std::vector<SearchCell>& searchCells() const { return searchCells_; }
 
     // Ground connection between two points (uses BWAPI's static region data).
     bool groundReachable(BWAPI::Position from, BWAPI::Position to) const;
 
+    // The main's own ground: tiles whose ground way to the natural goes through the
+    // main's entrance. Unknown (false for every tile, mainAreaKnown() false) when no
+    // entrance or natural was found or the Command Center is not inside.
+    bool mainAreaKnown() const { return !mainArea_.empty(); }
+    bool inMain(BWAPI::TilePosition t) const;
+
   private:
     BWAPI::TilePosition findDepotTile(const std::vector<BWAPI::Position>& resources, BWAPI::Position resourceCenter) const;
     void computeRally();
+    void computeSearchCells();
+    void computeChoke();
+    void computeMainArea();
+    std::vector<BWAPI::TilePosition> groundPath(BWAPI::TilePosition from, BWAPI::TilePosition to) const;
+    std::vector<char> blockedTiles() const;
 
     BotContext& ctx_;
     std::vector<BaseLocation> bases_;
@@ -51,5 +78,19 @@ namespace bb
     BWAPI::TilePosition mainTile_ = BWAPI::TilePositions::None;
     int natural_ = -1;
     BWAPI::Position rally_;
+    std::vector<SearchCell> searchCells_;
+    BWAPI::TilePosition mainChoke_ = BWAPI::TilePositions::None;
+    BWAPI::Position bunkerSpot_ = BWAPI::Positions::None;
+    BWAPI::Position naturalRally_ = BWAPI::Positions::None;
+    BWAPI::Position bunkerRally_ = BWAPI::Positions::None;
+    BWAPI::Position mainMineField_ = BWAPI::Positions::None;
+    BWAPI::Position naturalMineField_ = BWAPI::Positions::None;
+    int bunkerRallyFor_ = -1;   // id of the Bunker bunkerRally_ belongs to
+    bool naturalOwned_ = false;
+    int mainEntranceDistance_ = -1;
+    std::vector<char> mainArea_;   // per tile: 1 inside the main (empty: unknown)
+  public:
+    // Air distance (tiles) from the main's Command Center to its entrance; -1 if unknown.
+    int mainEntranceDistance() const { return mainEntranceDistance_; }
   };
 }

@@ -6,6 +6,11 @@ using namespace BWAPI;
 
 namespace bb
 {
+  namespace
+  {
+    constexpr int kLoggedCommandFailures = 30;
+  }
+
   template <typename Send>
   bool Commander::issue(Unit u, const CommandKey& key, int cooldown, const char* what, Send send)
   {
@@ -15,7 +20,6 @@ namespace bb
     const int id = u->getID();
     if (!ctx_.history.shouldIssue(id, key, ctx_.frame, cooldown))
     {
-      ctx_.history.noteSuppressed();
       lastSuppressed_ = true;
       return false;
     }
@@ -23,31 +27,50 @@ namespace bb
     const int inARow = ctx_.history.record(id, key, ctx_.frame);
     if (!ok)
     {
+      // The first failures are logged at info so a real game shows which commands fail.
       ++ctx_.metrics.commandFailures;
-      ctx_.log.debug("Command", concat(what, " failed for ", u->getType().c_str(), "#", id, ": ",
-                                       Broodwar->getLastError().c_str()));
+      const std::string text = concat(what, " failed for ", u->getType().c_str(), "#", id, ": ", Broodwar->getLastError().c_str());
+      if (ctx_.metrics.commandFailures <= kLoggedCommandFailures)
+        ctx_.log.info("Command", text);
+      else
+        ctx_.log.debug("Command", text);
     }
     // The same order over and over usually means the unit cannot do it (blocked path,
     // unreachable target). Report it once per streak so it shows up in validation.
     const bool producerCommand = key.kind == CommandKind::Train || key.kind == CommandKind::Research ||
                                  key.kind == CommandKind::Upgrade || key.kind == CommandKind::SetRally ||
-                                 key.kind == CommandKind::UseTech;
+                                 key.kind == CommandKind::UseTech || key.kind == CommandKind::UnloadAll;
     if (!producerCommand && inARow == 8)
     {
       ++ctx_.metrics.unitStuckEvents;
       ctx_.log.warn("Command", concat(u->getType().c_str(), "#", id, " received the same ", what,
-                                      " command 8 times in a row (possible stuck unit)"));
+                                      " command 8 times in a row (possible stuck unit) at tile ", u->getTilePosition().x, ",",
+                                      u->getTilePosition().y, " order=", u->getOrder().c_str(), u->isStuck() ? " isStuck" : ""));
     }
     return ok;
   }
 
+  bool Commander::alreadyHeading(Unit u, Order order, Position p)
+  {
+    // Still walking to the same spot: re-sending the order changes nothing and would
+    // look like a stuck unit. A unit that stopped gets the order again as usual.
+    if (!isValid(u) || !u->isMoving() || u->getOrder() != order || u->getOrderTargetPosition().getApproxDistance(p) > 64)
+      return false;
+    lastSuppressed_ = true;
+    return true;
+  }
+
   bool Commander::move(Unit u, Position p, int cooldown)
   {
+    if (alreadyHeading(u, Orders::Move, p))
+      return false;
     return issue(u, { CommandKind::Move, -1, p.x, p.y, 0 }, cooldown, "move", [&] { return u->move(p); });
   }
 
   bool Commander::attackMove(Unit u, Position p, int cooldown)
   {
+    if (alreadyHeading(u, Orders::AttackMove, p))
+      return false;
     return issue(u, { CommandKind::AttackMove, -1, p.x, p.y, 0 }, cooldown, "attack-move", [&] { return u->attack(p); });
   }
 
@@ -129,9 +152,43 @@ namespace bb
                  [&] { return building->setRallyPoint(p); });
   }
 
+  bool Commander::enterBunker(Unit u, Unit bunker, int cooldown)
+  {
+    if (!isValid(bunker))
+      return false;
+    return issue(u, { CommandKind::Load, bunker->getID(), 0, 0, 0 }, cooldown, "enter-bunker", [&] { return u->rightClick(bunker); });
+  }
+
+  bool Commander::unloadAll(Unit bunker, int cooldown)
+  {
+    return issue(bunker, { CommandKind::UnloadAll, -1, 0, 0, 0 }, cooldown, "unload-all", [&] { return bunker->unloadAll(); });
+  }
+
+  bool Commander::repair(Unit worker, Unit target, int cooldown)
+  {
+    if (!isValid(worker) || !isValid(target))
+      return false;
+    if (worker->getOrder() == Orders::Repair && worker->getOrderTarget() == target)
+    {
+      lastSuppressed_ = true;
+      return false;   // already repairing it
+    }
+    return issue(worker, { CommandKind::Repair, target->getID(), 0, 0, 0 }, cooldown, "repair", [&] { return worker->repair(target); });
+  }
+
   bool Commander::stop(Unit u, int cooldown)
   {
     return issue(u, { CommandKind::Stop, -1, 0, 0, 0 }, cooldown, "stop", [&] { return u->stop(); });
+  }
+
+  bool Commander::siege(Unit tank, int cooldown)
+  {
+    return issue(tank, { CommandKind::Siege, -1, 0, 0, 0 }, cooldown, "siege", [&] { return tank->siege(); });
+  }
+
+  bool Commander::unsiege(Unit tank, int cooldown)
+  {
+    return issue(tank, { CommandKind::Unsiege, -1, 0, 0, 0 }, cooldown, "unsiege", [&] { return tank->unsiege(); });
   }
 
   void Commander::forget(Unit u)
