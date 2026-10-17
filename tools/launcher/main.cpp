@@ -39,6 +39,7 @@
 #pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "advapi32.lib")
 
 namespace fs = std::filesystem;
 using namespace bb;
@@ -52,7 +53,7 @@ namespace
   enum Id
   {
     ID_SCDIR = 100, ID_BROWSE, ID_MODE_HUMAN, ID_MODE_BOTS, ID_MODE_CPU, ID_DIFF, ID_MAP, ID_OPP, ID_RACE,
-    ID_MUTE, ID_FAST, ID_HUMAN_BWAPI, ID_START, ID_CHAOS, ID_STATUS, ID_OPP_LABEL, ID_RACE_LABEL
+    ID_MUTE, ID_FAST, ID_HUMAN_BWAPI, ID_SPEED, ID_START, ID_CHAOS, ID_STATUS, ID_OPP_LABEL, ID_RACE_LABEL
   };
   constexpr UINT WM_STATUS = WM_APP + 1;   // lParam: std::wstring* (deleted by the receiver)
   constexpr UINT WM_DONE = WM_APP + 2;
@@ -60,6 +61,10 @@ namespace
   enum class Mode { Human, Bots, Computer };
 
   const wchar_t* kRaces[] = { L"Terran", L"Protoss", L"Zerg", L"Random" };
+  // StarCraft's own names for the game speed of a game it creates (the "Game Speed"
+  // value it remembers from its Create Game screen), with the labels shown here.
+  const wchar_t* kSpeeds[] = { L"Fastest", L"Faster", L"Fast", L"Normal" };
+  const wchar_t* kSpeedLabels[] = { L"가장 빠름 (Fastest, 래더 기본)", L"빠름 (Faster)", L"조금 빠름 (Fast)", L"보통 (Normal)" };
 
   HWND g_wnd = nullptr;
   HFONT g_font = nullptr;
@@ -260,9 +265,40 @@ namespace
     bool mute = true;
     bool fast = true;
     bool humanBwapi = false;
+    std::wstring speed = L"Fastest";
   };
 
   using Env = std::vector<std::pair<std::wstring, std::wstring>>;
+
+  // A game StarCraft creates in the LAN menu runs at the speed its Create Game screen
+  // remembers (HKCU\Software\Blizzard Entertainment\Starcraft, "Game Speed"); BWAPI's
+  // automatic menu keeps it. It was "Normal": a human game ran at 69 ms per frame
+  // instead of the ladder's 42. Set it before the bot's StarCraft creates the game,
+  // the same value StarCraft stores when the speed is picked there by hand.
+  bool setCreateGameSpeed(const std::wstring& speed, std::wstring& before)
+  {
+    HKEY key = nullptr;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Blizzard Entertainment\\Starcraft", 0, nullptr, 0, KEY_QUERY_VALUE | KEY_SET_VALUE,
+                        nullptr, &key, nullptr) != ERROR_SUCCESS)
+      return false;
+    wchar_t old[64] = {};
+    DWORD size = sizeof(old) - sizeof(wchar_t);
+    if (RegQueryValueExW(key, L"Game Speed", nullptr, nullptr, reinterpret_cast<BYTE*>(old), &size) == ERROR_SUCCESS)
+      before = old;
+    const bool ok = RegSetValueExW(key, L"Game Speed", 0, REG_SZ, reinterpret_cast<const BYTE*>(speed.c_str()),
+                                   static_cast<DWORD>((speed.size() + 1) * sizeof(wchar_t))) == ERROR_SUCCESS;
+    RegCloseKey(key);
+    return ok;
+  }
+
+  void applySpeed(const std::wstring& speed)
+  {
+    std::wstring before;
+    if (!setCreateGameSpeed(speed, before))
+      status(L"게임 속도를 설정하지 못했습니다 (StarCraft 기본값으로 진행)");
+    else if (before != speed)
+      status(L"게임 속도: " + (before.empty() ? std::wstring(L"(없음)") : before) + L" → " + speed);
+  }
 
   Env botEnvironment(const Plan& p, const std::wstring& ai, const std::wstring& character, const std::wstring& race, int left)
   {
@@ -329,6 +365,7 @@ namespace
       if (!humanWindow)
         status(L"사람용 창을 찾지 못했지만 계속합니다");
       Sleep(1500);
+      applySpeed(p.speed);
       status(L"2/2 봇 스타크래프트 시작 (난이도 " + std::to_wstring(p.difficulty) + L", " + (p.mute ? L"소리 끔" : L"소리 켬") + L")");
       if (!startStarCraft(p.dir, true, botEnvironment(p, ourAi, L"JaeTankBot", L"Terran", 0), true, bot, error))
       {
@@ -352,6 +389,7 @@ namespace
     }
     case Mode::Bots:
     {
+      applySpeed(p.speed);
       status(L"1/2 JaeTankBot (게임을 만듦)");
       if (!startStarCraft(p.dir, true, botEnvironment(p, ourAi, L"JaeTankBot", L"Terran", 0), false, bot, error))
       {
@@ -463,6 +501,7 @@ namespace
     EnableWindow(item(ID_RACE), m != Mode::Human && !g_busy);
     EnableWindow(item(ID_FAST), m != Mode::Human && !g_busy);
     EnableWindow(item(ID_HUMAN_BWAPI), m == Mode::Human && !g_busy);
+    EnableWindow(item(ID_SPEED), m != Mode::Computer && !g_busy);
     SetWindowTextW(item(ID_RACE_LABEL), m == Mode::Computer ? L"컴퓨터 종족" : L"상대 봇 종족");
     EnableWindow(item(ID_START), !g_busy);
   }
@@ -484,6 +523,12 @@ namespace
     SendMessageW(item(ID_MUTE), BM_SETCHECK, ini.getBool("launcher", "mute_bot", true) ? BST_CHECKED : BST_UNCHECKED, 0);
     SendMessageW(item(ID_FAST), BM_SETCHECK, ini.getBool("launcher", "fast_bot_games", true) ? BST_CHECKED : BST_UNCHECKED, 0);
     SendMessageW(item(ID_HUMAN_BWAPI), BM_SETCHECK, ini.getBool("launcher", "human_bwapi", false) ? BST_CHECKED : BST_UNCHECKED, 0);
+    const std::wstring speed = widen(ini.getString("launcher", "game_speed", "Fastest"));
+    int speedIndex = 0;
+    for (int i = 0; i < 4; ++i)
+      if (_wcsicmp(kSpeeds[i], speed.c_str()) == 0)
+        speedIndex = i;
+    SendMessageW(item(ID_SPEED), CB_SETCURSEL, speedIndex, 0);
     scanFolder(widen(ini.getString("launcher", "map", "")), widen(ini.getString("launcher", "opponent", "bwapi-data/AI/Steamhammer.dll")));
     updateEnabled();
   }
@@ -501,6 +546,7 @@ namespace
     ini.set("launcher", "mute_bot", p.mute ? "on" : "off");
     ini.set("launcher", "fast_bot_games", p.fast ? "on" : "off");
     ini.set("launcher", "human_bwapi", p.humanBwapi ? "on" : "off");
+    ini.set("launcher", "game_speed", narrow(p.speed));
     ini.save(settingsPath().string());
   }
 
@@ -531,6 +577,7 @@ namespace
     p.mute = SendMessageW(item(ID_MUTE), BM_GETCHECK, 0, 0) == BST_CHECKED;
     p.fast = SendMessageW(item(ID_FAST), BM_GETCHECK, 0, 0) == BST_CHECKED;
     p.humanBwapi = SendMessageW(item(ID_HUMAN_BWAPI), BM_GETCHECK, 0, 0) == BST_CHECKED;
+    p.speed = kSpeeds[std::clamp(static_cast<int>(SendMessageW(item(ID_SPEED), CB_GETCURSEL, 0, 0)), 0, 3)];
     if (p.map.empty())
     {
       MessageBoxW(g_wnd, L"maps 폴더에서 맵을 찾지 못했습니다.", L"JaeTankBot", MB_ICONWARNING);
@@ -619,6 +666,11 @@ namespace
     add(L"STATIC", L"맵", 0, L, y + 4, 120, 18, -1);
     add(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, L + 130, y, W - 130, 300, ID_MAP);
     y += 32;
+    add(L"STATIC", L"게임 속도", 0, L, y + 4, 120, 18, -1);
+    HWND speedBox = add(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, L + 130, y, 260, 200, ID_SPEED);
+    for (const wchar_t* label : kSpeedLabels)
+      SendMessageW(speedBox, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
+    y += 32;
     add(L"STATIC", L"상대 봇 (DLL)", 0, L, y + 4, 120, 18, ID_OPP_LABEL);
     add(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP, L + 130, y, W - 130, 300, ID_OPP);
     y += 32;
@@ -703,7 +755,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show)
   wc.lpszClassName = L"JaeTankBotPlay";
   RegisterClassExW(&wc);
 
-  RECT r{ 0, 0, px(552), px(568) };
+  RECT r{ 0, 0, px(552), px(600) };
   const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
   AdjustWindowRect(&r, style, FALSE);
   const std::wstring title = L"JaeTankBot " + widen(JAETANKBOT_VERSION);

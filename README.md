@@ -107,6 +107,8 @@ map = maps/(2)Boxer.scm
 
 - **Chaoslauncher가 필요 없다.** 런처가 StarCraft.exe를 일시정지 상태로 시작해 `bwapi-data\BWAPI.dll`을 불러온 뒤 실행한다(Chaoslauncher의 BWAPI Injector와 같은 방식). 백신이 막으면 JaeTankBotPlay.exe를 예외로 등록한다.
 - **bwapi.ini와 JaeTankBot.ini를 바꾸지 않는다.** StarCraft마다 환경 변수로 설정을 준다: BWAPI는 `BWAPI_CONFIG_<섹션>__<키>`(4.4.0의 BWAPI.dll이 지원), 봇은 `JAETANKBOT_<섹션>__<키>`(예: `JAETANKBOT_BOT__DIFFICULTY=5`).
+- **게임 속도**(기본 가장 빠름): 봇이 LAN 게임을 만들기 직전에 StarCraft가 게임 만들기 화면에서 기억하는 속도
+  (`HKCU\Software\Blizzard Entertainment\Starcraft`의 `Game Speed`)를 고른 값으로 맞춘다. 이 값이 `Normal`이라 사람 대 봇 첫 게임이 보통 속도(프레임당 약 69ms)로 돌았다.
 - **봇 쪽 StarCraft는 기본 무음**(`봇 스타크래프트 소리 끄기`, `BWAPI_CONFIG_STARCRAFT__SOUND=OFF`). 사람 쪽 소리는 그대로다.
 - 사람 쪽 일반 실행이 안 되면(색이 깨지거나 바로 꺼짐) `사람 창도 BWAPI 로`를 체크한다. 이때 사람 창은 BWAPI 창 모드로 뜨고 AI는 불러오지 않는다.
 - 고른 값은 `bwapi-data\AI\JaeTankBotPlay.ini`에 저장된다. Chaoslauncher 방식은 `Chaoslauncher 열기` 버튼으로 그대로 쓸 수 있다.
